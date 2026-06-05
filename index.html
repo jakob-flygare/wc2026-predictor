@@ -666,11 +666,19 @@ function renderLeaderboard(){
     <div class="stat-card"><div class="stat-val">${gamesPlayed}</div><div class="stat-lbl">Played</div></div>
     <div class="stat-card"><div class="stat-val">${STATE.players.length}</div><div class="stat-lbl">Players</div></div>
     <div class="stat-card"><div class="stat-val">${maxPts}</div><div class="stat-lbl">Top Score</div></div>`;
+  const locked=new Date()<PICK_DEADLINE;
   const rc=['rank-1','rank-2','rank-3'];
   document.getElementById('lb-grid').innerHTML=scored.length
     ?scored.map((p,i)=>{
         const pct=p.total>0?Math.round((p.correct/p.total)*100):0;
         const bTag=p.bracketPts>0?`<span class="bracket-pts-tag">+${p.bracketPts} bracket</span>`:'';
+        if(locked){
+          return`<div class="lb-row">
+            <div class="rank-num" style="color:var(--muted)">—</div>
+            <div><div class="lb-name">${p.name}</div><div class="lb-meta" style="color:var(--green)">✓ Picks submitted</div></div>
+            <div style="font-size:0.75rem;color:var(--muted);text-align:right">Hidden<br>until Jun 11</div>
+          </div>`;
+        }
         return`<div class="lb-row ${rc[i]||''}">
           <div class="rank-num">${i+1}</div>
           <div>
@@ -702,8 +710,16 @@ function renderMatches(){
   document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
 }
 
+// ── PICKS LOCK HELPER ─────────────────────────────────────────────────────────
+const PICKS_LOCKED_MSG=`<div style="text-align:center;padding:3rem 1rem">
+  <div style="font-size:2rem;margin-bottom:0.75rem">🔒</div>
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.5rem;color:var(--gold);margin-bottom:0.5rem">Picks are sealed</div>
+  <div style="color:var(--muted);font-size:0.88rem;max-width:340px;margin:0 auto">Everyone's predictions are hidden until the tournament kicks off on <strong style="color:var(--text)">Jun 11</strong>. Check back then!</div>
+</div>`;
+
 // ── RENDER PLAYER PICKS ───────────────────────────────────────────────────────
 function renderPlayerGrid(){
+  if(new Date()<PICK_DEADLINE){document.getElementById('player-grid').innerHTML=PICKS_LOCKED_MSG;document.getElementById('picks-detail').classList.remove('open');return;}
   document.getElementById('player-grid').innerHTML=STATE.players.map(p=>{
     const{pts,correct,total}=calcPoints(p);
     return`<div class="player-card ${selectedPlayer===p.name?'selected':''}" onclick="showPlayerPicks('${p.name.replace(/'/g,"\\'")}')">
@@ -735,6 +751,7 @@ function showPlayerPicks(name){
 
 // ── RENDER SPECIAL BETS ───────────────────────────────────────────────────────
 function renderSpecial(){
+  if(new Date()<PICK_DEADLINE){document.getElementById('special-grid').innerHTML=PICKS_LOCKED_MSG;return;}
   const CATS=[
     {key:'boot',       label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',       pts:5},
     {key:'bestPlayer', label:'Golden Ball (Best Player)', stateKey:'Golden Ball',        pts:5},
@@ -765,6 +782,7 @@ function initBracketPlayerSelect(){
 function renderBracketTab(){
   const sel=document.getElementById('bracket-player-select'),cont=document.getElementById('bracket-content'),tag=document.getElementById('bracket-pts-tag');
   if(!sel||!cont)return;
+  if(new Date()<PICK_DEADLINE){cont.innerHTML=PICKS_LOCKED_MSG;if(tag)tag.innerHTML='';return;}
   const name=sel.value;
   if(!name){cont.innerHTML='<div class="no-bracket-msg">Select a player above to see their predicted standings and bracket picks.</div>';if(tag)tag.innerHTML='';return;}
   const player=STATE.players.find(p=>p.name===name);if(!player)return;
