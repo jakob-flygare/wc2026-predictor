@@ -244,7 +244,7 @@
   <button class="tab" onclick="showTab('special',this)">Special Bets</button>
   <button class="tab" onclick="showTab('bracket',this)">Bracket</button>
   <button class="tab" onclick="showTab('scoring',this)">Scoring</button>
-  <button class="tab" id="admin-tab-btn" style="display:none" onclick="showTab('admin',this)">⚙ Admin</button>
+  <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
 </nav>
 
 <!-- LEADERBOARD -->
@@ -1325,16 +1325,7 @@ function renderAll(){
   if(active?.id==='admin') renderAdminTab();
 }
 
-// Show admin tab only when URL contains #admin
-function checkAdminRoute(){
-  if(location.hash==='#admin'){
-    const btn=document.getElementById('admin-tab-btn');
-    if(btn){btn.style.display='';btn.click();}
-  }
-}
-
 initData();
-checkAdminRoute();
 </script>
 </body>
 </html>
