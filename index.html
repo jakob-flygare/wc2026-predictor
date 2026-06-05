@@ -244,7 +244,7 @@
   <button class="tab" onclick="showTab('special',this)">Special Bets</button>
   <button class="tab" onclick="showTab('bracket',this)">Bracket</button>
   <button class="tab" onclick="showTab('scoring',this)">Scoring</button>
-  <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
+  <button class="tab" id="admin-tab-btn" style="display:none" onclick="showTab('admin',this)">⚙ Admin</button>
 </nav>
 
 <!-- LEADERBOARD -->
@@ -1111,8 +1111,10 @@ function handleSubmitPicks(){
 // ── ADMIN TAB ─────────────────────────────────────────────────────────────────
 const ADMIN_KEY='wc2026_admin';
 
-// Admin hash lives in Firebase so all devices see the same gate.
-// localStorage is used as a cache to avoid a round-trip on every visit.
+// Admin hash is stored at a separate Firebase path (wc2026_config) so it
+// survives clearing the picks data. localStorage is used as a cache.
+const ADMIN_FB_PATH='wc2026_config/admin_hash';
+
 async function renderAdminTab(){
   const cont=document.getElementById('admin-content');if(!cont)return;
   cont.innerHTML='<div class="loading">Loading…</div>';
@@ -1121,7 +1123,7 @@ async function renderAdminTab(){
   let hash=localStorage.getItem(ADMIN_KEY);
   if(db){
     try{
-      const snap=await db.ref('wc2026/admin_hash').once('value');
+      const snap=await db.ref(ADMIN_FB_PATH).once('value');
       const fbHash=snap.val();
       if(fbHash){hash=fbHash;localStorage.setItem(ADMIN_KEY,fbHash);}
     }catch(e){}
@@ -1155,8 +1157,8 @@ function setAdminPassword(){
   if(p1!==p2){msg.textContent='Passwords do not match.';return;}
   const hash=btoa(p1);
   localStorage.setItem(ADMIN_KEY,hash);
-  // Store in Firebase so every device sees the same gate
-  if(db)db.ref('wc2026/admin_hash').set(hash);
+  // Store in Firebase (separate config path so it won't be wiped with picks)
+  if(db)db.ref(ADMIN_FB_PATH).set(hash);
   sessionStorage.setItem('wc2026_admin_ok','1');
   renderAdminTab();
 }
@@ -1323,7 +1325,16 @@ function renderAll(){
   if(active?.id==='admin') renderAdminTab();
 }
 
+// Show admin tab only when URL contains #admin
+function checkAdminRoute(){
+  if(location.hash==='#admin'){
+    const btn=document.getElementById('admin-tab-btn');
+    if(btn){btn.style.display='';btn.click();}
+  }
+}
+
 initData();
+checkAdminRoute();
 </script>
 </body>
 </html>
