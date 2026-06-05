@@ -1111,33 +1111,11 @@ function handleSubmitPicks(){
 // ── ADMIN TAB ─────────────────────────────────────────────────────────────────
 const ADMIN_KEY='wc2026_admin';
 
-// Admin hash is stored at a separate Firebase path (wc2026_config) so it
-// survives clearing the picks data. localStorage is used as a cache.
-const ADMIN_FB_PATH='wc2026_config/admin_hash';
+// Admin password is hardcoded — no setup flow needed on any device.
+const ADMIN_HASH=btoa('brandbil123');
 
-async function renderAdminTab(){
+function renderAdminTab(){
   const cont=document.getElementById('admin-content');if(!cont)return;
-  cont.innerHTML='<div class="loading">Loading…</div>';
-
-  // Fetch hash from Firebase (source of truth)
-  let hash=localStorage.getItem(ADMIN_KEY);
-  if(db){
-    try{
-      const snap=await db.ref(ADMIN_FB_PATH).once('value');
-      const fbHash=snap.val();
-      if(fbHash){hash=fbHash;localStorage.setItem(ADMIN_KEY,fbHash);}
-    }catch(e){}
-  }
-
-  if(!hash){
-    cont.innerHTML=`<div class="admin-gate">
-      <div class="section-sub" style="margin-bottom:1rem">Set an admin password (one-time setup).</div>
-      <input type="password" id="admin-pw1" placeholder="New password (min 4 chars)">
-      <input type="password" id="admin-pw2" placeholder="Confirm password">
-      <button class="btn" onclick="setAdminPassword()">Set Password</button>
-      <div id="admin-gate-msg" style="margin-top:0.5rem;font-size:0.8rem;color:var(--red)"></div>
-    </div>`;return;
-  }
   if(sessionStorage.getItem('wc2026_admin_ok')!=='1'){
     cont.innerHTML=`<div class="admin-gate">
       <div class="section-sub" style="margin-bottom:1rem">Enter the admin password.</div>
@@ -1149,24 +1127,10 @@ async function renderAdminTab(){
   renderAdminContent(cont);
 }
 
-function setAdminPassword(){
-  const p1=document.getElementById('admin-pw1')?.value||'';
-  const p2=document.getElementById('admin-pw2')?.value||'';
-  const msg=document.getElementById('admin-gate-msg');
-  if(p1.length<4){msg.textContent='Password must be at least 4 characters.';return;}
-  if(p1!==p2){msg.textContent='Passwords do not match.';return;}
-  const hash=btoa(p1);
-  localStorage.setItem(ADMIN_KEY,hash);
-  // Store in Firebase (separate config path so it won't be wiped with picks)
-  if(db)db.ref(ADMIN_FB_PATH).set(hash);
-  sessionStorage.setItem('wc2026_admin_ok','1');
-  renderAdminTab();
-}
-
 function checkAdminPassword(){
   const pw=document.getElementById('admin-pw-input')?.value||'';
   const msg=document.getElementById('admin-gate-msg');
-  if(btoa(pw)===localStorage.getItem(ADMIN_KEY)){
+  if(btoa(pw)===ADMIN_HASH){
     sessionStorage.setItem('wc2026_admin_ok','1');renderAdminTab();
   }else{msg.textContent='Incorrect password.';}
 }
