@@ -631,7 +631,19 @@ function calcBracketPoints(player){
   return res;
 }
 
-function calcSpecialPoints(player){
+// Returns the Set of player names who guessed closest to the actual total goals.
+function calcGoalsWinners(){
+  const actual=parseInt(STATE.special?.['Total Goals']);
+  if(isNaN(actual)) return new Set();
+  let min=Infinity;
+  STATE.players.forEach(p=>{const g=parseInt(p.special?.totalGoals);if(!isNaN(g))min=Math.min(min,Math.abs(g-actual));});
+  if(min===Infinity) return new Set();
+  const winners=new Set();
+  STATE.players.forEach(p=>{const g=parseInt(p.special?.totalGoals);if(!isNaN(g)&&Math.abs(g-actual)===min)winners.add(p.name);});
+  return winners;
+}
+
+function calcSpecialPoints(player, goalsWinners=new Set()){
   const sp=STATE.special||{},picks=player.special||{};
   let total=0;
   const check=(key,stateKey)=>{const a=sp[stateKey],p=picks[key];if(a&&p&&a.toLowerCase().trim()===p.toLowerCase().trim())total+=SPECIAL_PTS[key];};
@@ -642,9 +654,7 @@ function calcSpecialPoints(player){
   check('mostAssists','Most Assists');
   check('mostCards','Most Cards Team');
   check('firstScorer','First Scorer');
-  // Total goals: exact number match
-  const aGoals=sp['Total Goals'],pGoals=picks['totalGoals'];
-  if(aGoals&&pGoals&&String(aGoals).trim()===String(pGoals).trim())total+=SPECIAL_PTS.totalGoals;
+  if(goalsWinners.has(player.name)) total+=SPECIAL_PTS.totalGoals;
   return total;
 }
 
@@ -657,8 +667,9 @@ function calcPoints(player){
 
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
+  const goalsWinners=calcGoalsWinners();
   const scored=STATE.players.map(p=>{
-    const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p);
+    const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p,goalsWinners);
     return{...p,groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total};
   }).sort((a,b)=>b.pts-a.pts);
   const gamesPlayed=STATE.matches.filter(m=>m.result).length,totalGames=STATE.matches.length;
@@ -765,18 +776,33 @@ function renderSpecial(){
     {key:'topScoringTeam',label:'Top Scoring Team',       stateKey:'Top Scoring Team',   pts:3},
     {key:'mostAssists',label:'Most Assists',              stateKey:'Most Assists',        pts:3},
     {key:'mostCards',  label:'Most Cards (Team)',         stateKey:'Most Cards Team',     pts:2},
-    {key:'totalGoals', label:'Total Goals in Tournament', stateKey:'Total Goals',         pts:4},
+    {key:'totalGoals', label:'Total Goals in Tournament', stateKey:'Total Goals',         pts:4, closest:true},
     {key:'firstScorer',label:'First Team to Score',       stateKey:'First Scorer',        pts:3},
   ];
-  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts})=>{
+  const gw=calcGoalsWinners();
+  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest})=>{
     const answer=STATE.special[stateKey];
+    const actual=closest?parseInt(answer):null;
     const rows=STATE.players.map(p=>{
       const pick=p.special?(p.special[key]||'—'):'—';
-      let cls='';if(answer&&pick!=='—')cls=pick.toLowerCase().trim()===answer.toLowerCase().trim()?'correct':'wrong';
-      return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${pick}</span></div>`;
+      let cls='',badge='';
+      if(closest&&answer){
+        const g=parseInt(pick);
+        if(!isNaN(g)){
+          const delta=Math.abs(g-actual);
+          badge=`<span style="font-size:0.7rem;color:var(--muted);margin-left:4px">${delta===0?'exact':(g>actual?'+':'-')+delta}</span>`;
+          cls=gw.has(p.name)?'correct':'';
+        }
+      } else if(answer&&pick!=='—'){
+        cls=pick.toLowerCase().trim()===answer.toLowerCase().trim()?'correct':'wrong';
+      }
+      return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${pick}${badge}</span></div>`;
     }).join('');
-    const status=answer?`<span style="color:var(--green);font-size:0.75rem">✓ ${answer}</span>`:`<span style="color:var(--muted);font-size:0.75rem">Awaiting result</span>`;
-    return`<div class="special-card"><div class="special-label">+${pts} pts</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem"><div style="font-weight:500;font-size:0.95rem">${label}</div>${status}</div>${rows||'<div style="color:var(--muted);font-size:0.82rem">No picks yet.</div>'}</div>`;
+    const status=answer
+      ?(closest?`<span style="color:var(--green);font-size:0.75rem">Actual: ${answer}</span>`:`<span style="color:var(--green);font-size:0.75rem">✓ ${answer}</span>`)
+      :`<span style="color:var(--muted);font-size:0.75rem">Awaiting result</span>`;
+    const ptNote=closest?`+${pts} pts (closest)`:`+${pts} pts`;
+    return`<div class="special-card"><div class="special-label">${ptNote}</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem"><div style="font-weight:500;font-size:0.95rem">${label}</div>${status}</div>${rows||'<div style="color:var(--muted);font-size:0.82rem">No picks yet.</div>'}</div>`;
   }).join('');
 }
 
@@ -1271,7 +1297,7 @@ function renderScoringTab(){
       row('Top Scoring Team','+ 3 pts','')+
       row('Most Assists','+ 3 pts','')+
       row('Most Yellow+Red Cards — Team','+ 2 pts','')+
-      row('Total Goals in Tournament','+ 4 pts','exact number')+
+      row('Total Goals in Tournament','+ 4 pts','closest guess wins')+
       row('First Team to Score','+ 3 pts',''))}
     <div class="config-box" style="margin-top:1rem">
       <strong>Maximum possible score</strong>
