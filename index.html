@@ -1093,12 +1093,25 @@ function handleSubmitPicks(){
 // ── ADMIN TAB ─────────────────────────────────────────────────────────────────
 const ADMIN_KEY='wc2026_admin';
 
-function renderAdminTab(){
+// Admin hash lives in Firebase so all devices see the same gate.
+// localStorage is used as a cache to avoid a round-trip on every visit.
+async function renderAdminTab(){
   const cont=document.getElementById('admin-content');if(!cont)return;
-  const stored=localStorage.getItem(ADMIN_KEY);
-  if(!stored){
+  cont.innerHTML='<div class="loading">Loading…</div>';
+
+  // Fetch hash from Firebase (source of truth)
+  let hash=localStorage.getItem(ADMIN_KEY);
+  if(db){
+    try{
+      const snap=await db.ref('wc2026/admin_hash').once('value');
+      const fbHash=snap.val();
+      if(fbHash){hash=fbHash;localStorage.setItem(ADMIN_KEY,fbHash);}
+    }catch(e){}
+  }
+
+  if(!hash){
     cont.innerHTML=`<div class="admin-gate">
-      <div class="section-sub" style="margin-bottom:1rem">Set an admin password to protect result entry.</div>
+      <div class="section-sub" style="margin-bottom:1rem">Set an admin password (one-time setup).</div>
       <input type="password" id="admin-pw1" placeholder="New password (min 4 chars)">
       <input type="password" id="admin-pw2" placeholder="Confirm password">
       <button class="btn" onclick="setAdminPassword()">Set Password</button>
@@ -1107,7 +1120,7 @@ function renderAdminTab(){
   }
   if(sessionStorage.getItem('wc2026_admin_ok')!=='1'){
     cont.innerHTML=`<div class="admin-gate">
-      <div class="section-sub" style="margin-bottom:1rem">Enter your admin password.</div>
+      <div class="section-sub" style="margin-bottom:1rem">Enter the admin password.</div>
       <input type="password" id="admin-pw-input" placeholder="Password" onkeydown="if(event.key==='Enter')checkAdminPassword()">
       <button class="btn" onclick="checkAdminPassword()">Unlock</button>
       <div id="admin-gate-msg" style="margin-top:0.5rem;font-size:0.8rem;color:var(--red)"></div>
@@ -1122,7 +1135,10 @@ function setAdminPassword(){
   const msg=document.getElementById('admin-gate-msg');
   if(p1.length<4){msg.textContent='Password must be at least 4 characters.';return;}
   if(p1!==p2){msg.textContent='Passwords do not match.';return;}
-  localStorage.setItem(ADMIN_KEY,btoa(p1));
+  const hash=btoa(p1);
+  localStorage.setItem(ADMIN_KEY,hash);
+  // Store in Firebase so every device sees the same gate
+  if(db)db.ref('wc2026/admin_hash').set(hash);
   sessionStorage.setItem('wc2026_admin_ok','1');
   renderAdminTab();
 }
