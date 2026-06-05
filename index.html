@@ -438,7 +438,8 @@ async function loadFromSheet(baseUrl) {
     matches.forEach(m => {
       const matchCol = pHeader.findIndex(h => {
         const hl = h.toLowerCase();
-        return hl.includes(`match ${m.id}`) || hl.includes(`match_${m.id}`) || hl === `match ${m.id}`;
+        // Use (?!\d) so "match 1" doesn't accidentally match "match 10", "match 11", etc.
+        return new RegExp(`match[\\s_]${m.id}(?!\\d)`).test(hl);
       });
       if (matchCol >= 0) picks[m.id] = (row[matchCol] || '').toLowerCase();
     });
@@ -455,6 +456,15 @@ async function loadFromSheet(baseUrl) {
   }).filter(p => p.name);
 
   STATE = { matches, players, source: 'live', special: { "Tournament Winner": null, "Golden Boot": null } };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// HELPERS
+// ─────────────────────────────────────────────────────────────────────────────
+// Strip a leading flag emoji from a team name so we can show e.g. "Mexico Win"
+// Works whether the Sheet has "🇲🇽 Mexico" or just "Mexico"
+function shortName(n) {
+  return n.charCodeAt(0) > 127 ? n.replace(/^\S+\s*/, '') : n;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -533,8 +543,8 @@ function renderMatches() {
     html += `<div class="group-label">${g}</div>`;
     STATE.matches.filter(m => m.group === g).forEach(m => {
       let pill = '';
-      if      (m.result === 'home') pill = `<span class="result-pill result-home">${m.home.replace(/^[^ ]* /,'')} Win</span>`;
-      else if (m.result === 'away') pill = `<span class="result-pill result-away">${m.away.replace(/^[^ ]* /,'')} Win</span>`;
+      if      (m.result === 'home') pill = `<span class="result-pill result-home">${shortName(m.home)} Win</span>`;
+      else if (m.result === 'away') pill = `<span class="result-pill result-away">${shortName(m.away)} Win</span>`;
       else if (m.result === 'draw') pill = `<span class="result-pill result-draw">Draw</span>`;
       else                          pill = `<span class="result-pill result-pending">TBD</span>`;
       html += `
@@ -573,14 +583,14 @@ function showPlayerPicks(name) {
   document.getElementById('picks-detail-name').textContent = name + "'s Picks";
   const rows = STATE.matches.map(m => {
     const pick = p.picks[m.id] || '?';
-    const pickLabel = pick === 'home' ? m.home.replace(/^\S+ /,'') + ' Win'
-      : pick === 'away' ? m.away.replace(/^\S+ /,'') + ' Win'
+    const pickLabel = pick === 'home' ? shortName(m.home) + ' Win'
+      : pick === 'away' ? shortName(m.away) + ' Win'
       : pick === 'draw' ? 'Draw' : '—';
     let resultLabel = '—', cls = '', pts = '—';
     if (m.result) {
       const ok = pick === m.result;
-      resultLabel = m.result === 'home' ? m.home.replace(/^\S+ /,'') + ' Win'
-        : m.result === 'away' ? m.away.replace(/^\S+ /,'') + ' Win' : 'Draw';
+      resultLabel = m.result === 'home' ? shortName(m.home) + ' Win'
+        : m.result === 'away' ? shortName(m.away) + ' Win' : 'Draw';
       cls = ok ? 'pick-correct' : 'pick-wrong';
       pts = ok ? '+1' : '0';
     }
