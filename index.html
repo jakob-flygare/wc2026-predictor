@@ -173,7 +173,7 @@
   .ga-body.open { display:block; }
   .match-pick-row { display:grid; grid-template-columns:1fr auto 1fr; align-items:stretch; gap:0.35rem; padding:0.3rem 0.75rem; }
   .match-pick-row+.match-pick-row { border-top:1px solid rgba(255,255,255,0.04); }
-  .pick-btn { border:1px solid var(--border); background:var(--surface2); color:var(--muted); border-radius:6px; padding:0.4rem 0.5rem; font-size:0.75rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; text-align:center; min-height:40px; width:100%; line-height:1.2; }
+  .pick-btn { border:1px solid var(--border); background:var(--surface2); color:var(--muted); border-radius:6px; padding:0.4rem 0.5rem; font-size:0.75rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; min-height:40px; width:100%; line-height:1.2; display:flex; align-items:center; justify-content:center; gap:4px; }
   .pick-btn:hover { border-color:rgba(255,255,255,0.2); color:var(--text); }
   .pick-btn.ph { background:rgba(46,204,113,.15); border-color:#2ECC71; color:#2ECC71; font-weight:600; }
   .pick-btn.pd { background:rgba(232,184,75,.15); border-color:#E8B84B; color:#E8B84B; font-weight:600; font-size:0.68rem; letter-spacing:.05em; text-transform:uppercase; }
@@ -243,6 +243,7 @@
   <button class="tab" onclick="showTab('picks',this)">All Picks</button>
   <button class="tab" onclick="showTab('special',this)">Special Bets</button>
   <button class="tab" onclick="showTab('bracket',this)">Bracket</button>
+  <button class="tab" onclick="showTab('scoring',this)">Scoring</button>
   <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
 </nav>
 
@@ -327,6 +328,17 @@
   </div>
 </div>
 
+<!-- SCORING -->
+<div id="scoring" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-title">Scoring</div>
+      <div class="section-sub">How points are awarded</div>
+    </div>
+    <div id="scoring-content"></div>
+  </div>
+</div>
+
 <!-- ADMIN -->
 <div id="admin" class="section">
   <div class="container">
@@ -380,11 +392,12 @@ function applyDataSnapshot(data) {
 
   const matches = DEMO_MATCHES.map(m => ({ ...m, result: results[String(m.id)] || null }));
   const knockout = {
-    r16:   parseList(results.r16),
-    qf:    parseList(results.qf),
-    sf:    parseList(results.sf),
-    final: parseList(results.final),
-    winner: results.winner || null,
+    r16:    parseList(results.r16),
+    qf:     parseList(results.qf),
+    sf:     parseList(results.sf),
+    final:  parseList(results.final),
+    winner: results.winner  || null,
+    bronze: results.bronze  || null,
   };
   const players = Object.values(picksData)
     .filter(p => p && p.name)
@@ -402,6 +415,11 @@ function applyDataSnapshot(data) {
     special: {
       'Tournament Winner': results.tournament_winner || null,
       'Golden Boot':       results.golden_boot       || null,
+      'Golden Ball':       results.golden_ball        || null,
+      'Golden Glove':      results.golden_glove       || null,
+      'Top Scoring Team':  results.top_scoring_team   || null,
+      'Most Assists':      results.most_assists       || null,
+      'Most Cards Team':   results.most_cards_team    || null,
     },
   };
   renderAll();
@@ -518,6 +536,10 @@ const DEMO_PLAYERS=[
 
 const ALL_TEAMS=['Mexico','South Africa','South Korea','Czechia','Canada','Bosnia-Herzegovina','Qatar','Switzerland','Brazil','Morocco','Haiti','Scotland','USA','Paraguay','Australia','Türkiye','Germany','Curaçao','Ivory Coast','Ecuador','Netherlands','Japan','Sweden','Tunisia','Belgium','Egypt','Iran','New Zealand','Spain','Cape Verde','Saudi Arabia','Uruguay','France','Senegal','Iraq','Norway','Argentina','Algeria','Austria','Jordan','Portugal','DR Congo','Uzbekistan','Colombia','England','Croatia','Ghana','Panama'];
 
+const TEAM_FLAGS={Mexico:'mx','South Africa':'za','South Korea':'kr',Czechia:'cz',Canada:'ca','Bosnia-Herzegovina':'ba',Qatar:'qa',Switzerland:'ch',Brazil:'br',Morocco:'ma',Haiti:'ht',Scotland:'gb-sct',USA:'us',Paraguay:'py',Australia:'au','Türkiye':'tr',Germany:'de','Curaçao':'cw','Ivory Coast':'ci',Ecuador:'ec',Netherlands:'nl',Japan:'jp',Sweden:'se',Tunisia:'tn',Belgium:'be',Egypt:'eg',Iran:'ir','New Zealand':'nz',Spain:'es','Cape Verde':'cv','Saudi Arabia':'sa',Uruguay:'uy',France:'fr',Senegal:'sn',Iraq:'iq',Norway:'no',Argentina:'ar',Algeria:'dz',Austria:'at',Jordan:'jo',Portugal:'pt','DR Congo':'cd',Uzbekistan:'uz',Colombia:'co',England:'gb-eng',Croatia:'hr',Ghana:'gh',Panama:'pa'};
+function flagImg(n,w=20){const code=TEAM_FLAGS[shortName(n)];if(!code)return'';return`<img src="https://flagcdn.com/w${w}/${code}.png" width="${w}" height="${Math.round(w*0.73)}" style="vertical-align:middle;border-radius:2px;flex-shrink:0" alt="" onerror="this.style.display='none'">`;}
+
+
 const R32_BRACKET=[
   {home:{type:'ru',group:'A'},away:{type:'ru',group:'B'}},
   {home:{type:'w', group:'E'},away:{type:'b3',groups:['A','B','C','D','F']}},
@@ -583,11 +605,12 @@ function resolveSlot(slot,standings,best3rd){
 }
 
 // ── BRACKET SCORING ───────────────────────────────────────────────────────────
-const BRACKET_PTS={r16:1,qf:2,sf:3,final:5,winner:8};
+const BRACKET_PTS={r16:1,qf:2,sf:3,final:5,winner:8,bronze:3};
+const SPECIAL_PTS={boot:5,bestPlayer:5,bestGoalkeeper:4,topScoringTeam:3,mostAssists:3,mostCards:2};
 
 function calcBracketPoints(player){
   const ko=STATE.knockout||{},bracket=player.bracket||{};
-  const res={r16:0,qf:0,sf:0,final:0,winner:0,total:0};
+  const res={r16:0,qf:0,sf:0,final:0,winner:0,bronze:0,total:0};
   ['r16','qf','sf','final'].forEach(stage=>{
     const actual=ko[stage]||[];if(!actual.length)return;
     (bracket[stage]||[]).forEach(team=>{
@@ -599,7 +622,24 @@ function calcBracketPoints(player){
     const hit=ko.winner.toLowerCase().trim()===(bracket.winner||'').toLowerCase().trim();
     res.winner=hit?BRACKET_PTS.winner:0;res.total+=res.winner;
   }
+  if(ko.bronze&&bracket.bronze){
+    const hit=ko.bronze.toLowerCase().trim()===(bracket.bronze||'').toLowerCase().trim();
+    res.bronze=hit?BRACKET_PTS.bronze:0;res.total+=res.bronze;
+  }
   return res;
+}
+
+function calcSpecialPoints(player){
+  const sp=STATE.special||{},picks=player.special||{};
+  let total=0;
+  const check=(key,stateKey)=>{const a=sp[stateKey],p=picks[key];if(a&&p&&a.toLowerCase().trim()===p.toLowerCase().trim())total+=SPECIAL_PTS[key];};
+  check('boot','Golden Boot');
+  check('bestPlayer','Golden Ball');
+  check('bestGoalkeeper','Golden Glove');
+  check('topScoringTeam','Top Scoring Team');
+  check('mostAssists','Most Assists');
+  check('mostCards','Most Cards Team');
+  return total;
 }
 
 // ── GROUP STAGE SCORING ───────────────────────────────────────────────────────
@@ -612,8 +652,8 @@ function calcPoints(player){
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const scored=STATE.players.map(p=>{
-    const gp=calcPoints(p),bp=calcBracketPoints(p);
-    return{...p,groupPts:gp.pts,bracketPts:bp.total,pts:gp.pts+bp.total,correct:gp.correct,total:gp.total};
+    const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p);
+    return{...p,groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total};
   }).sort((a,b)=>b.pts-a.pts);
   const gamesPlayed=STATE.matches.filter(m=>m.result).length,totalGames=STATE.matches.length;
   document.getElementById('games-played-sub').textContent=`${gamesPlayed} of ${totalGames} group matches played`;
@@ -655,7 +695,8 @@ function renderMatches(){
       else if(m.result==='away')pill=`<span class="result-pill result-away">${shortName(m.away)} Win</span>`;
       else if(m.result==='draw')pill=`<span class="result-pill result-draw">Draw</span>`;
       else pill=`<span class="result-pill result-pending">TBD</span>`;
-      html+=`<div class="match-card"><div class="team">${m.home}</div><div class="vs">vs</div><div class="team away">${m.away}</div><div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div></div>`;
+      const hn=shortName(m.home),an=shortName(m.away);
+      html+=`<div class="match-card"><div class="team">${flagImg(hn,18)} ${hn}</div><div class="vs">vs</div><div class="team away">${an} ${flagImg(an,18)}</div><div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div></div>`;
     });
   });
   document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
@@ -694,16 +735,23 @@ function showPlayerPicks(name){
 
 // ── RENDER SPECIAL BETS ───────────────────────────────────────────────────────
 function renderSpecial(){
-  const categories=['winner','boot'],labels={winner:'Tournament Winner',boot:'Golden Boot'};
-  document.getElementById('special-grid').innerHTML=categories.map(cat=>{
-    const label=labels[cat],answer=STATE.special[label];
+  const CATS=[
+    {key:'boot',       label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',       pts:5},
+    {key:'bestPlayer', label:'Golden Ball (Best Player)', stateKey:'Golden Ball',        pts:5},
+    {key:'bestGoalkeeper',label:'Golden Glove',           stateKey:'Golden Glove',       pts:4},
+    {key:'topScoringTeam',label:'Top Scoring Team',       stateKey:'Top Scoring Team',   pts:3},
+    {key:'mostAssists',label:'Most Assists',              stateKey:'Most Assists',        pts:3},
+    {key:'mostCards',  label:'Most Cards (Team)',         stateKey:'Most Cards Team',     pts:2},
+  ];
+  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts})=>{
+    const answer=STATE.special[stateKey];
     const rows=STATE.players.map(p=>{
-      const pick=p.special?(p.special[cat]||'—'):'—';
-      let cls='';if(answer)cls=pick===answer?'correct':'wrong';
+      const pick=p.special?(p.special[key]||'—'):'—';
+      let cls='';if(answer&&pick!=='—')cls=pick.toLowerCase().trim()===answer.toLowerCase().trim()?'correct':'wrong';
       return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${pick}</span></div>`;
     }).join('');
     const status=answer?`<span style="color:var(--green);font-size:0.75rem">✓ ${answer}</span>`:`<span style="color:var(--muted);font-size:0.75rem">Awaiting result</span>`;
-    return`<div class="special-card"><div class="special-label">Special Bet</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem"><div style="font-weight:500;font-size:0.95rem">${label}</div>${status}</div>${rows||'<div style="color:var(--muted);font-size:0.82rem">No picks yet.</div>'}</div>`;
+    return`<div class="special-card"><div class="special-label">+${pts} pts</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem"><div style="font-weight:500;font-size:0.95rem">${label}</div>${status}</div>${rows||'<div style="color:var(--muted);font-size:0.82rem">No picks yet.</div>'}</div>`;
   }).join('');
 }
 
@@ -755,13 +803,15 @@ function renderBracketTab(){
 const FS_KEY='wc2026_form_state';
 let FORM_STATE=loadFormState();
 function loadFormState(){
-  try{return JSON.parse(localStorage.getItem(FS_KEY))||{name:'',color:'#3B82F6',picks:{},special:{winner:'',boot:''}};}
-  catch(e){return{name:'',color:'#3B82F6',picks:{},special:{winner:'',boot:''}};}
+  const def={name:'',color:'#3B82F6',picks:{},special:{boot:'',bestPlayer:'',bestGoalkeeper:'',topScoringTeam:'',mostAssists:'',mostCards:''}};
+  try{const s=JSON.parse(localStorage.getItem(FS_KEY))||{};s.special={...def.special,...(s.special||{})};return{...def,...s};}
+  catch(e){return def;}
 }
 function saveFormState(){localStorage.setItem(FS_KEY,JSON.stringify(FORM_STATE));}
 
 const ROUND_SIZES=[16,8,4,2,1];
 let FORM_BRACKET=initEmptyBracket();
+let FORM_BRACKET_3RD={home:'TBD',away:'TBD',winner:null};
 function initEmptyBracket(){return ROUND_SIZES.map(n=>Array.from({length:n},()=>({home:'TBD',away:'TBD',winner:null})));}
 
 function renderSubmitTab(){
@@ -780,10 +830,12 @@ function renderSubmitTab(){
     const done=gm.filter(m=>FORM_STATE.picks[m.id]).length;
     const rows=gm.map(m=>{
       const pick=FORM_STATE.picks[m.id]||'';
+      const hn=shortName(m.home),an=shortName(m.away);
+      const hf=flagImg(hn,16),af=flagImg(an,16);
       return`<div class="match-pick-row">
-        <button class="pick-btn${pick==='home'?' ph':''}" onclick="setFormPick(${m.id},'home','${g}')">${m.home}</button>
+        <button class="pick-btn${pick==='home'?' ph':''}" onclick="setFormPick(${m.id},'home','${g}')">${hf}${hn}</button>
         <button class="pick-btn${pick==='draw'?' pd':''}" onclick="setFormPick(${m.id},'draw','${g}')">Draw</button>
-        <button class="pick-btn${pick==='away'?' pa':''}" onclick="setFormPick(${m.id},'away','${g}')">${m.away}</button>
+        <button class="pick-btn${pick==='away'?' pa':''}" onclick="setFormPick(${m.id},'away','${g}')">${af}${an}</button>
       </div>`;
     }).join('');
     const isOpen=idx===0;
@@ -821,21 +873,34 @@ function renderSubmitTab(){
       <div class="bkt-hint">Fill in your group stage picks above to populate the bracket.</div>
     </div>
 
-    <div class="section-header" style="margin-top:2rem;margin-bottom:1rem">
+    <div class="section-header" style="margin-top:2rem;margin-bottom:0.5rem">
       <div class="section-title" style="font-size:1.3rem">Special Bets</div>
+      <div class="section-sub">Tournament Winner &amp; Runner-up come from your bracket above</div>
     </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:480px;margin-bottom:2rem">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:2rem">
       <div>
-        <div class="ko-label">Tournament Winner</div>
-        <input class="ko-input" id="form-winner" type="text" placeholder="e.g. Brazil"
-          value="${FORM_STATE.special.winner}" list="teams-dl"
-          oninput="FORM_STATE.special.winner=this.value;saveFormState();">
+        <div class="ko-label">Golden Boot — Top Scorer (+5pts)</div>
+        <input class="ko-input" type="text" placeholder="e.g. Mbappé" value="${FORM_STATE.special.boot}" oninput="FORM_STATE.special.boot=this.value;saveFormState();">
       </div>
       <div>
-        <div class="ko-label">Golden Boot</div>
-        <input class="ko-input" id="form-boot" type="text" placeholder="e.g. Mbappé"
-          value="${FORM_STATE.special.boot}"
-          oninput="FORM_STATE.special.boot=this.value;saveFormState();">
+        <div class="ko-label">Golden Ball — Best Player (+5pts)</div>
+        <input class="ko-input" type="text" placeholder="e.g. Vinicius Jr" value="${FORM_STATE.special.bestPlayer}" oninput="FORM_STATE.special.bestPlayer=this.value;saveFormState();">
+      </div>
+      <div>
+        <div class="ko-label">Golden Glove — Best Goalkeeper (+4pts)</div>
+        <input class="ko-input" type="text" placeholder="e.g. Courtois" value="${FORM_STATE.special.bestGoalkeeper}" oninput="FORM_STATE.special.bestGoalkeeper=this.value;saveFormState();">
+      </div>
+      <div>
+        <div class="ko-label">Top Scoring Team (+3pts)</div>
+        <input class="ko-input" type="text" placeholder="e.g. France" value="${FORM_STATE.special.topScoringTeam}" list="teams-dl" oninput="FORM_STATE.special.topScoringTeam=this.value;saveFormState();">
+      </div>
+      <div>
+        <div class="ko-label">Most Assists (+3pts)</div>
+        <input class="ko-input" type="text" placeholder="Player name" value="${FORM_STATE.special.mostAssists}" oninput="FORM_STATE.special.mostAssists=this.value;saveFormState();">
+      </div>
+      <div>
+        <div class="ko-label">Most Yellow+Red Cards — Team (+2pts)</div>
+        <input class="ko-input" type="text" placeholder="e.g. Argentina" value="${FORM_STATE.special.mostCards}" list="teams-dl" oninput="FORM_STATE.special.mostCards=this.value;saveFormState();">
       </div>
     </div>
 
@@ -907,6 +972,13 @@ function rebuildFormBracket(){
   cont.innerHTML=renderBktHTML();
 }
 
+function bktTeam(name,won,onclick){
+  const tbd=name==='TBD';
+  const cls=tbd?'tbd':won?'won':'';
+  const f=tbd?'':flagImg(name,14);
+  return`<div class="bm-team ${cls}" onclick="${onclick}"><span class="bm-name">${f}${name}</span>${won?'<span class="bm-adv">→</span>':''}</div>`;
+}
+
 function renderBktHTML(){
   const NAMES=['Round of 32','Round of 16','QF','SF','Final'];
   const SLOT=80,TOTAL=16*SLOT;
@@ -917,36 +989,57 @@ function renderBktHTML(){
     html+=`<div class="bkt-col-title">${NAMES[r]}</div>`;
     for(let m=0;m<n;m++){
       const match=FORM_BRACKET[r][m];
-      const hc=match.home==='TBD'?'tbd':match.winner===match.home?'won':'';
-      const ac=match.away==='TBD'?'tbd':match.winner===match.away?'won':'';
       html+=`<div class="bm">
-        <div class="bm-team ${hc}" onclick="advanceBkt(${r},${m},'home')">
-          <span class="bm-name">${match.home}</span>${match.winner===match.home?'<span class="bm-adv">→</span>':''}
-        </div>
-        <div class="bm-team ${ac}" onclick="advanceBkt(${r},${m},'away')">
-          <span class="bm-name">${match.away}</span>${match.winner===match.away?'<span class="bm-adv">→</span>':''}
-        </div>
+        ${bktTeam(match.home,match.winner===match.home,`advanceBkt(${r},${m},'home')`)}
+        ${bktTeam(match.away,match.winner===match.away,`advanceBkt(${r},${m},'away')`)}
       </div>`;
     }
     html+=`</div>`;
   }
   const winner=FORM_BRACKET[4][0].winner;
   html+=`<div class="bkt-winner-col" style="height:${TOTAL+24}px">
-    <div class="bkt-col-title">Winner</div>
+    <div class="bkt-col-title">🏆 Winner</div>
     <div class="winner-card-bkt">
-      <div class="winner-trophy-bkt">🏆</div>
+      <div class="winner-trophy-bkt">${winner?flagImg(winner,32):''}</div>
       <div class="winner-name-bkt">${winner||'?'}</div>
     </div>
   </div></div>`;
+  // 3rd place game below the bracket
+  const t3=FORM_BRACKET_3RD;
+  html+=`<div style="margin-top:1rem">
+    <div class="bkt-col-title" style="text-align:left;margin-bottom:4px">🥉 3rd Place Match</div>
+    <div class="bm" style="width:200px">
+      ${bktTeam(t3.home,t3.winner===t3.home,`advanceBkt3rd('home')`)}
+      ${bktTeam(t3.away,t3.winner===t3.away,`advanceBkt3rd('away')`)}
+    </div>
+  </div>`;
   return html;
 }
 
 function advanceBkt(round,matchIdx,side){
   const match=FORM_BRACKET[round][matchIdx];
   const team=side==='home'?match.home:match.away;
+  const loser=side==='home'?match.away:match.home;
   if(!team||team==='TBD')return;
-  if(match.winner===team)cascadeClearBracket(round,matchIdx);
-  else{match.winner=team;propagateBkt(round,matchIdx,team);}
+  if(match.winner===team){cascadeClearBracket(round,matchIdx);}
+  else{
+    match.winner=team;propagateBkt(round,matchIdx,team);
+    // SF losers go to 3rd place game
+    if(round===3){
+      const slot=matchIdx===0?'home':'away';
+      const prev=FORM_BRACKET_3RD[slot];
+      FORM_BRACKET_3RD[slot]=loser!=='TBD'?loser:'TBD';
+      if(FORM_BRACKET_3RD.winner&&FORM_BRACKET_3RD.winner!==FORM_BRACKET_3RD.home&&FORM_BRACKET_3RD.winner!==FORM_BRACKET_3RD.away)
+        FORM_BRACKET_3RD.winner=null;
+    }
+  }
+  const cont=document.getElementById('bkt-container');
+  if(cont)cont.innerHTML=renderBktHTML();
+}
+function advanceBkt3rd(side){
+  const team=side==='home'?FORM_BRACKET_3RD.home:FORM_BRACKET_3RD.away;
+  if(!team||team==='TBD')return;
+  FORM_BRACKET_3RD.winner=(FORM_BRACKET_3RD.winner===team)?null:team;
   const cont=document.getElementById('bkt-container');
   if(cont)cont.innerHTML=renderBktHTML();
 }
@@ -972,11 +1065,12 @@ function cascadeClearBracket(round,matchIdx){
 
 function bracketToAdvancement(){
   return{
-    r16:  FORM_BRACKET[0].map(m=>m.winner).filter(Boolean),
-    qf:   FORM_BRACKET[1].map(m=>m.winner).filter(Boolean),
-    sf:   FORM_BRACKET[2].map(m=>m.winner).filter(Boolean),
-    final:FORM_BRACKET[3].map(m=>m.winner).filter(Boolean),
+    r16:   FORM_BRACKET[0].map(m=>m.winner).filter(Boolean),
+    qf:    FORM_BRACKET[1].map(m=>m.winner).filter(Boolean),
+    sf:    FORM_BRACKET[2].map(m=>m.winner).filter(Boolean),
+    final: FORM_BRACKET[3].map(m=>m.winner).filter(Boolean),
     winner:FORM_BRACKET[4][0].winner||'',
+    bronze:FORM_BRACKET_3RD.winner||'',
   };
 }
 
@@ -1080,11 +1174,16 @@ function renderAdminContent(cont){
       <div class="ko-row"><div class="ko-label">Semi-Finalists — 4 teams</div><input class="ko-input" id="ar-sf" value="${(ko.sf||[]).join(', ')}"></div>
       <div class="ko-row"><div class="ko-label">Finalists — 2 teams</div><input class="ko-input" id="ar-final" value="${(ko.final||[]).join(', ')}"></div>
       <div class="ko-row"><div class="ko-label">Tournament Winner</div><input class="ko-input" id="ar-winner" value="${ko.winner||''}" list="teams-dl-admin"></div>
+      <div class="ko-row"><div class="ko-label">Bronze Medal Winner</div><input class="ko-input" id="ar-bronze" value="${ko.bronze||''}" list="teams-dl-admin"></div>
     </div>
     <div class="admin-section">
       <div class="admin-section-title">Special Bet Results</div>
-      <div class="ko-row"><div class="ko-label">Tournament Winner (for scoring)</div><input class="ko-input" id="ar-tw" value="${sp['Tournament Winner']||''}" list="teams-dl-admin"></div>
-      <div class="ko-row"><div class="ko-label">Golden Boot</div><input class="ko-input" id="ar-gb" value="${sp['Golden Boot']||''}"></div>
+      <div class="ko-row"><div class="ko-label">Golden Boot — Top Scorer</div><input class="ko-input" id="ar-gb" value="${sp['Golden Boot']||''}"></div>
+      <div class="ko-row"><div class="ko-label">Golden Ball — Best Player</div><input class="ko-input" id="ar-gball" value="${sp['Golden Ball']||''}"></div>
+      <div class="ko-row"><div class="ko-label">Golden Glove — Best Goalkeeper</div><input class="ko-input" id="ar-gglove" value="${sp['Golden Glove']||''}"></div>
+      <div class="ko-row"><div class="ko-label">Top Scoring Team</div><input class="ko-input" id="ar-tst" value="${sp['Top Scoring Team']||''}" list="teams-dl-admin"></div>
+      <div class="ko-row"><div class="ko-label">Most Assists</div><input class="ko-input" id="ar-assist" value="${sp['Most Assists']||''}"></div>
+      <div class="ko-row"><div class="ko-label">Most Cards Team</div><input class="ko-input" id="ar-cards" value="${sp['Most Cards Team']||''}" list="teams-dl-admin"></div>
     </div>
     <button class="btn" onclick="saveAdminData()" style="min-width:160px;margin-top:0">Save All Results</button>
     <span class="save-status" id="admin-save-status"></span>
@@ -1105,9 +1204,14 @@ function saveAdminData(){
   updates['results/qf']               =document.getElementById('ar-qf')?.value.trim()||null;
   updates['results/sf']               =document.getElementById('ar-sf')?.value.trim()||null;
   updates['results/final']            =document.getElementById('ar-final')?.value.trim()||null;
-  updates['results/winner']           =document.getElementById('ar-winner')?.value.trim()||null;
-  updates['results/tournament_winner']=document.getElementById('ar-tw')?.value.trim()||null;
-  updates['results/golden_boot']      =document.getElementById('ar-gb')?.value.trim()||null;
+  updates['results/winner']          =document.getElementById('ar-winner')?.value.trim()||null;
+  updates['results/bronze']          =document.getElementById('ar-bronze')?.value.trim()||null;
+  updates['results/golden_boot']     =document.getElementById('ar-gb')?.value.trim()||null;
+  updates['results/golden_ball']     =document.getElementById('ar-gball')?.value.trim()||null;
+  updates['results/golden_glove']    =document.getElementById('ar-gglove')?.value.trim()||null;
+  updates['results/top_scoring_team']=document.getElementById('ar-tst')?.value.trim()||null;
+  updates['results/most_assists']    =document.getElementById('ar-assist')?.value.trim()||null;
+  updates['results/most_cards_team'] =document.getElementById('ar-cards')?.value.trim()||null;
   const st=document.getElementById('admin-save-status');st.textContent='Saving…';
   db.ref('wc2026').update(updates)
     .then(()=>{st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);})
@@ -1121,14 +1225,52 @@ function deletePlayer(name){
 
 function adminLock(){sessionStorage.removeItem('wc2026_admin_ok');renderAdminTab();}
 
+// ── SCORING TAB ───────────────────────────────────────────────────────────────
+function renderScoringTab(){
+  const cont=document.getElementById('scoring-content');if(!cont)return;
+  const row=(label,pts,note='')=>`<div style="display:flex;justify-content:space-between;align-items:baseline;padding:0.5rem 0;border-bottom:1px solid var(--border);font-size:0.85rem">
+    <span>${label}${note?`<span style="font-size:0.72rem;color:var(--muted);margin-left:0.5rem">${note}</span>`:''}</span>
+    <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);margin-left:1rem">${pts}</span>
+  </div>`;
+  const section=(title,sub,rows)=>`<div style="margin-bottom:2rem"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;margin-bottom:0.25rem">${title}</div>${sub?`<div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">${sub}</div>`:''}${rows}</div>`;
+  const maxGroup=72,maxBracket=16+16+12+10+8+3,maxSpecial=5+5+4+3+3+2,maxTotal=maxGroup+maxBracket+maxSpecial;
+  cont.innerHTML=`
+    ${section('Group Stage','72 matches — pick home win, draw, or away win',
+      row('Correct result (H/D/A)','+ 1 pt','per match · max '+maxGroup+' pts'))}
+    ${section('Knockout Bracket','Built from your group picks — pick winners round by round',
+      row('Team correctly reaches Round of 16','+ 1 pt','per team · up to 16')+
+      row('Team correctly reaches Quarter-Finals','+ 2 pts','per team · up to 8')+
+      row('Team correctly reaches Semi-Finals','+ 3 pts','per team · up to 4')+
+      row('Team correctly reaches the Final','+ 5 pts','per team · up to 2')+
+      row('Correct Tournament Winner','+ 8 pts','')+
+      row('Correct Bronze Medal Winner','+ 3 pts','3rd place game'))}
+    ${section('Special Bets','Free-text predictions — exact match required',
+      row('Golden Boot — Top Scorer','+ 5 pts','')+
+      row('Golden Ball — Best Player','+ 5 pts','')+
+      row('Golden Glove — Best Goalkeeper','+ 4 pts','')+
+      row('Top Scoring Team','+ 3 pts','')+
+      row('Most Assists','+ 3 pts','')+
+      row('Most Yellow+Red Cards — Team','+ 2 pts',''))}
+    <div class="config-box" style="margin-top:1rem">
+      <strong>Maximum possible score</strong>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:1rem;margin-top:0.5rem">
+        <div class="stat-card"><div class="stat-val">${maxGroup}</div><div class="stat-lbl">Group stage</div></div>
+        <div class="stat-card"><div class="stat-val">${maxBracket}</div><div class="stat-lbl">Bracket</div></div>
+        <div class="stat-card"><div class="stat-val">${maxSpecial}</div><div class="stat-lbl">Specials</div></div>
+      </div>
+      <div style="margin-top:1rem;font-size:0.9rem;color:var(--text)">Combined maximum: <strong style="color:var(--gold)">${maxTotal} points</strong></div>
+    </div>`;
+}
+
 // ── TABS + RENDER ALL ─────────────────────────────────────────────────────────
 function showTab(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
   if(el)el.classList.add('active');
-  if(id==='submit')renderSubmitTab();
-  if(id==='admin') renderAdminTab();
+  if(id==='submit') renderSubmitTab();
+  if(id==='admin')  renderAdminTab();
+  if(id==='scoring')renderScoringTab();
 }
 
 function loadDemo(){
