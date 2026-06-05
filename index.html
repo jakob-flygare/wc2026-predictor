@@ -538,6 +538,105 @@ const DEMO_PLAYERS=[
 
 const ALL_TEAMS=['Mexico','South Africa','South Korea','Czechia','Canada','Bosnia-Herzegovina','Qatar','Switzerland','Brazil','Morocco','Haiti','Scotland','USA','Paraguay','Australia','Türkiye','Germany','Curaçao','Ivory Coast','Ecuador','Netherlands','Japan','Sweden','Tunisia','Belgium','Egypt','Iran','New Zealand','Spain','Cape Verde','Saudi Arabia','Uruguay','France','Senegal','Iraq','Norway','Argentina','Algeria','Austria','Jordan','Portugal','DR Congo','Uzbekistan','Colombia','England','Croatia','Ghana','Panama'];
 
+const ALL_PLAYERS=[
+  // Mexico
+  'Carlos Acevedo','Guillermo Ochoa','Raúl Rangel','Jesús Gallardo','Israel Reyes','César Montes','Jorge Sánchez','Johan Vásquez','Mateo Chávez','Gilberto Mora','Edson Álvarez','Orbelín Pineda','Luis Romo','Brian Gutiérrez','Obed Vargas','César Huerta','Luis Chávez','Erik Lira','Álvaro Fidalgo','Roberto Alvarado','Armando González','Raúl Jiménez','Julián Quiñones','Santiago Giménez','Guillermo Martínez','Alexis Vega',
+  // South Africa
+  'Ronwen Williams','Ricardo Goss','Sipho Chaine','Khuliso Mudau','Nkosinathi Sibisi','Ime Okon','Khulumani Ndamane','Aubrey Modiba','Samukelo Kabini','Thabang Matuludi','Olwethu Makhanya','Bradley Cross','Mbekezeli Mbokazi','Teboho Mokoena','Thalente Mbatha','Yaya Sithole','Jayden Adams','Oswin Appollis','Iqraam Rayners','Tshepang Moremi','Relebohile Mofokeng','Evidence Makgopa','Themba Zwane','Lyle Foster','Thapelo Maseko',
+  // South Korea
+  'Jo Hyun-Woo','Kim Seung-Gyu','Song Bum-Keun','Kim Min-Jae','Jo Yu-Min','Lee Han-Beom','Kim Tae-Hyun','Park Jin-Seop','Lee Ki-Hyeok','Lee Tae-Seok','Seol Young-Woo','Jens Castrop','Kim Moon-Hwan','Yang Hyun-Jun','Paik Seung-Ho','Hwang In-Beom','Kim Jin-Kyu','Bae Jun-Ho','Um Ji-Sung','Hwang Hee-Chan','Lee Dong-Gyeong','Lee Jae-Sung','Lee Kang-In','Oh Hyun-Kyu','Son Heung-Min','Cho Kyu-Sung',
+  // Czechia
+  'Lukas Hornicek','Jan Koutny','Jindrich Stanek','Vladimír Coufal','David Douděra','Tomáš Holeš','Robin Hranáč','Štěpán Chaloupek','David Jurásek','Ladislav Krejčí','Jaroslav Zelený','David Zima','Lukáš Červ','Vladimír Darida','Lukáš Provod','Michal Sadílek','Hugo Sochůrek','Alexandr Sojka','Tomáš Souček','Adam Hložek','Tomáš Chorý','Mojmír Chytil','Jan Kuchta','Patrik Schick','Matej Vydra','Denis Višinský',
+  // Canada
+  'Dayne St. Clair','Maxime Crépeau','Owen Goodman','Moïse Bombito','Derek Cornelius','Alphonso Davies','Luc De Fougerolles','Alistair Johnston','Alfie Jones','Richie Laryea','Niko Sigur','Joel Waterman','Ali Ahmed','Tajon Buchanan','Mathieu Choinière','Stephen Eustáquio','Marcelo Flores','Ismaël Koné','Liam Millar','Jonathan Osorio','Nathan Saliba','Jacob Shaffelburg','Jonathan David','Promise David','Cyle Larin','Tani Oluwaseyi',
+  // Bosnia-Herzegovina
+  'Nikola Vasilj','Martin Zlomislic','Osman Hadzikic','Sead Kolasinac','Amar Dedic','Nihad Mujakic','Nikola Katic','Tarik Muharemovic','Stjepan Radeljic','Dennis Hadzikadunic','Nidal Celik','Amir Hadziahmetovic','Ivan Sunjic','Ivan Basic','Dzenis Burnic','Ermin Mahmic','Benjamin Tahirovic','Amar Memic','Armin Gigovic','Kerim Alajbegovic','Esmir Bajraktarevic','Ermedin Demirovic','Jovo Lukic','Samed Bazdar','Haris Tabakovic','Edin Dzeko',
+  // Qatar
+  'Salah Zakaria','Meshaal Barsham','Mahmoud Abunada','Boualem Khoukhi','Pedro Miguel','Sultan Al Brake','Ayoub Al-Alawi','Issa Laye','Lucas Mendes','Homam Al-Amin','Ahmed Fathi','Jassim Gaber','Assim Madibo','Abdulaziz Hatem','Karim Boudiaf','Mohammed Mannai','Almoez Ali','Akram Afif','Tahsin Mohammed','Edmílson Junior','Ahmed Al-Ganehi','Ahmed Alaa','Hassan Al-Haydos','Mohammed Muntari','Yusuf Abdurisag',
+  // Switzerland
+  'Gregor Kobel','Yvon Mvogo','Marvin Keller','Manuel Akanji','Nico Elvedi','Ricardo Rodriguez','Silvan Widmer','Miro Muheim','Aurèle Amenda','Eray Cömert','Luca Jaquez','Granit Xhaka','Johan Manzambi','Remo Freuler','Denis Zakaria','Ardon Jashari','Djibril Sow','Christian Fassnacht','Michel Aebischer','Fabian Rieder','Rubén Vargas','Breel Embolo','Noah Okafor','Dan Ndoye','Zeki Amdouni','Cedric Itten',
+  // Brazil
+  'Alisson','Éderson','Weverton','Alex Sandro','Bremer','Danilo','Douglas Santos','Gabriel Magalhães','Léo Pereira','Marquinhos','Roger Ibañez','Wesley','Bruno Guimarães','Casemiro','Danilo Santos','Fabinho','Lucas Paquetá','Endrick','Gabriel Martinelli','Igor Thiago','Luiz Henrique','Matheus Cunha','Neymar','Raphinha','Rayan','Vinícius Júnior',
+  // Morocco
+  'Yassine Bounou','Munir El Kajoui','Reda Tagnaouti','Noussair Mazraoui','Anass Salah-Eddine','Youssef Belammari','Achraf Hakimi','Zakaria El Ouahdi','Chadi Riad','Nayef Aguerd','Redouane Halhal','Issa Diop','Samir El Mourabet','Ayyoub Bouaddi','Neil El Aynaoui','Sofyan Amrabat','Azzedine Ounahi','Bilal El Khannouss','Ismael Saibari','Abde Ezzalzouli','Chemsdine Talbi','Soufiane Rahimi','Ayoub El Kaabi','Brahim Díaz','Gessime Yassine','Ayoube Amaimouni',
+  // Haiti
+  'Johny Placide','Alexandre Pierre','Josue Duverger','Carlens Arcus','Wilguens Paugain','Duke Lacroix','Martin Expérience','Jean-Kévin Duverne','Ricardo Adé','Hannes Delcroix','Keeto Thermoncy','Carl Fred Sainté','Leverton Pierre','Danley Jean Jacques','Jean-Ricner Bellegarde','Woodensky Pierre','Dominique Simon','Don Deedson Louicius','Josué Casimir','Derrick Etienne','Ruben Providence','Duckens Nazon','Frantzdy Pierrot','Wilson Isidor','Yassin Fortuné','Lenny Joseph',
+  // Scotland
+  'Craig Gordon','Angus Gunn','Liam Kelly','Grant Hanley','Jack Hendry','Aaron Hickey','Dom Hyam','Scott McKenna','Nathan Patterson','Anthony Ralston','Andy Robertson','John Souttar','Kieran Tierney','Ryan Christie','Finlay Curtis','Lewis Ferguson','Ben Doak','Billy Gilmour','John McGinn','Kenny McLean','Scott McTominay','Ché Adams','Lyndon Dykes','George Hirst','Lawrence Shankland','Ross Stewart',
+  // USA
+  'Chris Brady','Matt Freese','Matt Turner','Max Arfsten','Sergiño Dest','Alex Freeman','Mark McKenzie','Tim Ream','Chris Richards','Antonee Robinson','Miles Robinson','Joe Scally','Auston Trusty','Tyler Adams','Sebastian Berhalter','Weston McKennie','Cristian Roldan','Brenden Aaronson','Malik Tillman','Tim Weah','Alejandro Zendejas','Christian Pulisic','Gio Reyna','Folarin Balogun','Ricardo Pepi','Haji Wright',
+  // Australia
+  'Mathew Ryan','Paul Izzo','Patrick Beach','Jordan Bos','Aziz Behich','Harry Souttar','Alessandro Circati','Lucas Herrington','Cameron Burgess','Kai Trewin','Milos Degenek','Jason Geria','Jacob Italiano','Jackson Irvine','Aiden O\'Neill','Paul Okon Jr','Cameron Devlin','Connor Metcalfe','Mathew Leckie','Nishan Velupillay','Cristian Volpato','Nestory Irankunda','Awer Mabil','Ajdin Hrustic','Mohamed Toure','Tete Yengi',
+  // Paraguay
+  'Roberto Fernández','Orlando Gill','Gastón Olveira','Gustavo Gómez','Júnior Alonso','Fabián Balbuena','Omar Alderete','Juan Caceres','Jose Canale','Alexandro Maidana','Gustavo Velázquez','Miguel Almirón','Kaku','Andrés Cubas','Ramón Sosa','Diego Gómez','Damián Bobadilla','Braian Ojeda','Matías Galarza','Maurício','Antonio Sanabria','Julio Enciso','Gabriel Ávalos','Alex Arce','Isidro Pitta','Gustavo Caballero',
+  // Türkiye
+  'Ugurcan Cakir','Mert Gunok','Altay Bayindir','Merih Demiral','Zeki Celik','Caglar Soyuncu','Mert Muldur','Ferdi Kadioglu','Ozan Kabak','Abdulkerim Bardakci','Eren Elmali','Samet Akaydin','Hakan Calhanoglu','Kaan Ayhan','Orkun Kokcu','Ismail Yuksek','Salih Ozcan','Kerem Akturkoglu','Irfan Can Kahveci','Baris Apler Yilmaz','Arda Guler','Kenan Yildiz','Yunus Akgun','Oguz Aydin','Deniz Gul','Can Uzun',
+  // Germany
+  'Oliver Baumann','Manuel Neuer','Alexander Nübel','Waldemar Anton','Nathaniel Brown','David Raum','Antonio Rüdiger','Nico Schlotterbeck','Jonathan Tah','Malick Thiaw','Pascal Gross','Joshua Kimmich','Felix Nmecha','Aleksandar Pavlovic','Angelo Stiller','Leon Goretzka','Florian Wirtz','Jamie Leweling','Maximilian Beier','Kai Havertz','Lennart Karl','Jamal Musiala','Leroy Sané','Deniz Undav','Nick Woltemade',
+  // Curaçao
+  'Eloy Room','Tyrick Bodak','Trevor Doornbusch','Riechedly Bazoer','Joshua Brenet','Roshon van Eijma','Sherel Floranus','Deveron Fonville','Jurien Gaari','Armando Obispo','Shurandy Sambo','Juninho Bacuna','Leandro Bacuna','Livano Comenencia','Kevin Felida','Ar\'jany Martha','Tyrese Noslin','Godfried Roemeratoe','Jeremy Antonisse','Tahith Chong','Kenji Gorre','Sontje Hansen','Gervane Kastaneer','Brandley Kuwas','Jurgen Locadia','Jearl Margaritha',
+  // Ivory Coast
+  'Yahia Fofana','Mohamed Koné','Alban Lafont','Emmanuel Agbadou','Clément Akpa','Ousmane Diomande','Guela Doué','Ghislain Konan','Odilon Kossounou','Evan Ndicka','Wilfried Singo','Seko Fofana','Parfait Guiagon','Franck Kessié','Christ Inao Oulaï','Ibrahim Sangaré','Jean Michaël Seri','Simon Adingra','Ange-Yoan Bonny','Amad Diallo','Oumar Diakité','Yan Diomande','Evann Guessand','Nicolas Pépé','Bazoumana Touré','Elye Wahi',
+  // Ecuador
+  'Hernán Galíndez','Moisés Ramírez','Gonzalo Valle','Willian Pacho','Piero Hincapié','Joel Ordóñez','Félix Torres','Pervis Estupiñán','Yaimar Medina','Ángelo Preciado','Jackson Porozo','Alan Minda','Moisés Caicedo','Jordy Alcivar','Denil Castillo','John Yeboah','Alan Franco','Pedro Vite','Kendry Páez','Nilson Angulo','Gonzalo Plata','Kevin Rodríguez','Anthony Valencia','Enner Valencia','Jordy Caicedo','Jeremy Arévalo',
+  // Netherlands
+  'Mark Flekken','Robin Roefs','Bart Verbruggen','Nathan Aké','Denzel Dumfries','Jorrel Hato','Jurriën Timber','Jan Paul van Hecke','Micky van de Ven','Virgil van Dijk','Frenkie de Jong','Marten de Roon','Ryan Gravenberch','Teun Koopmeiners','Tijjani Reijnders','Guus Til','Quinten Timber','Mats Wieffer','Brian Brobbey','Memphis Depay','Cody Gakpo','Justin Kluivert','Noa Lang','Donyell Malen','Crysencio Summerville','Wout Weghorst',
+  // Japan
+  'Zion Suzuki','Keisuke Osako','Tomoki Hayakawa','Yuto Nagatomo','Shogo Taniguchi','Ko Itakura','Tsuyoshi Watanabe','Takehiro Tomiyasu','Hiroki Ito','Ayumu Seko','Yukinari Sugawara','Junnosuke Suzuki','Wataru Endo','Junya Ito','Daichi Kamada','Ritsu Doan','Ao Tanaka','Keito Nakamura','Kaishu Sano','Takefusa Kubo','Yuito Suzuki','Koki Ogawa','Daizen Maeda','Ayase Ueda','Kento Shiogai','Keisuke Goto',
+  // Sweden
+  'Viktor Johansson','Kristoffer Nordfeldt','Jacob Widell Zetterstrom','Hjalmar Ekdal','Gabriel Gudmundsson','Isak Hien','Emil Holm','Gustaf Lagerbielke','Victor Lindelöf','Erik Smith','Carl Starfelt','Elliot Stroud','Daniel Svensson','Taha Ali','Yasin Ayari','Lucas Bergvall','Jesper Karlström','Ken Sema','Mattias Svanberg','Besfort Zeneli','Alexander Bernhardsson','Anthony Elanga','Viktor Gyökeres','Alexander Isak','Gustaf Nilsson','Benjamin Nygren',
+  // Tunisia
+  'Aymen Dahmen','Sabri Ben Hessen','Abdelmouhib Chamakh','Montassar Talbi','Dylan Bronn','Omar Rekik','Yan Valery','Ali Abdi','Moutaz Neffati','Raed Chikhaoui','Adam Arous','Mohamed Amine Ben Hamida','Ellyes Skhiri','Hannibal Mejbri','Anis Ben Slimane','Hadj Mahmoud','Rani Khedira','Mortadha Ben Ouanes','Elias Achouri','Ismaël Gharbi','Elias Saad','Sebastian Tounekti','Firas Chaouat','Khalil Ayari','Hazem Mastouri','Rayan Elloumi',
+  // Belgium
+  'Thibaut Courtois','Senne Lammens','Mike Penders','Timothy Castagne','Zeno Debast','Maxim De Cuyper','Koni De Winter','Brandon Mechele','Thomas Meunier','Nathan Ngoy','Joaquin Seys','Arthur Theate','Kevin De Bruyne','Amadou Onana','Nicolas Raskin','Youri Tielemans','Hans Vanaken','Axel Witsel','Charles De Ketelaere','Jérémy Doku','Matias Fernandez-Pardo','Romelu Lukaku','Dodi Lukebakio','Diego Moreira','Alexis Saelemaekers','Leandro Trossard',
+  // Egypt
+  'Mohamed El Shenawy','Mostafa Shobeir','El Mahdy Soliman','Mohamed Alaa','Mohamed Hany','Tarek Alaa','Hamdy Fathy','Ramy Rabia','Yasser Ibrahim','Hossam Abdelmaguid','Mohamed Abdelmonem','Ahmed Fatouh','Karim Hafez','Marwan Attia','Mohanad Lasheen','Nabil Emad','Mahmoud Saber','Ahmed Zizo','Emam Ashour','Mostafa Ziko','Mahmoud Trezeguet','Ibrahim Adel','Haissem Hassan','Omar Marmoush','Mohamed Salah','Hamza Abdelkarim',
+  // Iran
+  'Alireza Beiranvand','Hossein Hosseini','Payam Niazmand','Danial Eiri','Ehsan Hajsafi','Saleh Hardani','Hossein Kanaani','Shoka Khalilzadeh','Milad Mohammadi','Omid Noorafkan','Ramin Rezaeian','Rouzbeh Cheshmi','Saeid Ezatolahi','Mehdi Ghaedi','Saman Ghoddos','Mohammad Ghorbani','Alireza Jahanbakhsh','Mohammad Mohebi','Amir Mohammad Razzaghinia','Mehdi Torabi','Aria Yousefi','Ali Alipour','Dennis Dargahi','Amirhossein Hosseinzadeh','Amirhossein Mahmoudi','Mehdi Taremi',
+  // New Zealand
+  'Max Crocombe','Alex Paulsen','Michael Woud','Tim Payne','Francis De Vries','Tyler Bindon','Michael Boxall','Liberato Cacace','Nando Pijnaker','Finn Surman','Callan Elliot','Tommy Smith','Joe Bell','Matt Garbett','Marko Stamenic','Sarpreet Singh','Alex Rufer','Ryan Thomas','Chris Wood','Eli Just','Kosta Barbarouses','Ben Waine','Ben Old','Callum McCowatt','Jesse Randall','Lachlan Bayliss',
+  // Spain
+  'Unai Simón','David Raya','Joan García','Marc Cucurella','Pau Cubarsí','Aymeric Laporte','Álex Grimaldo','Pedro Porro','Eric García','Marcos Llorente','Marc Pubill','Gavi','Rodri','Pedri','Martín Zubimendi','Fabián Ruiz','Álex Baena','Mikel Merino','Lamine Yamal','Nico Williams','Dani Olmo','Ferran Torres','Mikel Oyarzabal','Yéremy Pino','Borja Iglesias','Víctor Muñoz',
+  // Cape Verde
+  'Vozinha','Marcio Rosa','CJ dos Santos','Steven Moreira','Wagner Pina','Joao Paulo','Sidny Lopes Cabral','Logan Costa','Pico','Kelvin Pires','Stopira','Diney','Jamiro Monteiro','Telmo Arcanjo','Yannick Semedo','Laros Duarte','Deroy Duarte','Kevin Pina','Ryan Mendes','Willy Semedo','Garry Rodrigues','Jovane Cabral','Nuno da Costa','Dailon Livramento','Gilson Benchimol','Helio Varela',
+  // Saudi Arabia
+  'Mohammed Al Owais','Nawaf Al Aqidi','Ahmed Al Kassar','Abdulelah Al Amri','Hassan Tambakti','Jehad Thikri','Ali Lajami','Hassan Kadesh','Saud Abdulhamid','Mohammed Abu Al Shamat','Ali Majrashi','Moteb Al Harbi','Nawaf Boushal','Sultan Al-Ghannam','Mohammed Kanno','Abdullah Al Khaibari','Ziyad Al Johani','Nasser Al Dawsari','Musab Al Juwayr','Alaa Al Hajji','Salem Al Dawsari','Khalid Al Ghannam','Ayman Yahya','Firas Al Buraikan','Saleh Al Shehri','Abdullah Al Hamdan',
+  // Uruguay
+  'Fernando Muslera','Sergio Rochet','Santiago Mele','Ronald Araújo','José María Giménez','Santiago Bueno','Sebastián Cáceres','Mathías Olivera','Guillermo Varela','Matías Viña','Joaquín Piquerez','Juan Manuel Sanabria','Federico Valverde','Rodrigo Bentancur','Manuel Ugarte','Emiliano Martínez','Rodrigo Zalazar','Giorgian De Arrascaeta','Nicolás De La Cruz','Agustín Canobbio','Maximiliano Araújo','Brian Rodríguez','Facundo Pellistri','Darwin Núñez','Federico Viñas','Rodrigo Aguirre',
+  // France
+  'Mike Maignan','Robin Risser','Brice Samba','Lucas Digne','Malo Gusto','Lucas Hernández','Theo Hernández','Ibrahima Konaté','Jules Koundé','Maxence Lacroix','William Saliba','Dayot Upamecano','N\'Golo Kanté','Manu Koné','Adrien Rabiot','Aurélien Tchouaméni','Warren Zaïre-Emery','Maghnes Akliouche','Bradley Barcola','Rayan Cherki','Ousmane Dembélé','Désiré Doué','Jean-Philippe Mateta','Kylian Mbappé','Michael Olise','Marcus Thuram',
+  // Senegal
+  'Edouard Mendy','Mory Diaw','Yehvann Diouf','Krepin Diatta','Antoine Mendy','Kalidou Koulibaly','El Hadji Malick Diouf','Mamadou Sarr','Moussa Niakhate','Abdoulaye Seck','Ismail Jakobs','Idrissa Gana Gueye','Pape Gueye','Lamine Camara','Habib Diarra','Pathe Ciss','Pape Matar Sarr','Bara Sapoko Ndiaye','Sadio Mane','Ismaila Sarr','Iliman Ndiaye','Assane Diao','Ibrahim Mbaye','Nicolas Jackson','Bamba Dieng','Cherif Ndiaye',
+  // Iraq
+  'Fahad Talib','Jalal Hassan','Ahmed Basil','Hussein Ali','Manaf Younis','Zaid Tahseen','Rebin Sulaka','Akam Hashem','Merchas Doski','Ahmed Yahya','Zaid Ismail','Frans Putros','Mustafa Saadoon','Amir Al Ammari','Kevin Yakob','Zidane Iqbal','Aimar Sher','Ibrahim Bayesh','Ahmed Qasim','Youssef Amyn','Marko Farji','Ali Jassim','Ali Al Hamadi','Ali Yousef','Aymen Hussein','Mohanad Ali',
+  // Norway
+  'Orjan Nyland','Egil Selvik','Sander Tangvik','Kristoffer Ajer','Fredrik Bjorkan','Henrik Falchener','Sondre Langas','Torbjorn Heggem','Marcus Holmgren Pedersen','Julian Ryerson','David Moller Wolfe','Leo Ostigard','Thelonious Aasgaard','Fredrik Aursnes','Patrick Berg','Sander Berge','Oscar Bobb','Jens Petter Hauge','Antonio Nusa','Andreas Schjelderup','Morten Thorsby','Kristian Thorstvedt','Martin Odegaard','Erling Haaland','Alexander Sorloth','Jorgen Strand Larsen',
+  // Argentina
+  'Emiliano Martinez','Geronimo Rulli','Juan Musso','Leonardo Balerdi','Gonzalo Montiel','Nicolas Tagliafico','Lisandro Martinez','Cristian Romero','Nicolas Otamendi','Facundo Medina','Nahuel Molina','Leandro Paredes','Rodrigo De Paul','Valentin Barco','Giovani Lo Celso','Exequiel Palacios','Alexis Mac Allister','Enzo Fernandez','Julian Alvarez','Lionel Messi','Nicolas Gonzalez','Thiago Almada','Giuliano Simeone','Nicolas Paz','Jose Manuel Lopez','Lautaro Martinez',
+  // Algeria
+  'Oussama Benbot','Melvin Masstil','Luca Zidane','Achraf Abada','Rayan Ait Nouri','Zinedine Belaid','Rafik Belghali','Ramy Bensebaini','Samir Chergui','Jaouen Hadjam','Aissa Mandi','Mohamed Amine Tougai','Houssem Aouar','Nabil Bentaleb','Hicham Boudaoui','Fares Chaibi','Ibrahim Maza','Yassine Titraoui','Ramiz Zerrouki','Mohamed Amine Amoura','Nadir Benbouali','Adil Boulbina','Fares Ghedjemis','Amine Gouiri','Riyad Mahrez','Anis Hadj Moussa',
+  // Austria
+  'Patrick Pentz','Alexander Schlager','Florian Wiegele','David Affengruber','David Alaba','Kevin Danso','Marco Friedl','Philipp Lienhart','Phillipp Mwene','Stefan Posch','Alexander Prass','Michael Svoboda','Christoph Baumgartner','Carney Chukwuemeka','Florian Grillitsch','Konrad Laimer','Marcel Sabitzer','Xaver Schlager','Romano Schmid','Alessandro Schopf','Nicolas Seiwald','Paul Wanner','Patrick Wimmer','Marko Arnautovic','Michael Gregoritsch','Sasa Kalajdzic',
+  // Jordan
+  'Yazid Abulaila','Noor Bani Attiah','Abdallah Al Fakhouri','Mohammad Abu Hashish','Abdullah Nasib','Hussam Abu Dhahab','Yazan Al Arab','Mohammad Abu Alnadi','Salem Obaid','Saed Al Rosan','Ehsan Haddad','Anas Badawi','Amer Jamous','Noor Al Rawabdeh','Rajaei Ayed','Ibrahim Sadeh','Mohannad Abu Taha','Nizar Al Rashdan','Mohammad Al Dawoud','Mahmoud Mardahi','Mohammad Abu Zraiq','Ali Olwan','Mousa Al Tamari','Odeh Fakhoury','Ibrahim Sabra','Ali Azaizeh',
+  // Portugal
+  'Diogo Costa','Jose Sa','Rui Silva','Tomas Araujo','Joao Cancelo','Diogo Dalot','Ruben Dias','Goncalo Inacio','Nuno Mendes','Matheus Nunes','Nelson Semedo','Renato Veiga','Samuel Costa','Bruno Fernandes','Joao Neves','Ruben Neves','Bernardo Silva','Vitinha','Francisco Conceicao','Joao Felix','Goncalo Guedes','Rafael Leao','Pedro Neto','Goncalo Ramos','Cristiano Ronaldo','Francisco Trincao',
+  // DR Congo
+  'Matthieu Epolo','Timothy Fayulu','Lionel Mpasi','Dylan Batubinsika','Gedeon Kalulu','Steve Kapuadi','Joris Kayembe','Arthur Masuaku','Chancel Mbemba','Axel Tuanzebe','Aaron Wan-Bissaka','Brian Cipenga','Meshack Elia','Gael Kakuta','Edo Kayembe','Nathanael Mbuku','Samuel Moutoussamy','Ngal\'ayel Mukau','Charles Pickel','Noah Sadiki','Aaron Tshibola','Cedric Bakambu','Simon Banza','Fiston Mayele','Yoane Wissa','Theo Bongonda',
+  // Uzbekistan
+  'Botirali Ergashev','Abduvohid Nematov','Utkir Yusupov','Abdukodir Khusanov','Khojiakbar Alijonov','Rustamjon Ashurmatov','Farrukh Sayfiev','Sherzod Nasrullaev','Umarbek Eshmuradov','Avazbek Ulmasaliev','Jakhongir Urozov','Bekhruz Karimov','Abdulla Abdullaev','Akmal Mozgovoy','Otabek Shukurov','Jamshid Iskanderov','Odiljon Hamrobekov','Jaloliddin Masharipov','Azizbek Ganiev','Sherzod Esanov','Abbosbek Fayzullaev','Azizbek Amonov','Eldor Shomurodov','Igor Sergeev','Oston Urunov','Dostonbek Hamdamov',
+  // Colombia
+  'Camilo Vargas','Alvaro Montero','David Ospina','Davinson Sanchez','Jhon Lucumi','Yerry Mina','Willer Ditta','Daniel Munoz','Santiago Arias','Johan Mojica','Deiver Machado','Richard Rios','Jefferson Lerma','Kevin Castano','Juan Camilo Portilla','Gustavo Puerta','Jhon Arias','Jorge Carrascal','Juan Fernando Quintero','James Rodriguez','Jaminton Campaz','Juan Camilo Hernandez','Luis Diaz','Luis Suarez','Carlos Gomez','Jhon Cordoba',
+  // England
+  'Jordan Pickford','Dean Henderson','James Trafford','Reece James','Ezri Konsa','Jarell Quansah','John Stones','Marc Guehi','Dan Burn','Nico O\'Reilly','Djed Spence','Tino Livramento','Declan Rice','Elliot Anderson','Kobbie Mainoo','Jordan Henderson','Morgan Rogers','Jude Bellingham','Eberechi Eze','Harry Kane','Ivan Toney','Ollie Watkins','Bukayo Saka','Marcus Rashford','Anthony Gordon','Noni Madueke',
+  // Croatia
+  'Dominik Livakovic','Dominik Kotarski','Ivor Pandur','Josko Gvardiol','Duje Caleta-Car','Josip Sutalo','Josip Stanisic','Marin Pongracic','Martin Erlic','Luka Vuskovic','Luka Modric','Mateo Kovacic','Mario Pasalic','Nikola Vlasic','Luka Sucic','Martin Baturina','Kristijan Jakic','Petar Sucic','Nikola Moro','Toni Fruk','Ivan Perisic','Andrej Kramaric','Ante Budimir','Marco Pasalic','Petar Musa','Igor Matanovic',
+  // Ghana
+  'Joseph Anang','Benjamin Asare','Lawrence Ati-Zigi','Jonas Adjetey','Derrick Luckassen','Gideon Mensah','Abdul Mumin','Jerome Opoku','Kojo Oppong Preprah','Baba Abdul Rahman','Alidu Seidu','Marvin Senaya','Augustine Boakye','Abdul Fatawu Issahaku','Elisha Owusu','Thomas Partey','Kwasi Sibo','Kamal Deen Sulemana','Caleb Yirenkyi','Prince Kwabena Adu','Jordan Ayew','Christopher Bonsu Baah','Ernest Nuamah','Antoine Semenyo','Brandon Thomas-Asante','Inaki Williams',
+  // Panama
+  'Orlando Mosquera','Luis Mejia','Cesar Samudio','Cesar Blackman','Jorge Gutierrez','Amir Murillo','Fidel Escobar','Andres Andrade','Edgardo Farina','Jose Cordoba','Eric Davis','Jiovany Ramos','Roderick Miller','Anibal Godoy','Adalberto Carrasquilla','Carlos Harvey','Cristian Martinez','Jose Luis Rodriguez','Cesar Yanis','Yoel Barcenas','Alberto Quintero','Azarias Londono','Ismael Diaz','Cecilio Waterman','Jose Fajardo','Tomas Rodriguez',
+];
+
 const TEAM_FLAGS={Mexico:'mx','South Africa':'za','South Korea':'kr',Czechia:'cz',Canada:'ca','Bosnia-Herzegovina':'ba',Qatar:'qa',Switzerland:'ch',Brazil:'br',Morocco:'ma',Haiti:'ht',Scotland:'gb-sct',USA:'us',Paraguay:'py',Australia:'au','Türkiye':'tr',Germany:'de','Curaçao':'cw','Ivory Coast':'ci',Ecuador:'ec',Netherlands:'nl',Japan:'jp',Sweden:'se',Tunisia:'tn',Belgium:'be',Egypt:'eg',Iran:'ir','New Zealand':'nz',Spain:'es','Cape Verde':'cv','Saudi Arabia':'sa',Uruguay:'uy',France:'fr',Senegal:'sn',Iraq:'iq',Norway:'no',Argentina:'ar',Algeria:'dz',Austria:'at',Jordan:'jo',Portugal:'pt','DR Congo':'cd',Uzbekistan:'uz',Colombia:'co',England:'gb-eng',Croatia:'hr',Ghana:'gh',Panama:'pa'};
 function flagImg(n,w=20){const code=TEAM_FLAGS[shortName(n)];if(!code)return'';return`<img src="https://flagcdn.com/w${w}/${code}.png" width="${w}" height="${Math.round(w*0.73)}" style="vertical-align:middle;border-radius:2px;flex-shrink:0" alt="" onerror="this.style.display='none'">`;}
 
@@ -900,9 +999,11 @@ function renderSubmitTab(){
     </div>`;
   }).join('');
   const teamOpts=ALL_TEAMS.map(t=>`<option value="${t}">`).join('');
+  const playerOpts=ALL_PLAYERS.map(p=>`<option value="${p}">`).join('');
 
   cont.innerHTML=`
     <datalist id="teams-dl">${teamOpts}</datalist>
+    <datalist id="players-dl">${playerOpts}</datalist>
     <div class="config-box"><strong>Your identity</strong>
       <div class="form-identity">
         <input class="form-name-input" type="text" id="form-name-input" placeholder="Your name" maxlength="20"
@@ -932,15 +1033,15 @@ function renderSubmitTab(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:2rem">
       <div>
         <div class="ko-label">Golden Boot — Top Scorer (+5pts)</div>
-        <input class="ko-input" type="text" placeholder="e.g. Mbappé" value="${FORM_STATE.special.boot}" oninput="FORM_STATE.special.boot=this.value;saveFormState();">
+        <input class="ko-input" type="text" placeholder="e.g. Mbappé" value="${FORM_STATE.special.boot}" list="players-dl" oninput="FORM_STATE.special.boot=this.value;saveFormState();">
       </div>
       <div>
         <div class="ko-label">Golden Ball — Best Player (+5pts)</div>
-        <input class="ko-input" type="text" placeholder="e.g. Vinicius Jr" value="${FORM_STATE.special.bestPlayer}" oninput="FORM_STATE.special.bestPlayer=this.value;saveFormState();">
+        <input class="ko-input" type="text" placeholder="e.g. Vinicius Jr" value="${FORM_STATE.special.bestPlayer}" list="players-dl" oninput="FORM_STATE.special.bestPlayer=this.value;saveFormState();">
       </div>
       <div>
         <div class="ko-label">Golden Glove — Best Goalkeeper (+4pts)</div>
-        <input class="ko-input" type="text" placeholder="e.g. Courtois" value="${FORM_STATE.special.bestGoalkeeper}" oninput="FORM_STATE.special.bestGoalkeeper=this.value;saveFormState();">
+        <input class="ko-input" type="text" placeholder="e.g. Courtois" value="${FORM_STATE.special.bestGoalkeeper}" list="players-dl" oninput="FORM_STATE.special.bestGoalkeeper=this.value;saveFormState();">
       </div>
       <div>
         <div class="ko-label">Top Scoring Team (+3pts)</div>
@@ -948,7 +1049,7 @@ function renderSubmitTab(){
       </div>
       <div>
         <div class="ko-label">Most Assists (+3pts)</div>
-        <input class="ko-input" type="text" placeholder="Player name" value="${FORM_STATE.special.mostAssists}" oninput="FORM_STATE.special.mostAssists=this.value;saveFormState();">
+        <input class="ko-input" type="text" placeholder="Player name" value="${FORM_STATE.special.mostAssists}" list="players-dl" oninput="FORM_STATE.special.mostAssists=this.value;saveFormState();">
       </div>
       <div>
         <div class="ko-label">Most Yellow+Red Cards — Team (+2pts)</div>
