@@ -1104,18 +1104,18 @@ function renderSpecial(){
     {key:'boot',          label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',      pts:5, wide:true},
     {key:'bestPlayer',    label:'Golden Ball (Best Player)', stateKey:'Golden Ball',       pts:5},
     {key:'bestGoalkeeper',label:'Golden Glove',              stateKey:'Golden Glove',      pts:4},
-    {key:'topScoringTeam',label:'Top Scoring Team',          stateKey:'Top Scoring Team',  pts:3, wide:true},
+    {key:'topScoringTeam',label:'Top Scoring Team',          stateKey:'Top Scoring Team',  pts:3, wide:true, teamPick:true},
     {key:'mostAssists',   label:'Most Assists',              stateKey:'Most Assists',       pts:3},
-    {key:'mostCards',     label:'Most Cards (Team)',         stateKey:'Most Cards Team',    pts:2},
+    {key:'mostCards',     label:'Most Cards (Team)',         stateKey:'Most Cards Team',    pts:2, teamPick:true},
     {key:'totalGoals',    label:'Total Goals in Tournament', stateKey:'Total Goals',        pts:4, closest:true, wide:true},
-    {key:'firstScorer',   label:'First Team to Score',       stateKey:'First Scorer',       pts:3},
+    {key:'firstScorer',   label:'First Team to Score',       stateKey:'First Scorer',       pts:3, teamPick:true},
   ];
   const gw=calcGoalsWinners();
   const scorerLB  = computeScorerLeaderboard();
   const teamGoals = computeTeamGoals();
   const goalStats = computeTotalGoalsStats();
 
-  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest,wide})=>{
+  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest,wide,teamPick})=>{
     const answer=STATE.special[stateKey];
     const actual=closest?parseInt(answer):null;
 
@@ -1133,7 +1133,8 @@ function renderSpecial(){
       } else if(answer&&pick!=='—'){
         cls=pick.toLowerCase().trim()===answer.toLowerCase().trim()?'correct':'wrong';
       }
-      return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${pick}${badge}</span></div>`;
+      const displayPick = (teamPick && pick !== '—') ? withFlag(pick) : pick;
+      return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${displayPick}${badge}</span></div>`;
     }).join('');
 
     const status=answer
@@ -1175,7 +1176,7 @@ function renderSpecial(){
         return`<div class="live-lb-row">
           <span class="live-lb-rank">${i+1}</span>
           <span class="live-lb-name" style="flex:1">
-            ${t.team}${pickerStr}
+            ${withFlag(t.team)}${pickerStr}
             <div class="team-mini-bar"><div class="team-mini-fill" style="width:${barPct}%"></div></div>
           </span>
           <span class="live-lb-pts">${t.goals}</span>
@@ -1240,6 +1241,7 @@ function renderSpecial(){
       ${liveHtml}
     </div>`;
   }).join('');
+  applyFlags('special-grid');
 }
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
