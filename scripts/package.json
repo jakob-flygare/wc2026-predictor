@@ -1,0 +1,7 @@
+{
+  "name": "wc2026-score-importer",
+  "private": true,
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
