@@ -73,7 +73,7 @@
   .section-sub { font-size: 0.8rem; color: var(--muted); }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
-  .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 0; display: grid; grid-template-columns: 1fr auto 1fr auto; align-items: center; gap: 0.75rem; }
+  .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 0; display: grid; grid-template-columns: 1fr 80px 1fr 140px; align-items: center; gap: 0.75rem; }
   .match-card.has-scorers { cursor: pointer; }
   .match-card.has-scorers:hover { border-color: rgba(255,255,255,0.15); }
   .match-wrap { margin-bottom: 0.4rem; }
@@ -1040,16 +1040,19 @@ function showPlayerPicks(name){
   selectedPlayer=name;renderPlayerGrid();
   const p=STATE.players.find(p=>p.name===name);if(!p)return;
   document.getElementById('picks-detail-name').textContent=name+"'s Picks";
-  const rows=STATE.matches.map(m=>{
+  // Finished matches on top, unplayed below
+  const sorted=[...STATE.matches].sort((a,b)=>(a.result?0:1)-(b.result?0:1));
+  const rows=sorted.map(m=>{
+    const hn=shortName(m.home),an=shortName(m.away);
     const pick=p.picks[m.id]||'?';
-    const pickLabel=pick==='home'?shortName(m.home)+' Win':pick==='away'?shortName(m.away)+' Win':pick==='draw'?'Draw':'—';
+    const pickLabel=pick==='home'?hn+' Win':pick==='away'?an+' Win':pick==='draw'?'Draw':'—';
     let resultLabel='—',cls='',pts='—';
     if(m.result){
       const ok=pick===m.result;
-      resultLabel=m.result==='home'?shortName(m.home)+' Win':m.result==='away'?shortName(m.away)+' Win':'Draw';
+      resultLabel=m.result==='home'?hn+' Win':m.result==='away'?an+' Win':'Draw';
       cls=ok?'pick-correct':'pick-wrong';pts=ok?'+1':'0';
     }
-    return`<tr class="${cls}"><td>${m.home} vs ${m.away}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${pts}</td></tr>`;
+    return`<tr class="${cls}"><td>${hn} vs ${an}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${pts}</td></tr>`;
   }).join('');
   document.getElementById('picks-tbody').innerHTML=rows;
   document.getElementById('picks-detail').classList.add('open');
