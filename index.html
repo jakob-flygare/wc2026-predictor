@@ -181,7 +181,7 @@
   /* ── KNOCKOUT STAGE PICKER ──────────────────────────────────────────────── */
   .stage-section { margin-bottom:1.5rem; }
   .stage-pool { display:flex; flex-wrap:wrap; gap:0.4rem; margin-top:0.5rem; }
-  .stage-pill { display:inline-flex; align-items:center; gap:4px; padding:0.35rem 0.65rem; border-radius:999px; font-size:0.78rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; border:1px solid var(--border); background:var(--surface2); color:var(--muted); }
+  .stage-pill { display:inline-flex; align-items:center; padding:0.35rem 0.65rem; border-radius:999px; font-size:0.78rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; border:1px solid var(--border); background:var(--surface2); color:var(--muted); }
   .stage-pill:hover:not(:disabled) { border-color:rgba(255,255,255,0.2); color:var(--text); }
   .stage-pill.sel { background:rgba(201,168,76,.15); border-color:var(--gold); color:var(--gold-light); font-weight:500; }
   .stage-pill:disabled { opacity:0.35; cursor:not-allowed; }
@@ -382,6 +382,15 @@ function applyDataSnapshot(data) {
   // No live data yet — fall back to demo so the site looks populated
   if (!Object.keys(results).length && !Object.keys(picksData).length) {
     loadDemo(); return;
+  }
+
+  // If admin has reset brackets, clear local stagePicks so players redo them
+  const fbResetTs = data.config?.bracketResetTs || 0;
+  const localResetTs = parseInt(localStorage.getItem('wc2026_bracketResetTs') || '0');
+  if (fbResetTs > localResetTs) {
+    FORM_STATE.stagePicks = {r32extra:[],r16:[],qf:[],sf:[],final:[],winner:'',bronze:''};
+    saveFormState();
+    localStorage.setItem('wc2026_bracketResetTs', String(fbResetTs));
   }
 
   const matches = DEMO_MATCHES.map(m => ({ ...m, result: results[String(m.id)] || null }));
@@ -632,7 +641,7 @@ const ALL_PLAYERS=[
 ];
 
 const TEAM_FLAGS={Mexico:'mx','South Africa':'za','South Korea':'kr',Czechia:'cz',Canada:'ca','Bosnia-Herzegovina':'ba',Qatar:'qa',Switzerland:'ch',Brazil:'br',Morocco:'ma',Haiti:'ht',Scotland:'gb-sct',USA:'us',Paraguay:'py',Australia:'au','Türkiye':'tr',Germany:'de','Curaçao':'cw','Ivory Coast':'ci',Ecuador:'ec',Netherlands:'nl',Japan:'jp',Sweden:'se',Tunisia:'tn',Belgium:'be',Egypt:'eg',Iran:'ir','New Zealand':'nz',Spain:'es','Cape Verde':'cv','Saudi Arabia':'sa',Uruguay:'uy',France:'fr',Senegal:'sn',Iraq:'iq',Norway:'no',Argentina:'ar',Algeria:'dz',Austria:'at',Jordan:'jo',Portugal:'pt','DR Congo':'cd',Uzbekistan:'uz',Colombia:'co',England:'gb-eng',Croatia:'hr',Ghana:'gh',Panama:'pa'};
-function flagImg(n,w=20){const code=TEAM_FLAGS[shortName(n)];if(!code)return'';return`<img src="https://flagcdn.com/w${w}/${code}.png" width="${w}" height="${Math.round(w*0.73)}" style="vertical-align:middle;border-radius:2px;flex-shrink:0" alt="" onerror="this.style.display='none'">`;}
+function flagImg(n,w=20){const code=TEAM_FLAGS[shortName(n)];if(!code)return'';return`<img src="https://flagcdn.com/w${w}/${code}.png" width="${w}" height="${Math.round(w*0.73)}" style="vertical-align:middle;border-radius:2px;flex-shrink:0;margin-right:4px" alt="" onerror="this.style.display='none';this.style.marginRight='0'">`;}
 
 
 const R32_BRACKET=[
@@ -1052,6 +1061,7 @@ function toggleStagePick(stage,team){
 
 function renderKnockoutSection(){
   const cont=document.getElementById('knockout-section');if(!cont)return;
+  const sy=window.scrollY; // preserve scroll position — prevents glitch on re-render
   const sp=FORM_STATE.stagePicks||{};
   if(Object.keys(FORM_STATE.picks).length<12){
     cont.innerHTML='<div class="stage-hint">Fill in your group stage picks above first — qualifying teams will appear here.</div>';
@@ -1096,7 +1106,7 @@ function renderKnockoutSection(){
 
   if(!r32complete){
     html+=`<div class="stage-hint">Complete the Round of 32 above to pick the next stages.</div>`;
-    cont.innerHTML=html;return;
+    cont.innerHTML=html;window.scrollTo({top:sy,behavior:'instant'});return;
   }
 
   // ── R16 → Final → Winner → Bronze ────────────────────────────────
@@ -1128,6 +1138,7 @@ function renderKnockoutSection(){
     </div>`;
   }
   cont.innerHTML=html;
+  window.scrollTo({top:sy,behavior:'instant'});
 }
 
 function renderSubmitTab(){
@@ -1462,8 +1473,10 @@ function renderAdminContent(cont){
       <div class="admin-section-title">Players (${STATE.players.length})</div>
       ${playersHtml}
     </div>
-    <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border)">
+    <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
       <button class="btn-outline" onclick="adminLock()" style="font-size:0.8rem">🔒 Lock session</button>
+      <button class="btn-outline" onclick="resetAllBrackets()" style="font-size:0.8rem;border-color:var(--red);color:var(--red)">🗑 Reset all bracket picks</button>
+      <span id="reset-bracket-status" style="font-size:0.78rem;color:var(--muted)"></span>
     </div>`;
 }
 
@@ -1497,6 +1510,26 @@ function deletePlayer(name){
 }
 
 function adminLock(){sessionStorage.removeItem('wc2026_admin_ok');renderAdminTab();}
+
+async function resetAllBrackets(){
+  if(!db)return;
+  if(!confirm('This will wipe the knockout bracket picks for ALL players (group picks and special bets are kept). They will need to redo them with the new format. Continue?'))return;
+  const statusEl=document.getElementById('reset-bracket-status');
+  if(statusEl)statusEl.textContent='Working…';
+  try{
+    const snap=await db.ref('wc2026/picks').once('value');
+    const picks=snap.val()||{};
+    const emptyBracket={r16:[],qf:[],sf:[],final:[],winner:'',bronze:''};
+    const updates={};
+    Object.keys(picks).forEach(key=>{updates[`picks/${key}/bracket`]=emptyBracket;});
+    updates['config/bracketResetTs']=Date.now();
+    await db.ref('wc2026').update(updates);
+    if(statusEl)statusEl.textContent=`✓ Done — ${Object.keys(picks).length} player(s) reset.`;
+    setTimeout(()=>{if(statusEl)statusEl.textContent='';},4000);
+  }catch(e){
+    if(statusEl)statusEl.textContent='✗ '+e.message;
+  }
+}
 
 // ── SCORING TAB ───────────────────────────────────────────────────────────────
 function renderScoringTab(){
