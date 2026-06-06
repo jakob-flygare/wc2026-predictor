@@ -257,6 +257,10 @@
 </head>
 <body>
 
+<div id="preview-banner" style="display:none;background:rgba(232,184,75,0.15);border-bottom:1px solid rgba(232,184,75,0.35);padding:0.4rem 1.5rem;font-size:0.78rem;color:var(--gold-light);align-items:center;justify-content:space-between;gap:1rem">
+  <span>👁 Preview Mode — showing demo data with fake scores. Real data is unaffected.</span>
+  <button onclick="exitPreview()" style="background:none;border:1px solid rgba(232,184,75,0.4);color:var(--gold);border-radius:4px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;font-family:'DM Sans',sans-serif">Exit Preview</button>
+</div>
 <header>
   <span class="trophy-icon">🏆</span>
   <h1>World Cup 2026</h1>
@@ -571,6 +575,40 @@ const DEMO_BRACKETS=[
 ];
 const DEMO_KNOCKOUT={r16:['Mexico','South Korea','Canada','Switzerland','Brazil','Morocco','USA','Türkiye','Germany','Netherlands','Spain','Belgium','France','Argentina','Portugal','England'],qf:['Brazil','Germany','France','Argentina','Spain','England','Portugal','Morocco'],sf:null,final:null,winner:null};
 const DEMO_SPECIAL={'Tournament Winner':null,'Golden Boot':null};
+
+// Demo scores & scorers for preview mode (matches that have results in DEMO_MATCHES)
+const DEMO_SCORES={
+  1:{home:2,away:1}, 2:{home:0,away:0}, 3:{home:1,away:0},
+  4:{home:3,away:1}, 5:{home:0,away:2}, 6:{home:2,away:0},
+  7:{home:0,away:2}, 8:{home:1,away:1},
+};
+const DEMO_SCORERS={
+  1:[{player:'Raúl Jiménez',team:'Mexico',minute:23},{player:'Santiago Giménez',team:'Mexico',minute:67},{player:'Evidence Makgopa',team:'South Africa',minute:45}],
+  4:[{player:'Christian Pulisic',team:'USA',minute:12},{player:'Folarin Balogun',team:'USA',minute:38},{player:'Ricardo Pepi',team:'USA',minute:71},{player:'Miguel Almirón',team:'Paraguay',minute:55}],
+  5:[{player:'Granit Xhaka',team:'Switzerland',minute:34},{player:'Breel Embolo',team:'Switzerland',minute:78}],
+  6:[{player:'Vinícius Júnior',team:'Brazil',minute:29},{player:'Raphinha',team:'Brazil',minute:52}],
+  7:[{player:'Scott McTominay',team:'Scotland',minute:15},{player:'Lawrence Shankland',team:'Scotland',minute:83}],
+};
+
+// ── PREVIEW MODE ──────────────────────────────────────────────────────────────
+function isPreviewMode(){ return sessionStorage.getItem('wc2026_preview')==='1'; }
+function enablePreview(){
+  sessionStorage.setItem('wc2026_preview','1');
+  loadDemoWithScores();
+  document.getElementById('preview-banner')?.style.setProperty('display','flex');
+  renderAdminTab(); // refresh so button label changes
+}
+function exitPreview(){
+  sessionStorage.removeItem('wc2026_preview');
+  if(isPreviewMode()){
+  document.getElementById('preview-banner')?.style.setProperty('display','flex');
+  loadDemoWithScores();
+} else {
+  initData();
+} // reconnect to real Firebase data
+  document.getElementById('preview-banner')?.style.setProperty('display','none');
+  renderAdminTab();
+}
 const DEMO_PLAYERS=[
   {name:'Erik',  initials:'EL',color:'#3B82F6',picks:_picks(0),bracket:DEMO_BRACKETS[0],special:{winner:'Brazil 🇧🇷',   boot:'Mbappé'}},
   {name:'Sara',  initials:'SA',color:'#8B5CF6',picks:_picks(1),bracket:DEMO_BRACKETS[1],special:{winner:'France 🇫🇷',   boot:'Vinicius Jr'}},
@@ -945,7 +983,7 @@ function toggleMatchDetail(id){
 
 // ── RENDER PLAYER PICKS ───────────────────────────────────────────────────────
 function renderPlayerGrid(){
-  if(new Date()<PICK_DEADLINE){document.getElementById('player-grid').innerHTML=PICKS_LOCKED_MSG;document.getElementById('picks-detail').classList.remove('open');return;}
+  if(!isPreviewMode()&&new Date()<PICK_DEADLINE){document.getElementById('player-grid').innerHTML=PICKS_LOCKED_MSG;document.getElementById('picks-detail').classList.remove('open');return;}
   document.getElementById('player-grid').innerHTML=STATE.players.map(p=>{
     const{pts,correct,total}=calcPoints(p);
     return`<div class="player-card ${selectedPlayer===p.name?'selected':''}" onclick="showPlayerPicks('${p.name.replace(/'/g,"\\'")}')">
@@ -977,7 +1015,7 @@ function showPlayerPicks(name){
 
 // ── RENDER SPECIAL BETS ───────────────────────────────────────────────────────
 function renderSpecial(){
-  if(new Date()<PICK_DEADLINE){document.getElementById('special-grid').innerHTML=PICKS_LOCKED_MSG;return;}
+  if(!isPreviewMode()&&new Date()<PICK_DEADLINE){document.getElementById('special-grid').innerHTML=PICKS_LOCKED_MSG;return;}
   const CATS=[
     {key:'boot',          label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',      pts:5, wide:true},
     {key:'bestPlayer',    label:'Golden Ball (Best Player)', stateKey:'Golden Ball',       pts:5},
@@ -1130,7 +1168,7 @@ function initBracketPlayerSelect(){
 function renderBracketTab(){
   const sel=document.getElementById('bracket-player-select'),cont=document.getElementById('bracket-content'),tag=document.getElementById('bracket-pts-tag');
   if(!sel||!cont)return;
-  if(new Date()<PICK_DEADLINE){cont.innerHTML=PICKS_LOCKED_MSG;if(tag)tag.innerHTML='';return;}
+  if(!isPreviewMode()&&new Date()<PICK_DEADLINE){cont.innerHTML=PICKS_LOCKED_MSG;if(tag)tag.innerHTML='';return;}
   const name=sel.value;
   if(!name){cont.innerHTML='<div class="no-bracket-msg">Select a player above to see their predicted standings and bracket picks.</div>';if(tag)tag.innerHTML='';return;}
   const player=STATE.players.find(p=>p.name===name);if(!player)return;
@@ -1678,6 +1716,9 @@ function renderAdminContent(cont){
     </div>
     <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
       <button class="btn-outline" onclick="adminLock()" style="font-size:0.8rem">🔒 Lock session</button>
+      ${isPreviewMode()
+        ? `<button class="btn-outline" onclick="exitPreview()" style="font-size:0.8rem;border-color:var(--gold);color:var(--gold)">👁 Exit Preview Mode</button>`
+        : `<button class="btn-outline" onclick="enablePreview()" style="font-size:0.8rem">👁 Preview locked content</button>`}
       <button class="btn-outline" onclick="resetAllBrackets()" style="font-size:0.8rem;border-color:var(--red);color:var(--red)">🗑 Reset all bracket picks</button>
       <span id="reset-bracket-status" style="font-size:0.78rem;color:var(--muted)"></span>
     </div>`;
@@ -1779,6 +1820,21 @@ function showTab(id,el){
 
 function loadDemo(){
   STATE={matches:DEMO_MATCHES,players:DEMO_PLAYERS,source:'demo',special:DEMO_SPECIAL,knockout:DEMO_KNOCKOUT};
+  renderAll();
+}
+function loadDemoWithScores(){
+  // Preview mode: demo data + fake scores/scorers so live stats are visible
+  const matches=DEMO_MATCHES.map(m=>({
+    ...m,
+    score:   DEMO_SCORES[m.id]   || null,
+    scorers: DEMO_SCORERS[m.id]  || null,
+  }));
+  const special={
+    'Tournament Winner':null,'Golden Boot':null,'Golden Ball':null,
+    'Golden Glove':null,'Top Scoring Team':null,'Most Assists':null,
+    'Most Cards Team':null,'Total Goals':null,'First Scorer':null,
+  };
+  STATE={matches,players:DEMO_PLAYERS,source:'demo',special,knockout:DEMO_KNOCKOUT};
   renderAll();
 }
 
