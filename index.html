@@ -1259,6 +1259,9 @@ function renderLeaderboard(){
     <div class="stat-card"><div class="stat-val">${gamesPlayed}</div><div class="stat-lbl">Played</div></div>
     <div class="stat-card"><div class="stat-val">${STATE.players.length}</div><div class="stat-lbl">Players</div></div>
     <div class="stat-card"><div class="stat-val">${maxPts}</div><div class="stat-lbl">Top Score</div></div>`;
+  // locked must be declared before anything that uses it
+  const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
+
   // Round summary banner
   const lbGrid=document.getElementById('lb-grid');
   const lbErr=document.getElementById('lb-error');
@@ -1278,13 +1281,11 @@ function renderLeaderboard(){
     else countdownEl.innerHTML='';
   }
 
-  // Share button
+  // Share button (only when unlocked and players exist)
   const shareArea=document.getElementById('lb-share-area');
   if(shareArea&&scored.length&&!locked){
     shareArea.innerHTML=`<button class="share-btn" onclick="shareLeaderboard(this)">📋 Share</button>`;
   }else if(shareArea){shareArea.innerHTML='';}
-
-  const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
   const rc=['rank-1','rank-2','rank-3'];
   lbGrid.innerHTML=scored.length
     ?scored.map((p,i)=>{
@@ -1404,7 +1405,6 @@ function renderMatches(){
     const el=document.getElementById('lb-countdown');
     if(el)el.innerHTML=c?`<div class="lb-countdown">${c}</div>`:'';
   },30000);
-
 }
 
 // ── PICKS LOCK HELPER ─────────────────────────────────────────────────────────
