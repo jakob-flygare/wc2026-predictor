@@ -930,7 +930,7 @@ function renderLeaderboard(){
     <div class="stat-card"><div class="stat-val">${gamesPlayed}</div><div class="stat-lbl">Played</div></div>
     <div class="stat-card"><div class="stat-val">${STATE.players.length}</div><div class="stat-lbl">Players</div></div>
     <div class="stat-card"><div class="stat-val">${maxPts}</div><div class="stat-lbl">Top Score</div></div>`;
-  const locked=new Date()<PICK_DEADLINE;
+  const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
   const rc=['rank-1','rank-2','rank-3'];
   document.getElementById('lb-grid').innerHTML=scored.length
     ?scored.map((p,i)=>{
