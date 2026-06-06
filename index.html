@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
 <style>
   :root {
     --gold: #C9A84C;
@@ -23,6 +24,7 @@
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; } /* prevents horizontal shift when scrollbar appears/disappears */
+  img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
   header {
@@ -617,6 +619,40 @@ const DEMO_SCORERS={
   24:[{player:'James Rodriguez',team:'Colombia',minute:63,type:'REGULAR'}],
 };
 
+// ── FLAG EMOJI HELPERS ────────────────────────────────────────────────────────
+// Build plain-name → emoji map from DEMO_MATCHES (e.g. "Mexico" → "🇲🇽")
+const TEAM_EMOJI = {};
+DEMO_MATCHES.forEach(m => {
+  [m.home, m.away].forEach(name => {
+    if (name.charCodeAt(0) > 127) {
+      const sp = name.indexOf(' ');
+      if (sp > 0) TEAM_EMOJI[name.slice(sp + 1)] = name.slice(0, sp);
+    }
+  });
+});
+
+// Returns just the emoji prefix from a full name like "🇲🇽 Mexico" → "🇲🇽 "
+function flagOf(fullName) {
+  if (fullName.charCodeAt(0) > 127) {
+    const sp = fullName.indexOf(' ');
+    if (sp > 0) return fullName.slice(0, sp) + ' ';
+  }
+  return '';
+}
+
+// Prepend flag to a plain name: "Mexico" → "🇲🇽 Mexico"
+function withFlag(plainName) {
+  const e = TEAM_EMOJI[plainName];
+  return e ? e + ' ' + plainName : plainName;
+}
+
+const TWEMOJI_BASE = 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/';
+function applyFlags(elementId) {
+  if (typeof twemoji === 'undefined') return;
+  const el = document.getElementById(elementId);
+  if (el) twemoji.parse(el, { base: TWEMOJI_BASE, folder: 'svg', ext: '.svg' });
+}
+
 // ── PREVIEW MODE ──────────────────────────────────────────────────────────────
 function isPreviewMode(){ return sessionStorage.getItem('wc2026_preview')==='1'; }
 function enablePreview(){
@@ -963,11 +999,12 @@ function renderMatches(){
     html+=`<div class="group-label">${g}</div>`;
     STATE.matches.filter(m=>m.group===g).forEach(m=>{
       let pill='';
-      if(m.result==='home')pill=`<span class="result-pill result-home">${shortName(m.home)} Win</span>`;
-      else if(m.result==='away')pill=`<span class="result-pill result-away">${shortName(m.away)} Win</span>`;
+      if(m.result==='home')pill=`<span class="result-pill result-home">${flagOf(m.home)}${shortName(m.home)} Win</span>`;
+      else if(m.result==='away')pill=`<span class="result-pill result-away">${flagOf(m.away)}${shortName(m.away)} Win</span>`;
       else if(m.result==='draw')pill=`<span class="result-pill result-draw">Draw</span>`;
       else pill=`<span class="result-pill result-pending">TBD</span>`;
       const hn=shortName(m.home),an=shortName(m.away);
+      const fh=flagOf(m.home),fa=flagOf(m.away);
       // Score display: "2 – 1" when available, "vs" otherwise
       const scoreBox = m.score
         ? `<div class="score-box">${m.score.home} – ${m.score.away}</div>`
@@ -991,9 +1028,9 @@ function renderMatches(){
       const clickAttr = hasDetail ? `onclick="toggleMatchDetail(${m.id})"` : '';
       html+=`<div class="match-wrap">
         <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
-          <div class="team">${hn}</div>
+          <div class="team">${fh}${hn}</div>
           ${scoreBox}
-          <div class="team away">${an}</div>
+          <div class="team away">${fa}${an}</div>
           <div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div>
         </div>`;
       if(hasDetail){
@@ -1009,6 +1046,7 @@ function renderMatches(){
     });
   });
   document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
+  applyFlags('matches-list');
 }
 
 // ── PICKS LOCK HELPER ─────────────────────────────────────────────────────────
@@ -1052,10 +1090,11 @@ function showPlayerPicks(name){
       resultLabel=m.result==='home'?hn+' Win':m.result==='away'?an+' Win':'Draw';
       cls=ok?'pick-correct':'pick-wrong';pts=ok?'+1':'0';
     }
-    return`<tr class="${cls}"><td>${hn} vs ${an}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${pts}</td></tr>`;
+    return`<tr class="${cls}"><td>${withFlag(hn)} vs ${withFlag(an)}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${pts}</td></tr>`;
   }).join('');
   document.getElementById('picks-tbody').innerHTML=rows;
   document.getElementById('picks-detail').classList.add('open');
+  applyFlags('picks-tbody');
 }
 
 // ── RENDER SPECIAL BETS ───────────────────────────────────────────────────────
@@ -1225,7 +1264,7 @@ function renderBracketTab(){
     standings[g].forEach((t,i)=>{
       const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
       const adv=i<2?'<span style="font-size:0.6rem;color:var(--gold)"> Q</span>':'';
-      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${t.team}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
+      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
     });
     html+=`</div>`;
   });
@@ -1240,12 +1279,12 @@ function renderBracketTab(){
     else picks.forEach(team=>{
       let cls='pending',badge='';
       if(actual.length){const hit=actual.some(t=>t.toLowerCase().trim()===team.toLowerCase().trim());cls=hit?'correct':'wrong';badge=hit?`+${pts}`:'';}
-      html+=`<div class="adv-team ${cls}"><span>${team}</span><span class="adv-team-pts">${badge}</span></div>`;
+      html+=`<div class="adv-team ${cls}"><span>${withFlag(team)}</span><span class="adv-team-pts">${badge}</span></div>`;
     });
     const earned=bpts[key]||0;if(actual.length&&earned>0)html+=`<div style="font-size:0.7rem;color:var(--gold);margin-top:0.4rem;text-align:right">+${earned} pts</div>`;
     html+=`</div>`;
   });
-  html+=`</div>`;cont.innerHTML=html;
+  html+=`</div>`;cont.innerHTML=html;applyFlags('bracket-content');
 }
 
 // ── SUBMIT PICKS TAB ──────────────────────────────────────────────────────────
@@ -1379,7 +1418,7 @@ function renderKnockoutSection(){
       ${r32complete?'<span style="font-size:0.7rem;color:var(--green)">✓</span>':''}
     </div>
     <div class="stage-pool">
-      ${analysis.definite.map(t=>`<button class="stage-pill sel" disabled>${t}</button>`).join('')}
+      ${analysis.definite.map(t=>`<button class="stage-pill sel" disabled>${withFlag(t)}</button>`).join('')}
     </div>`;
 
   if(analysis.uncertain.length>0){
@@ -1392,7 +1431,7 @@ function renderKnockoutSection(){
         ${analysis.uncertain.map(t=>{
           const isSel=extra.includes(t);
           const full=!isSel&&slotsLeft===0;
-          return`<button class="stage-pill${isSel?' sel':''}" ${full?'disabled':''} onclick="toggleR32Extra('${t}')">${t}</button>`;
+          return`<button class="stage-pill${isSel?' sel':''}" ${full?'disabled':''} onclick="toggleR32Extra('${t}')">${withFlag(t)}</button>`;
         }).join('')}
       </div>
     </div>`;
@@ -1427,13 +1466,14 @@ function renderKnockoutSection(){
         ${pool.map(team=>{
           const isSel=selected.includes(team);
           const full=isMulti&&!isSel&&count>=limit;
-          return`<button class="stage-pill${isSel?' sel':''}"${full?' disabled':''} onclick="toggleStagePick('${stage}','${team}')">${team}</button>`;
+          return`<button class="stage-pill${isSel?' sel':''}"${full?' disabled':''} onclick="toggleStagePick('${stage}','${team}')">${withFlag(team)}</button>`;
         }).join('')}
       </div>
     </div>`;
   }
   cont.innerHTML=html;
   window.scrollTo({top:sy,behavior:'instant'});
+  applyFlags('knockout-section');
 }
 
 function renderSubmitTab(){
@@ -1453,10 +1493,11 @@ function renderSubmitTab(){
     const rows=gm.map(m=>{
       const pick=FORM_STATE.picks[m.id]||'';
       const hn=shortName(m.home),an=shortName(m.away);
+      const fh=flagOf(m.home),fa=flagOf(m.away);
       return`<div class="match-pick-row">
-        <button class="pick-btn${pick==='home'?' ph':''}" onclick="setFormPick(${m.id},'home','${g}')">${hn}</button>
+        <button class="pick-btn${pick==='home'?' ph':''}" onclick="setFormPick(${m.id},'home','${g}')">${fh}${hn}</button>
         <button class="pick-btn${pick==='draw'?' pd':''}" onclick="setFormPick(${m.id},'draw','${g}')">Draw</button>
-        <button class="pick-btn${pick==='away'?' pa':''}" onclick="setFormPick(${m.id},'away','${g}')">${an}</button>
+        <button class="pick-btn${pick==='away'?' pa':''}" onclick="setFormPick(${m.id},'away','${g}')">${fa}${an}</button>
       </div>`;
     }).join('');
     const isOpen=idx===0;
@@ -1540,6 +1581,7 @@ function renderSubmitTab(){
     <p style="font-size:0.75rem;color:var(--muted);margin-top:0.75rem">Your progress saves automatically in this browser.</p>`;
 
   renderKnockoutSection();
+  applyFlags('group-accordions');
 }
 
 function selectFormColor(c){
