@@ -149,6 +149,18 @@ const STAGE_MAP = {
 };
 
 async function run() {
+  // Only run on schedule during the tournament window; manual triggers always run
+  const isManual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
+  if (!isManual) {
+    const now   = new Date();
+    const start = new Date('2026-06-11T00:00:00Z');
+    const end   = new Date('2026-07-20T00:00:00Z'); // day after the Final
+    if (now < start || now > end) {
+      console.log(`Outside tournament window (${start.toDateString()} – ${end.toDateString()}). Skipping scheduled run.`);
+      process.exit(0);
+    }
+  }
+
   console.log('Fetching WC2026 matches from football-data.org...');
 
   const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
@@ -237,6 +249,22 @@ async function run() {
 
   // Total goals
   if (totalGoals > 0) updates['results/total_goals'] = String(totalGoals);
+
+  // Auto-set tournament_winner from the Final winner (so admin doesn't need to)
+  if (updates['results/winner']) {
+    updates['results/tournament_winner'] = updates['results/winner'];
+  }
+
+  // Compute live Golden Boot leader (top non-OG scorer) for reference display
+  const scorerTotals = {};
+  Object.entries(scorersByMatch).forEach(([, list]) => {
+    list.forEach(s => {
+      if (!scorerTotals[s.player]) scorerTotals[s.player] = { player: s.player, team: s.team, goals: 0 };
+      scorerTotals[s.player].goals++;
+    });
+  });
+  const topScorer = Object.values(scorerTotals).sort((a, b) => b.goals - a.goals)[0];
+  if (topScorer) updates['results/golden_boot_leader'] = topScorer.player;
 
   // Scorers
   for (const [id, scorers] of Object.entries(scorersByMatch)) {

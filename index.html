@@ -457,7 +457,7 @@ function applyDataSnapshot(data) {
   STATE = {
     matches, players, source:'live', knockout,
     special: {
-      'Tournament Winner': results.tournament_winner || null,
+      'Tournament Winner': results.tournament_winner || results.winner || null,
       'Golden Boot':       results.golden_boot       || null,
       'Golden Ball':       results.golden_ball        || null,
       'Golden Glove':      results.golden_glove       || null,
@@ -1653,29 +1653,21 @@ function renderAdminContent(cont){
 
   cont.innerHTML=`
     <datalist id="players-dl-admin">${playerOptsFull}</datalist>
-    <div class="admin-section">
-      <div class="admin-section-title">Match Results</div>
-      ${matchRows}
+    <datalist id="teams-dl-admin">${teamOptsFull}</datalist>
+
+    <div class="config-box" style="margin-bottom:1.5rem">
+      <strong>Match results &amp; knockout stages are imported automatically</strong>
+      The GitHub Action fetches live data every 30 min during the tournament (Jun 11 – Jul 19).
+      Only enter the awards below — these can't be determined from match data alone.
     </div>
+
     <div class="admin-section">
-      <div class="admin-section-title">Knockout Results</div>
-      ${koChipBlock('r16','Round of 16 — 16 teams')}
-      ${koChipBlock('qf', 'Quarter-Finalists — 8 teams')}
-      ${koChipBlock('sf', 'Semi-Finalists — 4 teams')}
-      ${koChipBlock('final','Finalists — 2 teams')}
-      <div class="ko-row"><div class="ko-label">Tournament Winner</div>${teamSel('ar-winner',ko.winner||'')}</div>
-      <div class="ko-row"><div class="ko-label">Bronze Medal Winner</div>${teamSel('ar-bronze',ko.bronze||'')}</div>
-    </div>
-    <div class="admin-section">
-      <div class="admin-section-title">Special Bet Results</div>
-      <div class="ko-row"><div class="ko-label">Golden Boot — Top Scorer</div><input class="ko-input" id="ar-gb" value="${sp['Golden Boot']||''}" list="players-dl-admin"></div>
+      <div class="admin-section-title">Award Results</div>
+      <div class="ko-row"><div class="ko-label">Golden Boot — confirm at end of tournament</div><input class="ko-input" id="ar-gb" value="${sp['Golden Boot']||''}" list="players-dl-admin" placeholder="Live leader auto-shows in Special Bets tab"></div>
       <div class="ko-row"><div class="ko-label">Golden Ball — Best Player</div><input class="ko-input" id="ar-gball" value="${sp['Golden Ball']||''}" list="players-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">Golden Glove — Best Goalkeeper</div><input class="ko-input" id="ar-gglove" value="${sp['Golden Glove']||''}" list="players-dl-admin"></div>
-      <div class="ko-row"><div class="ko-label">Top Scoring Team</div><input class="ko-input" id="ar-tst" value="${sp['Top Scoring Team']||''}" list="teams-dl-admin"></div>
-      <datalist id="teams-dl-admin">${teamOptsFull}</datalist>
       <div class="ko-row"><div class="ko-label">Most Assists</div><input class="ko-input" id="ar-assist" value="${sp['Most Assists']||''}" list="players-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">Most Cards Team</div><input class="ko-input" id="ar-cards" value="${sp['Most Cards Team']||''}" list="teams-dl-admin"></div>
-      <div class="ko-row"><div class="ko-label">Total Goals in Tournament</div><input class="ko-input" id="ar-goals" type="number" value="${sp['Total Goals']||''}"></div>
       <div class="ko-row"><div class="ko-label">First Team to Score</div><input class="ko-input" id="ar-first" value="${sp['First Scorer']||''}" list="teams-dl-admin"></div>
     </div>
     <button class="btn" onclick="saveAdminData()" style="min-width:160px;margin-top:0">Save All Results</button>
@@ -1693,22 +1685,15 @@ function renderAdminContent(cont){
 
 function saveAdminData(){
   if(!db){document.getElementById('admin-save-status').textContent='✗ Not connected.';return;}
-  const updates={};
-  DEMO_MATCHES.forEach(m=>{const v=document.getElementById(`ar-${m.id}`)?.value||null;updates[`results/${m.id}`]=v;});
-  updates['results/r16']   =ADMIN_KO.r16.length  ?ADMIN_KO.r16.join(',')  :null;
-  updates['results/qf']    =ADMIN_KO.qf.length   ?ADMIN_KO.qf.join(',')   :null;
-  updates['results/sf']    =ADMIN_KO.sf.length   ?ADMIN_KO.sf.join(',')   :null;
-  updates['results/final'] =ADMIN_KO.final.length?ADMIN_KO.final.join(','):null;
-  updates['results/winner']=document.getElementById('ar-winner')?.value||null;
-  updates['results/bronze']=document.getElementById('ar-bronze')?.value||null;
-  updates['results/golden_boot']     =document.getElementById('ar-gb')?.value.trim()||null;
-  updates['results/golden_ball']     =document.getElementById('ar-gball')?.value.trim()||null;
-  updates['results/golden_glove']    =document.getElementById('ar-gglove')?.value.trim()||null;
-  updates['results/top_scoring_team']=document.getElementById('ar-tst')?.value.trim()||null;
-  updates['results/most_assists']    =document.getElementById('ar-assist')?.value.trim()||null;
-  updates['results/most_cards_team'] =document.getElementById('ar-cards')?.value.trim()||null;
-  updates['results/total_goals']     =document.getElementById('ar-goals')?.value.trim()||null;
-  updates['results/first_scorer']    =document.getElementById('ar-first')?.value.trim()||null;
+  // Only save the awards that can't be auto-imported
+  const updates={
+    'results/golden_boot':      document.getElementById('ar-gb')?.value.trim()||null,
+    'results/golden_ball':      document.getElementById('ar-gball')?.value.trim()||null,
+    'results/golden_glove':     document.getElementById('ar-gglove')?.value.trim()||null,
+    'results/most_assists':     document.getElementById('ar-assist')?.value.trim()||null,
+    'results/most_cards_team':  document.getElementById('ar-cards')?.value.trim()||null,
+    'results/first_scorer':     document.getElementById('ar-first')?.value.trim()||null,
+  };
   const st=document.getElementById('admin-save-status');st.textContent='Saving…';
   db.ref('wc2026').update(updates)
     .then(()=>{st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);})
