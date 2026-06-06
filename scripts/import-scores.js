@@ -199,12 +199,30 @@ async function run() {
   console.log('Fetching WC2026 matches from football-data.org...');
 
   const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
-    headers: { 'X-Auth-Token': API_KEY },
+    headers: {
+      'X-Auth-Token': API_KEY,
+      'X-Unfold-Goals': 'true', // ask API to include goals array in response
+    },
   });
 
+  // Log rate-limit headers so we can monitor usage
+  const requestsAvailable = parseInt(res.headers.get('X-RequestsAvailable') ?? '99');
+  const resetInSeconds    = res.headers.get('X-RequestCounter-Reset') ?? '?';
+  const apiVersion        = res.headers.get('X-API-Version') ?? '?';
+  console.log(`API v${apiVersion} — ${requestsAvailable} requests remaining (resets in ${resetInSeconds}s)`);
+
   if (!res.ok) {
+    if (res.status === 429) {
+      console.error(`Rate limited. Resets in ${resetInSeconds}s. Skipping this run.`);
+      process.exit(0); // exit cleanly — cron will retry in 30 min
+    }
     const body = await res.text();
     throw new Error(`API error ${res.status}: ${body}`);
+  }
+
+  // Warn if getting close to the limit (free tier: 10 req/min)
+  if (requestsAvailable < 3) {
+    console.warn(`⚠ Only ${requestsAvailable} API requests remaining before throttle!`);
   }
 
   const data = await res.json();
