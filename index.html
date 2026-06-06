@@ -948,39 +948,57 @@ function renderBracketTab(){
 const FS_KEY='wc2026_form_state';
 let FORM_STATE=loadFormState();
 function loadFormState(){
-  const def={name:'',color:'#3B82F6',picks:{},special:{boot:'',bestPlayer:'',bestGoalkeeper:'',topScoringTeam:'',mostAssists:'',mostCards:'',totalGoals:'',firstScorer:''},stagePicks:{r16:[],qf:[],sf:[],final:[],winner:'',bronze:''}};
+  const def={name:'',color:'#3B82F6',picks:{},special:{boot:'',bestPlayer:'',bestGoalkeeper:'',topScoringTeam:'',mostAssists:'',mostCards:'',totalGoals:'',firstScorer:''},stagePicks:{r32extra:[],r16:[],qf:[],sf:[],final:[],winner:'',bronze:''}};
   try{const s=JSON.parse(localStorage.getItem(FS_KEY))||{};s.special={...def.special,...(s.special||{})};return{...def,...s};}
   catch(e){return def;}
 }
 function saveFormState(){localStorage.setItem(FS_KEY,JSON.stringify(FORM_STATE));}
 
 // ── KNOCKOUT STAGE PICKER ─────────────────────────────────────────────────────
-const STAGE_LIMITS  ={r16:16,qf:8,sf:4,final:2,winner:1,bronze:1};
-const STAGE_LABELS  ={r16:'Round of 16',qf:'Quarter-Finals',sf:'Semi-Finals',final:'Finalists',winner:'Tournament Winner',bronze:'Bronze Medal'};
-const STAGE_ORDER   =['r16','qf','sf','final','winner','bronze'];
+const STAGE_LIMITS ={r16:16,qf:8,sf:4,final:2,winner:1,bronze:1};
+const STAGE_LABELS ={r16:'Round of 16',qf:'Quarter-Finals',sf:'Semi-Finals',final:'Finalists',winner:'Tournament Winner',bronze:'Bronze Medal'};
+const STAGE_ORDER  =['r16','qf','sf','final','winner','bronze'];
 
-// Build the pool of teams that could reach the R32 (32+ if 3rd-place are tied).
-function buildR32Pool(){
+// Analyse the R32 qualification picture from current group picks.
+// Returns { definite: [24 + clear 3rd], uncertain: [tied 3rd teams], slotsNeeded: N }
+function buildR32Analysis(){
   const standings=computeGroupStandings(FORM_STATE.picks);
   const groups=Object.keys(standings).sort();
-  const pool=[];
+  const definite=[];
   groups.forEach(g=>{
-    if(standings[g][0])pool.push(standings[g][0].team);
-    if(standings[g][1])pool.push(standings[g][1].team);
+    if(standings[g][0])definite.push(standings[g][0].team);
+    if(standings[g][1])definite.push(standings[g][1].team);
   });
   const thirds=groups.map(g=>standings[g][2]?{...standings[g][2],group:g}:null).filter(Boolean);
   thirds.sort((a,b)=>b.pts-a.pts||b.w-a.w||a.group.localeCompare(b.group));
-  // Include all teams tied at or above the 8th-best score so uncertain slots are visible
+  if(!thirds.length)return{definite,uncertain:[],slotsNeeded:8};
+  // Find what score the 8th slot has
   const eighth=thirds[7];
-  thirds.forEach(t=>{
-    if(!eighth||t.pts>eighth.pts||(t.pts===eighth.pts&&t.w>=eighth.w))pool.push(t.team);
-  });
-  return pool;
+  const score=t=>t.pts*100+t.w;
+  const eighth_score=eighth?score(eighth):0;
+  const clear=thirds.filter(t=>score(t)>eighth_score);
+  const tied =thirds.filter(t=>score(t)===eighth_score);
+  const slotsNeeded=8-clear.length;
+  if(slotsNeeded>=tied.length){
+    // All tied teams qualify — no uncertainty
+    clear.forEach(t=>definite.push(t.team));
+    tied.forEach(t=>definite.push(t.team));
+    return{definite,uncertain:[],slotsNeeded:0};
+  }
+  clear.forEach(t=>definite.push(t.team));
+  return{definite,uncertain:tied.map(t=>t.team),slotsNeeded};
+}
+
+// The final 32 qualifiers = definite + user-chosen uncertain
+function getR32Pool(){
+  const analysis=buildR32Analysis();
+  const extra=(FORM_STATE.stagePicks?.r32extra||[]).filter(t=>analysis.uncertain.includes(t));
+  return[...analysis.definite,...extra];
 }
 
 function getStagePool(stage){
   const sp=FORM_STATE.stagePicks||{};
-  if(stage==='r16')   return buildR32Pool();
+  if(stage==='r16')   return getR32Pool();
   if(stage==='qf')    return sp.r16||[];
   if(stage==='sf')    return sp.qf||[];
   if(stage==='final') return sp.sf||[];
@@ -989,8 +1007,28 @@ function getStagePool(stage){
   return[];
 }
 
+// Toggle a team in the uncertain 3rd-place R32 slots
+function toggleR32Extra(team){
+  if(!FORM_STATE.stagePicks)FORM_STATE.stagePicks={r32extra:[],r16:[],qf:[],sf:[],final:[],winner:'',bronze:''};
+  const sp=FORM_STATE.stagePicks;
+  const analysis=buildR32Analysis();
+  const extra=sp.r32extra||[];
+  const idx=extra.indexOf(team);
+  if(idx>=0){
+    extra.splice(idx,1);sp.r32extra=extra;
+    // Cascade remove from later stages
+    ['r16','qf','sf','final'].forEach(s=>sp[s]=(sp[s]||[]).filter(t=>t!==team));
+    if(sp.winner===team)sp.winner='';
+    if(sp.bronze===team)sp.bronze='';
+  } else if(extra.length<analysis.slotsNeeded){
+    extra.push(team);sp.r32extra=extra;
+  }
+  saveFormState();
+  renderKnockoutSection();
+}
+
 function toggleStagePick(stage,team){
-  if(!FORM_STATE.stagePicks)FORM_STATE.stagePicks={r16:[],qf:[],sf:[],final:[],winner:'',bronze:''};
+  if(!FORM_STATE.stagePicks)FORM_STATE.stagePicks={r32extra:[],r16:[],qf:[],sf:[],final:[],winner:'',bronze:''};
   const sp=FORM_STATE.stagePicks;
   if(stage==='winner'||stage==='bronze'){
     sp[stage]=sp[stage]===team?'':team;
@@ -999,7 +1037,6 @@ function toggleStagePick(stage,team){
     const idx=arr.indexOf(team);
     if(idx>=0){
       arr.splice(idx,1);sp[stage]=arr;
-      // Cascade: remove from all later stages
       const si=STAGE_ORDER.indexOf(stage);
       STAGE_ORDER.slice(si+1).forEach(s=>{
         if(s==='winner'||s==='bronze'){if(sp[s]===team)sp[s]='';}
@@ -1016,34 +1053,70 @@ function toggleStagePick(stage,team){
 function renderKnockoutSection(){
   const cont=document.getElementById('knockout-section');if(!cont)return;
   const sp=FORM_STATE.stagePicks||{};
-  const pickedEnough=Object.keys(FORM_STATE.picks).length>=12;
-  if(!pickedEnough){
-    cont.innerHTML='<div class="stage-hint">Fill in your group stage picks above first — the qualifying teams will appear here.</div>';
+  if(Object.keys(FORM_STATE.picks).length<12){
+    cont.innerHTML='<div class="stage-hint">Fill in your group stage picks above first — qualifying teams will appear here.</div>';
     return;
   }
+  const analysis=buildR32Analysis();
+  const extra=(sp.r32extra||[]).filter(t=>analysis.uncertain.includes(t));
+  // Sync in case group picks changed and some uncertain picks are now invalid
+  if(extra.length!==(sp.r32extra||[]).length){sp.r32extra=extra;saveFormState();}
+  const r32pool=[...analysis.definite,...extra];
+  const slotsLeft=analysis.slotsNeeded-extra.length;
+  const r32complete=r32pool.length===32||(analysis.uncertain.length===0);
+
   let html='';
+
+  // ── Round of 32 ──────────────────────────────────────────────────
+  html+=`<div class="stage-section">
+    <div style="display:flex;align-items:baseline;gap:0.5rem;margin-bottom:0.5rem">
+      <div class="ko-label" style="margin:0">Round of 32 — ${r32pool.length}/32 qualified</div>
+      ${r32complete?'<span style="font-size:0.7rem;color:var(--green)">✓</span>':''}
+    </div>
+    <div class="stage-pool">
+      ${analysis.definite.map(t=>`<button class="stage-pill sel" disabled>${flagImg(t,14)}${t}</button>`).join('')}
+    </div>`;
+
+  if(analysis.uncertain.length>0){
+    html+=`<div style="margin-top:0.75rem;padding:0.7rem 0.85rem;background:rgba(232,184,75,0.07);border:1px solid rgba(232,184,75,0.2);border-radius:8px">
+      <div style="font-size:0.72rem;color:rgba(232,184,75,0.85);margin-bottom:0.5rem">
+        ⚠ ${analysis.uncertain.length} teams tied for ${analysis.slotsNeeded} remaining 3rd-place spot${analysis.slotsNeeded!==1?'s':''}
+        — pick the ${analysis.slotsNeeded} you think qualify (${extra.length}/${analysis.slotsNeeded} picked):
+      </div>
+      <div class="stage-pool">
+        ${analysis.uncertain.map(t=>{
+          const isSel=extra.includes(t);
+          const full=!isSel&&slotsLeft===0;
+          return`<button class="stage-pill${isSel?' sel':''}" ${full?'disabled':''} onclick="toggleR32Extra('${t}')">${flagImg(t,14)}${t}</button>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }
+  html+=`</div>`;
+
+  if(!r32complete){
+    html+=`<div class="stage-hint">Complete the Round of 32 above to pick the next stages.</div>`;
+    cont.innerHTML=html;return;
+  }
+
+  // ── R16 → Final → Winner → Bronze ────────────────────────────────
   for(const stage of STAGE_ORDER){
     const pool=getStagePool(stage);
     const isMulti=stage!=='winner'&&stage!=='bronze';
     const selected=isMulti?(sp[stage]||[]):(sp[stage]?[sp[stage]]:[]);
     const limit=STAGE_LIMITS[stage];
     const count=selected.length;
-    const prevStage=STAGE_ORDER[STAGE_ORDER.indexOf(stage)-1];
-    const prevCount=(prevStage==='r16'?pool:((sp[prevStage]||[]))).length;
-    // Gate: only show if previous stage has enough selected (or it's R16)
-    if(stage!=='r16'){
-      const prevRequired={qf:1,sf:1,final:1,winner:2,bronze:4};
-      const prev=sp[prevStage];
+    const si=STAGE_ORDER.indexOf(stage);
+    if(si>0){
+      const prev=sp[STAGE_ORDER[si-1]];
       const prevLen=Array.isArray(prev)?prev.length:(prev?1:0);
-      if(prevLen===0){break;}
+      if(prevLen===0)break;
     }
-    if(pool.length===0)break;
-    const note=pool.length>32?`<span style="font-size:0.7rem;color:rgba(232,184,75,0.8);margin-left:0.5rem">⚠ ${pool.length-24} teams tied for final spots — pick the ones you think qualify</span>`:'';
+    if(!pool.length)break;
     html+=`<div class="stage-section">
       <div style="display:flex;align-items:baseline;gap:0.5rem;margin-bottom:0.4rem">
         <div class="ko-label" style="margin:0">${STAGE_LABELS[stage]}${isMulti?` — ${count}/${limit}`:''}</div>
         ${count===limit?'<span style="font-size:0.7rem;color:var(--green)">✓</span>':''}
-        ${stage==='r16'?note:''}
       </div>
       <div class="stage-pool">
         ${pool.map(team=>{
@@ -1054,7 +1127,7 @@ function renderKnockoutSection(){
       </div>
     </div>`;
   }
-  cont.innerHTML=html||'<div class="stage-hint">Pick your Round of 16 teams above to unlock the next stages.</div>';
+  cont.innerHTML=html;
 }
 
 function renderSubmitTab(){
@@ -1208,6 +1281,8 @@ function openAccordion(g){document.querySelector(`#ga-${g} .ga-header`)?.classLi
 // Persist bracket winner selections to localStorage so they survive page reloads.
 function bracketToAdvancement(){
   const sp=FORM_STATE.stagePicks||{};
+  // r16 = the full 32 qualifiers (definite + user-picked uncertain)
+  const r32=getR32Pool();
   return{
     r16:   sp.r16   ||[],
     qf:    sp.qf    ||[],
