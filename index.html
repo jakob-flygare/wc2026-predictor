@@ -55,6 +55,19 @@
   .section.active { display: block; }
 
   .leaderboard-grid { display: grid; gap: 0.5rem; }
+  .lb-wrap { cursor:pointer; }
+  .lb-wrap:hover .lb-row { border-color:rgba(255,255,255,0.12); }
+  .form-arrow { font-size:0.72rem; margin-left:0.3rem; vertical-align:middle; }
+  .lb-breakdown { display:none; padding:0.85rem 1.2rem; background:var(--surface2); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; margin-top:-0.5rem; padding-top:0.9rem; }
+  .lb-breakdown.open { display:block; }
+  .lbd-section { margin-bottom:0.9rem; }
+  .lbd-section:last-child { margin-bottom:0; }
+  .lbd-title { font-size:0.66rem; font-weight:600; color:var(--gold); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:0.35rem; }
+  .lbd-row { display:flex; justify-content:space-between; align-items:baseline; font-size:0.8rem; padding:0.2rem 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .lbd-row:last-child { border-bottom:none; }
+  .lbd-label { color:var(--muted); }
+  .lbd-pick { color:var(--text); margin:0 0.3rem; }
+  .lbd-pts { font-family:'Bebas Neue',sans-serif; font-size:1rem; }
   .lb-row { display: grid; grid-template-columns: 2.5rem 1fr auto; align-items: center; gap: 1rem; padding: 0.9rem 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s; }
   .lb-row.rank-1 { background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, var(--surface) 60%); border-color: rgba(201,168,76,0.35); }
   .lb-row.rank-2 { border-color: rgba(180,180,180,0.25); }
@@ -465,6 +478,7 @@ function applyDataSnapshot(data) {
     }));
   STATE = {
     matches, players, source:'live', knockout,
+    prevRanks: data.config?.prevRanks || {},
     special: {
       'Tournament Winner': results.tournament_winner || results.winner || null,
       'Golden Boot':       results.golden_boot       || null,
@@ -804,7 +818,7 @@ const R32_BRACKET=[
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-let STATE={matches:[],players:[],special:{},source:'demo',knockout:{}};
+let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
 let selectedPlayer=null;
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -948,6 +962,108 @@ function calcPoints(player){
   return{pts,correct,total};
 }
 
+// ── LEADERBOARD BREAKDOWN ─────────────────────────────────────────────────────
+function formArrow(name, currentRank){
+  const prev=STATE.prevRanks?.[name];
+  if(!prev||prev===currentRank)return'';
+  if(prev>currentRank)return`<span class="form-arrow" style="color:var(--green)">↑${prev-currentRank}</span>`;
+  return`<span class="form-arrow" style="color:var(--red)">↓${currentRank-prev}</span>`;
+}
+
+function lbId(name){ return'lbd-'+name.replace(/[^a-z0-9]/gi,'_'); }
+function toggleLbBreakdown(name,e){
+  e?.stopPropagation();
+  const el=document.getElementById(lbId(name));
+  if(el)el.classList.toggle('open');
+}
+
+function renderPlayerBreakdown(player, goalsWinners){
+  const gp=calcPoints(player);
+  const bp=calcBracketPoints(player);
+  const ko=STATE.knockout||{};
+  const sp=STATE.special||{};
+  const picks=player.special||{};
+  let html='';
+
+  // ── Group stage ──
+  html+=`<div class="lbd-section">
+    <div class="lbd-title">Group Stage</div>
+    <div class="lbd-row">
+      <span class="lbd-label">${gp.correct} / ${gp.total} matches correct</span>
+      <span class="lbd-pts" style="color:var(--gold)">+${gp.pts}</span>
+    </div>
+  </div>`;
+
+  // ── Bracket ──
+  const BSTAGES=[
+    {k:'r16',  label:'Round of 16',     pts:BRACKET_PTS.r16,   multi:true},
+    {k:'qf',   label:'Quarter-Finals',  pts:BRACKET_PTS.qf,    multi:true},
+    {k:'sf',   label:'Semi-Finals',     pts:BRACKET_PTS.sf,    multi:true},
+    {k:'final',label:'Finalists',       pts:BRACKET_PTS.final, multi:true},
+    {k:'winner',label:'Winner',         pts:BRACKET_PTS.winner,multi:false},
+    {k:'bronze',label:'Bronze Medal',   pts:BRACKET_PTS.bronze,multi:false},
+  ];
+  const bracket=player.bracket||{};
+  let bracketHtml='';
+  BSTAGES.forEach(({k,label,pts,multi})=>{
+    const actual=k==='winner'?(ko.winner?[ko.winner]:[]):k==='bronze'?(ko.bronze?[ko.bronze]:[]):(ko[k]||[]);
+    const predicted=k==='winner'?(bracket.winner?[bracket.winner]:[]):k==='bronze'?(bracket.bronze?[bracket.bronze]:[]):(bracket[k]||[]);
+    if(!predicted.length)return;
+    const earned=bp[k]||0;
+    let right='';
+    if(!actual.length){
+      right=`<span style="color:var(--muted)">not played yet</span>`;
+    } else if(!multi){
+      right=earned>0
+        ?`<span class="lbd-pts" style="color:var(--green)">✓ +${pts}</span>`
+        :`<span style="color:var(--red)">✗</span>`;
+    } else {
+      const correct=predicted.filter(t=>actual.some(a=>a.toLowerCase().trim()===t.toLowerCase().trim())).length;
+      right=`<span class="lbd-pts" style="color:${earned>0?'var(--gold)':'var(--muted)'}">${correct}/${predicted.length} → +${earned}</span>`;
+    }
+    bracketHtml+=`<div class="lbd-row"><span class="lbd-label">${label}</span>${right}</div>`;
+  });
+  if(bracketHtml){
+    html+=`<div class="lbd-section"><div class="lbd-title">Knockout Bracket</div>${bracketHtml}</div>`;
+  }
+
+  // ── Special bets ──
+  const SBETS=[
+    {key:'boot',           label:'Golden Boot',        stateKey:'Golden Boot',      pts:SPECIAL_PTS.boot},
+    {key:'bestPlayer',     label:'Golden Ball',         stateKey:'Golden Ball',       pts:SPECIAL_PTS.bestPlayer},
+    {key:'bestGoalkeeper', label:'Golden Glove',        stateKey:'Golden Glove',      pts:SPECIAL_PTS.bestGoalkeeper},
+    {key:'topScoringTeam', label:'Top Scoring Team',    stateKey:'Top Scoring Team',  pts:SPECIAL_PTS.topScoringTeam},
+    {key:'mostAssists',    label:'Most Assists',        stateKey:'Most Assists',       pts:SPECIAL_PTS.mostAssists},
+    {key:'mostCards',      label:'Most Cards Team',     stateKey:'Most Cards Team',    pts:SPECIAL_PTS.mostCards},
+    {key:'totalGoals',     label:'Total Goals',         stateKey:'Total Goals',        pts:SPECIAL_PTS.totalGoals, closest:true},
+    {key:'firstScorer',    label:'First Team to Score', stateKey:'First Scorer',       pts:SPECIAL_PTS.firstScorer},
+  ];
+  let sbHtml='';
+  SBETS.forEach(({key,label,stateKey,pts,closest})=>{
+    const pick=picks[key];if(!pick)return;
+    const answer=sp[stateKey];
+    let right='';
+    if(!answer){
+      right=`<span style="color:var(--muted)">awaiting</span>`;
+    } else if(closest){
+      right=goalsWinners.has(player.name)
+        ?`<span class="lbd-pts" style="color:var(--green)">✓ closest +${pts}</span>`
+        :`<span style="color:var(--muted)">not closest</span>`;
+    } else {
+      const ok=pick.toLowerCase().trim()===answer.toLowerCase().trim();
+      right=ok
+        ?`<span class="lbd-pts" style="color:var(--green)">✓ +${pts}</span>`
+        :`<span style="color:var(--red)">✗ wrong</span>`;
+    }
+    sbHtml+=`<div class="lbd-row"><span class="lbd-label">${label}: <span class="lbd-pick">${pick}</span></span>${right}</div>`;
+  });
+  if(sbHtml){
+    html+=`<div class="lbd-section"><div class="lbd-title">Special Bets</div>${sbHtml}</div>`;
+  }
+
+  return html;
+}
+
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
@@ -970,23 +1086,31 @@ function renderLeaderboard(){
   const rc=['rank-1','rank-2','rank-3'];
   document.getElementById('lb-grid').innerHTML=scored.length
     ?scored.map((p,i)=>{
+        const rank=i+1;
         const pct=p.total>0?Math.round((p.correct/p.total)*100):0;
         const bTag=p.bracketPts>0?`<span class="bracket-pts-tag">+${p.bracketPts} bracket</span>`:'';
+        const arrow=formArrow(p.name,rank);
+        const id=lbId(p.name);
         if(locked){
-          return`<div class="lb-row">
-            <div class="rank-num" style="color:var(--muted)">—</div>
-            <div><div class="lb-name">${p.name}</div><div class="lb-meta" style="color:var(--green)">✓ Picks submitted</div></div>
-            <div style="font-size:0.75rem;color:var(--muted);text-align:right">Hidden<br>until Jun 11</div>
+          return`<div class="lb-wrap" onclick="toggleLbBreakdown('${p.name.replace(/'/g,"\\'")}',event)">
+            <div class="lb-row">
+              <div class="rank-num" style="color:var(--muted)">—</div>
+              <div><div class="lb-name">${p.name}</div><div class="lb-meta" style="color:var(--green)">✓ Picks submitted</div></div>
+              <div style="font-size:0.75rem;color:var(--muted);text-align:right">Hidden<br>until Jun 11</div>
+            </div>
           </div>`;
         }
-        return`<div class="lb-row ${rc[i]||''}">
-          <div class="rank-num">${i+1}</div>
-          <div>
-            <div class="lb-name">${p.name}${bTag}</div>
-            <div class="lb-meta">${p.groupPts} group pts · ${p.correct}/${p.total} correct · ${pct}%</div>
-            <div class="progress-bar-wrap" style="max-width:160px"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+        return`<div class="lb-wrap" onclick="toggleLbBreakdown('${p.name.replace(/'/g,"\\'")}',event)">
+          <div class="lb-row ${rc[i]||''}">
+            <div class="rank-num">${rank}${arrow}</div>
+            <div>
+              <div class="lb-name">${p.name}${bTag}</div>
+              <div class="lb-meta">${p.groupPts} group · ${p.bracketPts} bracket · ${p.specialPts||0} specials</div>
+              <div class="progress-bar-wrap" style="max-width:160px"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+            </div>
+            <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div></div>
           </div>
-          <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div></div>
+          <div class="lb-breakdown" id="${id}">${renderPlayerBreakdown(p,goalsWinners)}</div>
         </div>`;
       }).join('')
     :'<div class="loading">No players yet — be the first to submit your picks!</div>';
@@ -1923,7 +2047,10 @@ function loadDemoWithScores(){
     'Golden Glove':null,'Top Scoring Team':null,'Most Assists':null,
     'Most Cards Team':null,'Total Goals':null,'First Scorer':null,
   };
-  STATE={matches,players:DEMO_PLAYERS,source:'demo',special,knockout:DEMO_KNOCKOUT};
+  // Fake prevRanks for demo — reversed so arrows show movement
+  const demoPrevRanks={};
+  [...DEMO_PLAYERS].reverse().forEach((p,i)=>{demoPrevRanks[p.name]=i+1;});
+  STATE={matches,players:DEMO_PLAYERS,source:'demo',special,knockout:DEMO_KNOCKOUT,prevRanks:demoPrevRanks};
   renderAll();
 }
 

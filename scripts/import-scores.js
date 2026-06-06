@@ -148,6 +148,41 @@ const STAGE_MAP = {
   'THIRD_PLACE':    'bronze',
 };
 
+// ── Rank snapshot (for form arrows) ──────────────────────────────────────────
+// Computes current player rankings from Firebase data and returns {name: rank}.
+// Called before writing new results so the site can show ↑/↓ arrows.
+async function snapshotRanks(existingResults) {
+  const snap = await db.ref('wc2026/picks').once('value');
+  const picksData = snap.val() || {};
+  const players = Object.values(picksData).filter(p => p && p.name);
+
+  const BPTS = { r16:1, qf:2, sf:3, final:5, winner:8, bronze:3 };
+
+  const scored = players.map(p => {
+    let pts = 0;
+    // Group stage
+    Object.entries(p.picks || {}).forEach(([id, pick]) => {
+      if (existingResults[id] === pick) pts++;
+    });
+    // Bracket stages
+    const bracket = p.bracket || {};
+    ['r16','qf','sf','final'].forEach(stage => {
+      const actual = (existingResults[stage]||'').split(',').map(t=>t.trim()).filter(Boolean);
+      if (!actual.length) return;
+      (bracket[stage]||[]).forEach(team => {
+        if (actual.some(a => a.toLowerCase() === team.toLowerCase())) pts += BPTS[stage];
+      });
+    });
+    if (existingResults.winner && bracket.winner &&
+        existingResults.winner.toLowerCase() === (bracket.winner||'').toLowerCase()) pts += BPTS.winner;
+    if (existingResults.bronze && bracket.bronze &&
+        existingResults.bronze.toLowerCase() === (bracket.bronze||'').toLowerCase()) pts += BPTS.bronze;
+    return { name: p.name, pts };
+  }).sort((a, b) => b.pts - a.pts);
+
+  return Object.fromEntries(scored.map((p, i) => [p.name, i + 1]));
+}
+
 async function run() {
   // Only run on schedule during the tournament window; manual triggers always run
   const isManual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
@@ -175,6 +210,11 @@ async function run() {
   const data = await res.json();
   const matches = data.matches || [];
   console.log(`Got ${matches.length} matches from API`);
+
+  // Read existing results from Firebase so we can snapshot ranks before overwriting
+  const existingSnap = await db.ref('wc2026/results').once('value');
+  const existingResults = existingSnap.val() || {};
+  const ranksBefore = await snapshotRanks(existingResults);
 
   const updates = {};
   const scorersByMatch = {};
@@ -276,6 +316,9 @@ async function run() {
     console.log('No finished matches found — nothing to update.');
     process.exit(0);
   }
+
+  // Snapshot current rankings before overwriting results, so the site can show ↑/↓ arrows
+  updates['config/prevRanks'] = ranksBefore;
 
   console.log(`Writing ${count} updates to Firebase...`);
   await db.ref('wc2026').update(updates);
