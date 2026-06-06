@@ -641,13 +641,6 @@ const ALL_PLAYERS=[
   'Orlando Mosquera','Luis Mejia','Cesar Samudio','Cesar Blackman','Jorge Gutierrez','Amir Murillo','Fidel Escobar','Andres Andrade','Edgardo Farina','Jose Cordoba','Eric Davis','Jiovany Ramos','Roderick Miller','Anibal Godoy','Adalberto Carrasquilla','Carlos Harvey','Cristian Martinez','Jose Luis Rodriguez','Cesar Yanis','Yoel Barcenas','Alberto Quintero','Azarias Londono','Ismael Diaz','Cecilio Waterman','Jose Fajardo','Tomas Rodriguez',
 ];
 
-const TEAM_FLAGS={Mexico:'mx','South Africa':'za','South Korea':'kr',Czechia:'cz',Canada:'ca','Bosnia-Herzegovina':'ba',Qatar:'qa',Switzerland:'ch',Brazil:'br',Morocco:'ma',Haiti:'ht',Scotland:'gb-sct',USA:'us',Paraguay:'py',Australia:'au','Türkiye':'tr',Germany:'de','Curaçao':'cw','Ivory Coast':'ci',Ecuador:'ec',Netherlands:'nl',Japan:'jp',Sweden:'se',Tunisia:'tn',Belgium:'be',Egypt:'eg',Iran:'ir','New Zealand':'nz',Spain:'es','Cape Verde':'cv','Saudi Arabia':'sa',Uruguay:'uy',France:'fr',Senegal:'sn',Iraq:'iq',Norway:'no',Argentina:'ar',Algeria:'dz',Austria:'at',Jordan:'jo',Portugal:'pt','DR Congo':'cd',Uzbekistan:'uz',Colombia:'co',England:'gb-eng',Croatia:'hr',Ghana:'gh',Panama:'pa'};
-function flagImg(n,w=20){
-  const code=TEAM_FLAGS[shortName(n)];
-  if(!code)return'';
-  // Wrapped in a span so a failed image doesn't leave behind any space
-  return`<span style="display:inline-flex;align-items:center;margin-right:4px;flex-shrink:0"><img src="https://flagcdn.com/w${w}/${code}.png" width="${w}" height="${Math.round(w*0.73)}" style="border-radius:2px;display:block" alt="" onerror="this.parentElement.style.display='none'"></span>`;
-}
 
 
 const R32_BRACKET=[
@@ -829,7 +822,7 @@ function renderMatches(){
       else if(m.result==='draw')pill=`<span class="result-pill result-draw">Draw</span>`;
       else pill=`<span class="result-pill result-pending">TBD</span>`;
       const hn=shortName(m.home),an=shortName(m.away);
-      html+=`<div class="match-card"><div class="team">${flagImg(hn,18)} ${hn}</div><div class="vs">vs</div><div class="team away">${an} ${flagImg(an,18)}</div><div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div></div>`;
+      html+=`<div class="match-card"><div class="team">${hn}</div><div class="vs">vs</div><div class="team away">${an}</div><div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div></div>`;
     });
   });
   document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
@@ -1090,7 +1083,7 @@ function renderKnockoutSection(){
       ${r32complete?'<span style="font-size:0.7rem;color:var(--green)">✓</span>':''}
     </div>
     <div class="stage-pool">
-      ${analysis.definite.map(t=>`<button class="stage-pill sel" disabled>${flagImg(t,14)}${t}</button>`).join('')}
+      ${analysis.definite.map(t=>`<button class="stage-pill sel" disabled>${t}</button>`).join('')}
     </div>`;
 
   if(analysis.uncertain.length>0){
@@ -1103,7 +1096,7 @@ function renderKnockoutSection(){
         ${analysis.uncertain.map(t=>{
           const isSel=extra.includes(t);
           const full=!isSel&&slotsLeft===0;
-          return`<button class="stage-pill${isSel?' sel':''}" ${full?'disabled':''} onclick="toggleR32Extra('${t}')">${flagImg(t,14)}${t}</button>`;
+          return`<button class="stage-pill${isSel?' sel':''}" ${full?'disabled':''} onclick="toggleR32Extra('${t}')">${t}</button>`;
         }).join('')}
       </div>
     </div>`;
@@ -1138,7 +1131,7 @@ function renderKnockoutSection(){
         ${pool.map(team=>{
           const isSel=selected.includes(team);
           const full=isMulti&&!isSel&&count>=limit;
-          return`<button class="stage-pill${isSel?' sel':''}"${full?' disabled':''} onclick="toggleStagePick('${stage}','${team}')">${flagImg(team,14)}${team}</button>`;
+          return`<button class="stage-pill${isSel?' sel':''}"${full?' disabled':''} onclick="toggleStagePick('${stage}','${team}')">${team}</button>`;
         }).join('')}
       </div>
     </div>`;
@@ -1164,11 +1157,10 @@ function renderSubmitTab(){
     const rows=gm.map(m=>{
       const pick=FORM_STATE.picks[m.id]||'';
       const hn=shortName(m.home),an=shortName(m.away);
-      const hf=flagImg(hn,16),af=flagImg(an,16);
       return`<div class="match-pick-row">
-        <button class="pick-btn${pick==='home'?' ph':''}" onclick="setFormPick(${m.id},'home','${g}')">${hf}${hn}</button>
+        <button class="pick-btn${pick==='home'?' ph':''}" onclick="setFormPick(${m.id},'home','${g}')">${hn}</button>
         <button class="pick-btn${pick==='draw'?' pd':''}" onclick="setFormPick(${m.id},'draw','${g}')">Draw</button>
-        <button class="pick-btn${pick==='away'?' pa':''}" onclick="setFormPick(${m.id},'away','${g}')">${af}${an}</button>
+        <button class="pick-btn${pick==='away'?' pa':''}" onclick="setFormPick(${m.id},'away','${g}')">${an}</button>
       </div>`;
     }).join('');
     const isOpen=idx===0;
