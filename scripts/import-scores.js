@@ -198,10 +198,10 @@ async function run() {
 
   console.log('Fetching WC2026 matches from football-data.org...');
 
-  const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches', {
+  // season=2026 ensures we get WC2026 data, not the previous edition
+  const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches?season=2026', {
     headers: {
       'X-Auth-Token': API_KEY,
-      'X-Unfold-Goals': 'true', // ask API to include goals array in response
     },
   });
 
@@ -280,7 +280,10 @@ async function run() {
     } else {
       // ── Knockout stage: track which team won each round ─────────────────────
       const bucket = STAGE_MAP[m.stage];
-      if (!bucket) continue;
+      if (!bucket) {
+        console.warn(`  Unknown stage: "${m.stage}" — add to STAGE_MAP if needed`);
+        continue;
+      }
 
       if (bucket === 'winner') {
         // FINAL — winner is champion, loser is runner-up
