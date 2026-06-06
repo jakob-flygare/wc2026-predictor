@@ -82,10 +82,13 @@
   .scorer-row { font-size:0.78rem; color:var(--muted); padding:0.15rem 0; }
   .scorer-row b { color:var(--text); font-weight:500; }
   .scorer-row .scorer-og { color:var(--red); }
-  .score-box { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text); text-align:center; line-height:1; letter-spacing:0.05em; }
+  .score-box { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text); text-align:center; line-height:1; letter-spacing:0.05em; min-width:72px; }
+  .match-picks-row { display:flex; justify-content:space-between; gap:0.5rem; font-size:0.74rem; padding:0.5rem 0 0.1rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:0.4rem; flex-wrap:wrap; }
+  .mp-home { color:var(--green); } .mp-draw { color:var(--draw); } .mp-away { color:var(--red); }
+  .mp-label { color:var(--muted); }
   .team { display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; font-weight: 500; }
   .team.away { flex-direction: row-reverse; text-align: right; }
-  .vs { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--muted); text-align: center; }
+  .vs { font-family: 'Bebas Neue', sans-serif; font-size: 1.1rem; color: var(--muted); text-align: center; min-width:72px; }
   .result-pill { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.2rem 0.55rem; border-radius: 999px; display: inline-block; }
   .result-home { background: rgba(46,204,113,0.15); color: #2ECC71; }
   .result-away { background: rgba(231,76,60,0.15); color: #E74C3C; }
@@ -506,57 +509,57 @@ const DEMO_MATCHES = [
   {id:59,home:"🇹🇷 Türkiye",away:"🇺🇸 USA",group:"Group D",date:"Jun 25",result:null},
   {id:60,home:"🇵🇾 Paraguay",away:"🇦🇺 Australia",group:"Group D",date:"Jun 25",result:null},
   // Group E
-  {id:9, home:"🇩🇪 Germany",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 14",result:null},
-  {id:11,home:"🇨🇮 Ivory Coast",away:"🇪🇨 Ecuador",group:"Group E",date:"Jun 14",result:null},
+  {id:9, home:"🇩🇪 Germany",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 14",result:"home"},
+  {id:11,home:"🇨🇮 Ivory Coast",away:"🇪🇨 Ecuador",group:"Group E",date:"Jun 14",result:"draw"},
   {id:34,home:"🇩🇪 Germany",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 20",result:null},
   {id:35,home:"🇪🇨 Ecuador",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 20",result:null},
   {id:55,home:"🇪🇨 Ecuador",away:"🇩🇪 Germany",group:"Group E",date:"Jun 25",result:null},
   {id:56,home:"🇨🇼 Curaçao",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 25",result:null},
   // Group F
-  {id:10,home:"🇳🇱 Netherlands",away:"🇯🇵 Japan",group:"Group F",date:"Jun 14",result:null},
-  {id:12,home:"🇸🇪 Sweden",away:"🇹🇳 Tunisia",group:"Group F",date:"Jun 14",result:null},
+  {id:10,home:"🇳🇱 Netherlands",away:"🇯🇵 Japan",group:"Group F",date:"Jun 14",result:"home"},
+  {id:12,home:"🇸🇪 Sweden",away:"🇹🇳 Tunisia",group:"Group F",date:"Jun 14",result:"home"},
   {id:33,home:"🇳🇱 Netherlands",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 20",result:null},
   {id:36,home:"🇹🇳 Tunisia",away:"🇯🇵 Japan",group:"Group F",date:"Jun 20",result:null},
   {id:57,home:"🇯🇵 Japan",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 25",result:null},
   {id:58,home:"🇹🇳 Tunisia",away:"🇳🇱 Netherlands",group:"Group F",date:"Jun 25",result:null},
   // Group G
-  {id:14,home:"🇧🇪 Belgium",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 15",result:null},
-  {id:16,home:"🇮🇷 Iran",away:"🇳🇿 New Zealand",group:"Group G",date:"Jun 15",result:null},
+  {id:14,home:"🇧🇪 Belgium",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 15",result:"home"},
+  {id:16,home:"🇮🇷 Iran",away:"🇳🇿 New Zealand",group:"Group G",date:"Jun 15",result:"home"},
   {id:38,home:"🇧🇪 Belgium",away:"🇮🇷 Iran",group:"Group G",date:"Jun 21",result:null},
   {id:40,home:"🇳🇿 New Zealand",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 21",result:null},
   {id:65,home:"🇪🇬 Egypt",away:"🇮🇷 Iran",group:"Group G",date:"Jun 26",result:null},
   {id:66,home:"🇳🇿 New Zealand",away:"🇧🇪 Belgium",group:"Group G",date:"Jun 26",result:null},
   // Group H
-  {id:13,home:"🇪🇸 Spain",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 15",result:null},
-  {id:15,home:"🇸🇦 Saudi Arabia",away:"🇺🇾 Uruguay",group:"Group H",date:"Jun 15",result:null},
+  {id:13,home:"🇪🇸 Spain",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 15",result:"home"},
+  {id:15,home:"🇸🇦 Saudi Arabia",away:"🇺🇾 Uruguay",group:"Group H",date:"Jun 15",result:"away"},
   {id:37,home:"🇪🇸 Spain",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 21",result:null},
   {id:39,home:"🇺🇾 Uruguay",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 21",result:null},
   {id:63,home:"🇨🇻 Cape Verde",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 26",result:null},
   {id:64,home:"🇺🇾 Uruguay",away:"🇪🇸 Spain",group:"Group H",date:"Jun 26",result:null},
   // Group I
-  {id:17,home:"🇫🇷 France",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 16",result:null},
-  {id:18,home:"🇮🇶 Iraq",away:"🇳🇴 Norway",group:"Group I",date:"Jun 16",result:null},
+  {id:17,home:"🇫🇷 France",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 16",result:"home"},
+  {id:18,home:"🇮🇶 Iraq",away:"🇳🇴 Norway",group:"Group I",date:"Jun 16",result:"away"},
   {id:42,home:"🇫🇷 France",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 22",result:null},
   {id:43,home:"🇳🇴 Norway",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 22",result:null},
   {id:61,home:"🇳🇴 Norway",away:"🇫🇷 France",group:"Group I",date:"Jun 26",result:null},
   {id:62,home:"🇸🇳 Senegal",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 26",result:null},
   // Group J
-  {id:19,home:"🇦🇷 Argentina",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 16",result:null},
-  {id:20,home:"🇦🇹 Austria",away:"🇯🇴 Jordan",group:"Group J",date:"Jun 16",result:null},
+  {id:19,home:"🇦🇷 Argentina",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 16",result:"home"},
+  {id:20,home:"🇦🇹 Austria",away:"🇯🇴 Jordan",group:"Group J",date:"Jun 16",result:"draw"},
   {id:41,home:"🇦🇷 Argentina",away:"🇦🇹 Austria",group:"Group J",date:"Jun 22",result:null},
   {id:44,home:"🇯🇴 Jordan",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 22",result:null},
   {id:71,home:"🇩🇿 Algeria",away:"🇦🇹 Austria",group:"Group J",date:"Jun 27",result:null},
   {id:72,home:"🇯🇴 Jordan",away:"🇦🇷 Argentina",group:"Group J",date:"Jun 27",result:null},
   // Group K
-  {id:21,home:"🇵🇹 Portugal",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 17",result:null},
-  {id:24,home:"🇺🇿 Uzbekistan",away:"🇨🇴 Colombia",group:"Group K",date:"Jun 17",result:null},
+  {id:21,home:"🇵🇹 Portugal",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 17",result:"home"},
+  {id:24,home:"🇺🇿 Uzbekistan",away:"🇨🇴 Colombia",group:"Group K",date:"Jun 17",result:"away"},
   {id:45,home:"🇵🇹 Portugal",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 23",result:null},
   {id:48,home:"🇨🇴 Colombia",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 23",result:null},
   {id:69,home:"🇨🇴 Colombia",away:"🇵🇹 Portugal",group:"Group K",date:"Jun 27",result:null},
   {id:70,home:"🇨🇩 DR Congo",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 27",result:null},
   // Group L
-  {id:22,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 17",result:null},
-  {id:23,home:"🇬🇭 Ghana",away:"🇵🇦 Panama",group:"Group L",date:"Jun 17",result:null},
+  {id:22,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 17",result:"home"},
+  {id:23,home:"🇬🇭 Ghana",away:"🇵🇦 Panama",group:"Group L",date:"Jun 17",result:"away"},
   {id:46,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇬🇭 Ghana",group:"Group L",date:"Jun 23",result:null},
   {id:47,home:"🇵🇦 Panama",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 23",result:null},
   {id:67,home:"🇵🇦 Panama",away:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",group:"Group L",date:"Jun 27",result:null},
@@ -576,18 +579,42 @@ const DEMO_BRACKETS=[
 const DEMO_KNOCKOUT={r16:['Mexico','South Korea','Canada','Switzerland','Brazil','Morocco','USA','Türkiye','Germany','Netherlands','Spain','Belgium','France','Argentina','Portugal','England'],qf:['Brazil','Germany','France','Argentina','Spain','England','Portugal','Morocco'],sf:null,final:null,winner:null};
 const DEMO_SPECIAL={'Tournament Winner':null,'Golden Boot':null};
 
-// Demo scores & scorers for preview mode (matches that have results in DEMO_MATCHES)
+// Demo scores & scorers for preview mode
 const DEMO_SCORES={
-  1:{home:2,away:1}, 2:{home:0,away:0}, 3:{home:1,away:0},
-  4:{home:3,away:1}, 5:{home:0,away:2}, 6:{home:2,away:0},
-  7:{home:0,away:2}, 8:{home:1,away:1},
+  1:{home:2,away:1},  2:{home:0,away:0},  3:{home:1,away:0},
+  4:{home:3,away:1},  5:{home:0,away:2},  6:{home:2,away:0},
+  7:{home:0,away:2},  8:{home:1,away:1},
+  9:{home:4,away:0},  10:{home:2,away:1}, 11:{home:1,away:1},
+  12:{home:2,away:0}, 13:{home:3,away:0}, 14:{home:2,away:0},
+  15:{home:0,away:1}, 16:{home:1,away:0}, 17:{home:2,away:1},
+  18:{home:0,away:3}, 19:{home:2,away:0}, 20:{home:1,away:1},
+  21:{home:3,away:0}, 22:{home:1,away:0}, 23:{home:1,away:2},
+  24:{home:0,away:1},
 };
 const DEMO_SCORERS={
-  1:[{player:'Raúl Jiménez',team:'Mexico',minute:23},{player:'Santiago Giménez',team:'Mexico',minute:67},{player:'Evidence Makgopa',team:'South Africa',minute:45}],
-  4:[{player:'Christian Pulisic',team:'USA',minute:12},{player:'Folarin Balogun',team:'USA',minute:38},{player:'Ricardo Pepi',team:'USA',minute:71},{player:'Miguel Almirón',team:'Paraguay',minute:55}],
-  5:[{player:'Granit Xhaka',team:'Switzerland',minute:34},{player:'Breel Embolo',team:'Switzerland',minute:78}],
-  6:[{player:'Vinícius Júnior',team:'Brazil',minute:29},{player:'Raphinha',team:'Brazil',minute:52}],
-  7:[{player:'Scott McTominay',team:'Scotland',minute:15},{player:'Lawrence Shankland',team:'Scotland',minute:83}],
+  1: [{player:'Raúl Jiménez',team:'Mexico',minute:23,type:'REGULAR'},{player:'Evidence Makgopa',team:'South Africa',minute:45,type:'REGULAR'},{player:'Santiago Giménez',team:'Mexico',minute:67,type:'REGULAR'}],
+  3: [{player:'Alphonso Davies',team:'Canada',minute:54,type:'REGULAR'}],
+  4: [{player:'Christian Pulisic',team:'USA',minute:12,type:'REGULAR'},{player:'Folarin Balogun',team:'USA',minute:38,type:'REGULAR'},{player:'Miguel Almirón',team:'Paraguay',minute:55,type:'REGULAR'},{player:'Ricardo Pepi',team:'USA',minute:71,type:'REGULAR'}],
+  5: [{player:'Granit Xhaka',team:'Switzerland',minute:34,type:'REGULAR'},{player:'Breel Embolo',team:'Switzerland',minute:78,type:'REGULAR'}],
+  6: [{player:'Vinícius Júnior',team:'Brazil',minute:29,type:'REGULAR'},{player:'Raphinha',team:'Brazil',minute:52,type:'REGULAR'}],
+  7: [{player:'Scott McTominay',team:'Scotland',minute:15,type:'REGULAR'},{player:'Lawrence Shankland',team:'Scotland',minute:83,type:'REGULAR'}],
+  8: [{player:'Mathew Leckie',team:'Australia',minute:41,type:'REGULAR'},{player:'Ferdi Kadioglu',team:'Türkiye',minute:79,type:'REGULAR'}],
+  9: [{player:'Jamal Musiala',team:'Germany',minute:8,type:'REGULAR'},{player:'Florian Wirtz',team:'Germany',minute:32,type:'REGULAR'},{player:'Leroy Sané',team:'Germany',minute:61,type:'REGULAR'},{player:'Kai Havertz',team:'Germany',minute:88,type:'PENALTY'}],
+  10:[{player:'Memphis Depay',team:'Netherlands',minute:19,type:'REGULAR'},{player:'Hiroki Ito',team:'Japan',minute:57,type:'REGULAR'},{player:'Cody Gakpo',team:'Netherlands',minute:74,type:'REGULAR'}],
+  11:[{player:'Elye Wahi',team:'Ivory Coast',minute:44,type:'REGULAR'},{player:'Enner Valencia',team:'Ecuador',minute:67,type:'REGULAR'}],
+  12:[{player:'Viktor Gyökeres',team:'Sweden',minute:38,type:'REGULAR'},{player:'Alexander Isak',team:'Sweden',minute:72,type:'REGULAR'}],
+  13:[{player:'Lamine Yamal',team:'Spain',minute:14,type:'REGULAR'},{player:'Nico Williams',team:'Spain',minute:49,type:'REGULAR'},{player:'Dani Olmo',team:'Spain',minute:76,type:'REGULAR'}],
+  14:[{player:'Kevin De Bruyne',team:'Belgium',minute:25,type:'REGULAR'},{player:'Romelu Lukaku',team:'Belgium',minute:68,type:'REGULAR'}],
+  15:[{player:'Darwin Núñez',team:'Uruguay',minute:55,type:'REGULAR'}],
+  16:[{player:'Mehdi Taremi',team:'Iran',minute:33,type:'REGULAR'}],
+  17:[{player:'Kylian Mbappé',team:'France',minute:17,type:'REGULAR'},{player:'Krepin Diatta',team:'Senegal',minute:51,type:'REGULAR'},{player:'Marcus Thuram',team:'France',minute:82,type:'REGULAR'}],
+  18:[{player:'Martin Odegaard',team:'Norway',minute:12,type:'REGULAR'},{player:'Erling Haaland',team:'Norway',minute:35,type:'REGULAR'},{player:'Erling Haaland',team:'Norway',minute:71,type:'REGULAR'}],
+  19:[{player:'Lionel Messi',team:'Argentina',minute:22,type:'REGULAR'},{player:'Lautaro Martinez',team:'Argentina',minute:58,type:'REGULAR'}],
+  20:[{player:'David Alaba',team:'Austria',minute:39,type:'REGULAR'},{player:'Ali Azaizeh',team:'Jordan',minute:77,type:'REGULAR'}],
+  21:[{player:'Cristiano Ronaldo',team:'Portugal',minute:11,type:'PENALTY'},{player:'Bruno Fernandes',team:'Portugal',minute:44,type:'REGULAR'},{player:'Rafael Leao',team:'Portugal',minute:89,type:'REGULAR'}],
+  22:[{player:'Harry Kane',team:'England',minute:30,type:'REGULAR'}],
+  23:[{player:'Cecilio Waterman',team:'Panama',minute:28,type:'REGULAR'},{player:'Jordan Ayew',team:'Ghana',minute:66,type:'REGULAR'},{player:'Ismael Diaz',team:'Panama',minute:84,type:'REGULAR'}],
+  24:[{player:'James Rodriguez',team:'Colombia',minute:63,type:'REGULAR'}],
 };
 
 // ── PREVIEW MODE ──────────────────────────────────────────────────────────────
@@ -610,12 +637,12 @@ function exitPreview(){
   renderAdminTab();
 }
 const DEMO_PLAYERS=[
-  {name:'Erik',  initials:'EL',color:'#3B82F6',picks:_picks(0),bracket:DEMO_BRACKETS[0],special:{winner:'Brazil 🇧🇷',   boot:'Mbappé'}},
-  {name:'Sara',  initials:'SA',color:'#8B5CF6',picks:_picks(1),bracket:DEMO_BRACKETS[1],special:{winner:'France 🇫🇷',   boot:'Vinicius Jr'}},
-  {name:'Marcus',initials:'MA',color:'#10B981',picks:_picks(2),bracket:DEMO_BRACKETS[2],special:{winner:'Brazil 🇧🇷',   boot:'Mbappé'}},
-  {name:'Linn',  initials:'LI',color:'#F59E0B',picks:_picks(3),bracket:DEMO_BRACKETS[3],special:{winner:'Argentina 🇦🇷',boot:'Haaland'}},
-  {name:'Johan', initials:'JO',color:'#EF4444',picks:_picks(4),bracket:DEMO_BRACKETS[4],special:{winner:'England 🏴󠁧󠁢󠁥󠁮󠁧󠁿',  boot:'Kane'}},
-  {name:'Petra', initials:'PE',color:'#EC4899',picks:_picks(5),bracket:DEMO_BRACKETS[5],special:{winner:'Spain 🇪🇸',    boot:'Messi'}},
+  {name:'Jakob', initials:'JF',color:'#3B82F6',picks:_picks(0),bracket:DEMO_BRACKETS[0],special:{boot:'Kylian Mbappé',bestPlayer:'Vinícius Júnior',bestGoalkeeper:'Emiliano Martinez',topScoringTeam:'France',mostAssists:'Kylian Mbappé',mostCards:'Argentina',totalGoals:'163',firstScorer:'Mexico'}},
+  {name:'Sara',  initials:'SA',color:'#8B5CF6',picks:_picks(1),bracket:DEMO_BRACKETS[1],special:{boot:'Erling Haaland',bestPlayer:'Jude Bellingham',bestGoalkeeper:'Mike Maignan',topScoringTeam:'Germany',mostAssists:'Kevin De Bruyne',mostCards:'Netherlands',totalGoals:'148',firstScorer:'USA'}},
+  {name:'Marcus',initials:'MA',color:'#10B981',picks:_picks(2),bracket:DEMO_BRACKETS[2],special:{boot:'Lamine Yamal',bestPlayer:'Lamine Yamal',bestGoalkeeper:'Thibaut Courtois',topScoringTeam:'Spain',mostAssists:'Lionel Messi',mostCards:'Germany',totalGoals:'172',firstScorer:'Germany'}},
+  {name:'Linn',  initials:'LI',color:'#F59E0B',picks:_picks(3),bracket:DEMO_BRACKETS[3],special:{boot:'Lautaro Martinez',bestPlayer:'Lionel Messi',bestGoalkeeper:'Emiliano Martinez',topScoringTeam:'Argentina',mostAssists:'Lionel Messi',mostCards:'Argentina',totalGoals:'155',firstScorer:'Mexico'}},
+  {name:'Johan', initials:'JO',color:'#EF4444',picks:_picks(4),bracket:DEMO_BRACKETS[4],special:{boot:'Harry Kane',bestPlayer:'Jude Bellingham',bestGoalkeeper:'Jordan Pickford',topScoringTeam:'England',mostAssists:'Jude Bellingham',mostCards:'Brazil',totalGoals:'168',firstScorer:'USA'}},
+  {name:'Petra', initials:'PE',color:'#EC4899',picks:_picks(5),bracket:DEMO_BRACKETS[5],special:{boot:'Erling Haaland',bestPlayer:'Martin Odegaard',bestGoalkeeper:'Gregor Kobel',topScoringTeam:'Germany',mostAssists:'Erling Haaland',mostCards:'France',totalGoals:'159',firstScorer:'Spain'}},
 ];
 
 const ALL_TEAMS=['Mexico','South Africa','South Korea','Czechia','Canada','Bosnia-Herzegovina','Qatar','Switzerland','Brazil','Morocco','Haiti','Scotland','USA','Paraguay','Australia','Türkiye','Germany','Curaçao','Ivory Coast','Ecuador','Netherlands','Japan','Sweden','Tunisia','Belgium','Egypt','Iran','New Zealand','Spain','Cape Verde','Saudi Arabia','Uruguay','France','Senegal','Iraq','Norway','Argentina','Algeria','Austria','Jordan','Portugal','DR Congo','Uzbekistan','Colombia','England','Croatia','Ghana','Panama'];
@@ -945,23 +972,38 @@ function renderMatches(){
       const scoreBox = m.score
         ? `<div class="score-box">${m.score.home} – ${m.score.away}</div>`
         : `<div class="vs">vs</div>`;
-      const hasScorers = m.scorers?.length > 0;
-      const clickAttr  = hasScorers ? `onclick="toggleMatchDetail(${m.id})"` : '';
+      const picksVisible = isPreviewMode() || new Date() >= PICK_DEADLINE;
+      const sortedScorers = m.scorers ? [...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute) : [];
+      const hasScorers = sortedScorers.length > 0;
+      // Picks breakdown (group stage only, visible after deadline or preview)
+      let picksHtml = '';
+      if(picksVisible && STATE.players.length){
+        const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
+        const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
+        const av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
+        picksHtml=`<div class="match-picks-row">
+          <span><span class="mp-label">${hn}:</span> <span class="mp-home">${hv.length?hv.join(', '):'—'}</span></span>
+          <span><span class="mp-label">Draw:</span> <span class="mp-draw">${dv.length?dv.join(', '):'—'}</span></span>
+          <span><span class="mp-label">${an}:</span> <span class="mp-away">${av.length?av.join(', '):'—'}</span></span>
+        </div>`;
+      }
+      const hasDetail = hasScorers || picksHtml;
+      const clickAttr = hasDetail ? `onclick="toggleMatchDetail(${m.id})"` : '';
       html+=`<div class="match-wrap">
-        <div class="match-card${hasScorers?' has-scorers':''}" ${clickAttr}>
+        <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
           <div class="team">${hn}</div>
           ${scoreBox}
           <div class="team away">${an}</div>
           <div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div>
         </div>`;
-      if(hasScorers){
-        const scorerRows=m.scorers.map(s=>{
+      if(hasDetail){
+        const scorerRows=sortedScorers.map(s=>{
           const isOG=s.type==='OWN_GOAL';
           const isPen=s.type==='PENALTY';
           const suffix=isOG?' (OG)':isPen?' (pen)':'';
           return`<div class="scorer-row">${s.minute}' <b>${s.player}</b>${suffix} <span style="color:var(--muted);font-size:0.72rem">${s.team}</span></div>`;
         }).join('');
-        html+=`<div class="match-scorers" id="md-${m.id}">${scorerRows}</div>`;
+        html+=`<div class="match-scorers" id="md-${m.id}">${scorerRows}${picksHtml}</div>`;
       }
       html+=`</div>`;
     });
