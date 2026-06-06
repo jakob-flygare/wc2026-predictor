@@ -54,6 +54,26 @@
   .section { display: none; }
   .section.active { display: block; }
 
+  /* ── NEW FEATURE CSS ─────────────────────────────────────────────────────── */
+  /* Live match badges */
+  .badge-today { background:rgba(232,184,75,.2); color:var(--draw); font-size:0.65rem; font-weight:700; letter-spacing:.08em; padding:0.15rem 0.45rem; border-radius:999px; text-transform:uppercase; }
+  .badge-live  { background:rgba(231,76,60,.2);  color:var(--red);  font-size:0.65rem; font-weight:700; letter-spacing:.08em; padding:0.15rem 0.45rem; border-radius:999px; text-transform:uppercase; animation:pulse-badge 1.2s ease-in-out infinite; }
+  @keyframes pulse-badge { 0%,100%{opacity:1} 50%{opacity:.45} }
+  /* Countdown */
+  .lb-countdown { font-size:0.78rem; color:var(--muted); margin-bottom:0.75rem; padding:0.45rem 0.75rem; background:var(--surface2); border-radius:6px; }
+  .lb-countdown b { color:var(--text); }
+  /* Round summary banner */
+  .round-banner { background:rgba(201,168,76,.1); border:1px solid rgba(201,168,76,.3); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; position:relative; }
+  .round-banner-close { position:absolute; top:0.5rem; right:0.75rem; background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:0; }
+  /* Share button */
+  .share-btn { background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:0.3rem 0.7rem; font-size:0.75rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; }
+  .share-btn:hover { border-color:var(--gold); color:var(--gold); }
+  /* Streak badge */
+  .streak-badge { font-size:0.75rem; margin-left:0.35rem; }
+  /* Consensus row */
+  .consensus-row { font-size:0.75rem; color:var(--muted); padding:0.35rem 0.5rem; background:rgba(201,168,76,.06); border-radius:0 0 8px 8px; border:1px solid rgba(201,168,76,.12); border-top:none; margin-bottom:0.4rem; }
+  .consensus-row b { color:var(--gold-light); }
+  /* ── LEADERBOARD ─────────────────────────────────────────────────────────── */
   .leaderboard-grid { display: grid; gap: 0.5rem; }
   .lb-wrap { cursor:pointer; }
   .lb-wrap:hover .lb-row { border-color:rgba(255,255,255,0.12); }
@@ -301,10 +321,12 @@
 <div id="leaderboard" class="section active">
   <div class="container">
     <div class="stats-row" id="stats-row"></div>
+    <div id="lb-countdown"></div>
     <div class="section-header">
       <div class="section-title">Standings</div>
       <span class="data-source-badge" id="data-badge"></span>
       <div class="section-sub" id="games-played-sub"></div>
+      <div id="lb-share-area"></div>
     </div>
     <div id="lb-error"></div>
     <div class="leaderboard-grid" id="lb-grid"></div>
@@ -476,6 +498,18 @@ function applyDataSnapshot(data) {
       bracket:  p.bracket || { r16:[], qf:[], sf:[], final:[], winner:'' },
       special:  p.special || { winner:'', boot:'' },
     }));
+  // Detect new results for round summary banner
+  const fp=matches.filter(m=>m.result).map(m=>`${m.id}:${m.result}`).sort().join(',');
+  const prevFp=sessionStorage.getItem('wc2026_result_fp')||'';
+  if(fp!==prevFp&&prevFp){
+    const prevIds=new Set(prevFp.split(',').filter(Boolean).map(s=>parseInt(s)));
+    const newMs=matches.filter(m=>m.result&&!prevIds.has(m.id));
+    // Build summary after STATE is set (players needed) — store temporarily
+    STATE={matches,players,source:'live',knockout,prevRanks:data.config?.prevRanks||{},special:{}};
+    ROUND_SUMMARY=buildRoundSummary(newMs);
+  }
+  sessionStorage.setItem('wc2026_result_fp',fp);
+
   STATE = {
     matches, players, source:'live', knockout,
     prevRanks: data.config?.prevRanks || {},
@@ -496,86 +530,86 @@ function applyDataSnapshot(data) {
 
 // ── DEMO DATA ─────────────────────────────────────────────────────────────────
 const DEMO_MATCHES = [
-  // Group A
-  {id:1, home:"🇲🇽 Mexico",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 11",result:"home"},
-  {id:2, home:"🇰🇷 South Korea",away:"🇨🇿 Czechia",group:"Group A",date:"Jun 11",result:"draw"},
+  // Group A  (kickoff = local CET, ISO date for live detection)
+  {id:1, home:"🇲🇽 Mexico",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 11",kickoff:"2026-06-11T19:00",result:"home"},
+  {id:2, home:"🇰🇷 South Korea",away:"🇨🇿 Czechia",group:"Group A",date:"Jun 11",kickoff:"2026-06-11T22:00",result:"draw"},
   {id:25,home:"🇨🇿 Czechia",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 18",result:null},
   {id:28,home:"🇲🇽 Mexico",away:"🇰🇷 South Korea",group:"Group A",date:"Jun 18",result:null},
   {id:53,home:"🇨🇿 Czechia",away:"🇲🇽 Mexico",group:"Group A",date:"Jun 24",result:null},
   {id:54,home:"🇿🇦 South Africa",away:"🇰🇷 South Korea",group:"Group A",date:"Jun 24",result:null},
   // Group B
-  {id:3, home:"🇨🇦 Canada",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 12",result:"home"},
-  {id:5, home:"🇶🇦 Qatar",away:"🇨🇭 Switzerland",group:"Group B",date:"Jun 13",result:"away"},
+  {id:3, home:"🇨🇦 Canada",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 12",kickoff:"2026-06-12T22:00",result:"home"},
+  {id:5, home:"🇶🇦 Qatar",away:"🇨🇭 Switzerland",group:"Group B",date:"Jun 13",kickoff:"2026-06-13T13:00",result:"away"},
   {id:26,home:"🇨🇭 Switzerland",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 18",result:null},
   {id:27,home:"🇨🇦 Canada",away:"🇶🇦 Qatar",group:"Group B",date:"Jun 18",result:null},
   {id:49,home:"🇨🇭 Switzerland",away:"🇨🇦 Canada",group:"Group B",date:"Jun 24",result:null},
   {id:50,home:"🇧🇦 Bosnia-Herzegovina",away:"🇶🇦 Qatar",group:"Group B",date:"Jun 24",result:null},
   // Group C
-  {id:6, home:"🇧🇷 Brazil",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 13",result:"home"},
-  {id:7, home:"🇭🇹 Haiti",away:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",group:"Group C",date:"Jun 13",result:"away"},
+  {id:6, home:"🇧🇷 Brazil",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 13",kickoff:"2026-06-13T16:00",result:"home"},
+  {id:7, home:"🇭🇹 Haiti",away:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",group:"Group C",date:"Jun 13",kickoff:"2026-06-13T19:00",result:"away"},
   {id:30,home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 19",result:null},
   {id:31,home:"🇧🇷 Brazil",away:"🇭🇹 Haiti",group:"Group C",date:"Jun 19",result:null},
   {id:51,home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",away:"🇧🇷 Brazil",group:"Group C",date:"Jun 24",result:null},
   {id:52,home:"🇲🇦 Morocco",away:"🇭🇹 Haiti",group:"Group C",date:"Jun 24",result:null},
   // Group D
-  {id:4, home:"🇺🇸 USA",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 12",result:"home"},
-  {id:8, home:"🇦🇺 Australia",away:"🇹🇷 Türkiye",group:"Group D",date:"Jun 13",result:"draw"},
+  {id:4, home:"🇺🇸 USA",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 12",kickoff:"2026-06-12T19:00",result:"home"},
+  {id:8, home:"🇦🇺 Australia",away:"🇹🇷 Türkiye",group:"Group D",date:"Jun 13",kickoff:"2026-06-13T22:00",result:"draw"},
   {id:29,home:"🇺🇸 USA",away:"🇦🇺 Australia",group:"Group D",date:"Jun 19",result:null},
   {id:32,home:"🇹🇷 Türkiye",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 19",result:null},
   {id:59,home:"🇹🇷 Türkiye",away:"🇺🇸 USA",group:"Group D",date:"Jun 25",result:null},
   {id:60,home:"🇵🇾 Paraguay",away:"🇦🇺 Australia",group:"Group D",date:"Jun 25",result:null},
   // Group E
-  {id:9, home:"🇩🇪 Germany",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 14",result:"home"},
-  {id:11,home:"🇨🇮 Ivory Coast",away:"🇪🇨 Ecuador",group:"Group E",date:"Jun 14",result:"draw"},
+  {id:9, home:"🇩🇪 Germany",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 14",kickoff:"2026-06-14T19:00",result:"home"},
+  {id:11,home:"🇨🇮 Ivory Coast",away:"🇪🇨 Ecuador",group:"Group E",date:"Jun 14",kickoff:"2026-06-14T22:00",result:"draw"},
   {id:34,home:"🇩🇪 Germany",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 20",result:null},
   {id:35,home:"🇪🇨 Ecuador",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 20",result:null},
   {id:55,home:"🇪🇨 Ecuador",away:"🇩🇪 Germany",group:"Group E",date:"Jun 25",result:null},
   {id:56,home:"🇨🇼 Curaçao",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 25",result:null},
   // Group F
-  {id:10,home:"🇳🇱 Netherlands",away:"🇯🇵 Japan",group:"Group F",date:"Jun 14",result:"home"},
-  {id:12,home:"🇸🇪 Sweden",away:"🇹🇳 Tunisia",group:"Group F",date:"Jun 14",result:"home"},
+  {id:10,home:"🇳🇱 Netherlands",away:"🇯🇵 Japan",group:"Group F",date:"Jun 14",kickoff:"2026-06-14T16:00",result:"home"},
+  {id:12,home:"🇸🇪 Sweden",away:"🇹🇳 Tunisia",group:"Group F",date:"Jun 14",kickoff:"2026-06-14T13:00",result:"home"},
   {id:33,home:"🇳🇱 Netherlands",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 20",result:null},
   {id:36,home:"🇹🇳 Tunisia",away:"🇯🇵 Japan",group:"Group F",date:"Jun 20",result:null},
   {id:57,home:"🇯🇵 Japan",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 25",result:null},
   {id:58,home:"🇹🇳 Tunisia",away:"🇳🇱 Netherlands",group:"Group F",date:"Jun 25",result:null},
   // Group G
-  {id:14,home:"🇧🇪 Belgium",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 15",result:"home"},
-  {id:16,home:"🇮🇷 Iran",away:"🇳🇿 New Zealand",group:"Group G",date:"Jun 15",result:"home"},
+  {id:14,home:"🇧🇪 Belgium",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 15",kickoff:"2026-06-15T19:00",result:"home"},
+  {id:16,home:"🇮🇷 Iran",away:"🇳🇿 New Zealand",group:"Group G",date:"Jun 15",kickoff:"2026-06-15T22:00",result:"home"},
   {id:38,home:"🇧🇪 Belgium",away:"🇮🇷 Iran",group:"Group G",date:"Jun 21",result:null},
   {id:40,home:"🇳🇿 New Zealand",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 21",result:null},
   {id:65,home:"🇪🇬 Egypt",away:"🇮🇷 Iran",group:"Group G",date:"Jun 26",result:null},
   {id:66,home:"🇳🇿 New Zealand",away:"🇧🇪 Belgium",group:"Group G",date:"Jun 26",result:null},
   // Group H
-  {id:13,home:"🇪🇸 Spain",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 15",result:"home"},
-  {id:15,home:"🇸🇦 Saudi Arabia",away:"🇺🇾 Uruguay",group:"Group H",date:"Jun 15",result:"away"},
+  {id:13,home:"🇪🇸 Spain",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 15",kickoff:"2026-06-15T13:00",result:"home"},
+  {id:15,home:"🇸🇦 Saudi Arabia",away:"🇺🇾 Uruguay",group:"Group H",date:"Jun 15",kickoff:"2026-06-15T16:00",result:"away"},
   {id:37,home:"🇪🇸 Spain",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 21",result:null},
   {id:39,home:"🇺🇾 Uruguay",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 21",result:null},
   {id:63,home:"🇨🇻 Cape Verde",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 26",result:null},
   {id:64,home:"🇺🇾 Uruguay",away:"🇪🇸 Spain",group:"Group H",date:"Jun 26",result:null},
   // Group I
-  {id:17,home:"🇫🇷 France",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 16",result:"home"},
-  {id:18,home:"🇮🇶 Iraq",away:"🇳🇴 Norway",group:"Group I",date:"Jun 16",result:"away"},
+  {id:17,home:"🇫🇷 France",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 16",kickoff:"2026-06-16T19:00",result:"home"},
+  {id:18,home:"🇮🇶 Iraq",away:"🇳🇴 Norway",group:"Group I",date:"Jun 16",kickoff:"2026-06-16T16:00",result:"away"},
   {id:42,home:"🇫🇷 France",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 22",result:null},
   {id:43,home:"🇳🇴 Norway",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 22",result:null},
   {id:61,home:"🇳🇴 Norway",away:"🇫🇷 France",group:"Group I",date:"Jun 26",result:null},
   {id:62,home:"🇸🇳 Senegal",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 26",result:null},
   // Group J
-  {id:19,home:"🇦🇷 Argentina",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 16",result:"home"},
-  {id:20,home:"🇦🇹 Austria",away:"🇯🇴 Jordan",group:"Group J",date:"Jun 16",result:"draw"},
+  {id:19,home:"🇦🇷 Argentina",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 16",kickoff:"2026-06-16T22:00",result:"home"},
+  {id:20,home:"🇦🇹 Austria",away:"🇯🇴 Jordan",group:"Group J",date:"Jun 16",kickoff:"2026-06-16T13:00",result:"draw"},
   {id:41,home:"🇦🇷 Argentina",away:"🇦🇹 Austria",group:"Group J",date:"Jun 22",result:null},
   {id:44,home:"🇯🇴 Jordan",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 22",result:null},
   {id:71,home:"🇩🇿 Algeria",away:"🇦🇹 Austria",group:"Group J",date:"Jun 27",result:null},
   {id:72,home:"🇯🇴 Jordan",away:"🇦🇷 Argentina",group:"Group J",date:"Jun 27",result:null},
   // Group K
-  {id:21,home:"🇵🇹 Portugal",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 17",result:"home"},
-  {id:24,home:"🇺🇿 Uzbekistan",away:"🇨🇴 Colombia",group:"Group K",date:"Jun 17",result:"away"},
+  {id:21,home:"🇵🇹 Portugal",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 17",kickoff:"2026-06-17T16:00",result:"home"},
+  {id:24,home:"🇺🇿 Uzbekistan",away:"🇨🇴 Colombia",group:"Group K",date:"Jun 17",kickoff:"2026-06-17T13:00",result:"away"},
   {id:45,home:"🇵🇹 Portugal",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 23",result:null},
   {id:48,home:"🇨🇴 Colombia",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 23",result:null},
   {id:69,home:"🇨🇴 Colombia",away:"🇵🇹 Portugal",group:"Group K",date:"Jun 27",result:null},
   {id:70,home:"🇨🇩 DR Congo",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 27",result:null},
   // Group L
-  {id:22,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 17",result:"home"},
-  {id:23,home:"🇬🇭 Ghana",away:"🇵🇦 Panama",group:"Group L",date:"Jun 17",result:"away"},
+  {id:22,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 17",kickoff:"2026-06-17T19:00",result:"home"},
+  {id:23,home:"🇬🇭 Ghana",away:"🇵🇦 Panama",group:"Group L",date:"Jun 17",kickoff:"2026-06-17T22:00",result:"away"},
   {id:46,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇬🇭 Ghana",group:"Group L",date:"Jun 23",result:null},
   {id:47,home:"🇵🇦 Panama",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 23",result:null},
   {id:67,home:"🇵🇦 Panama",away:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",group:"Group L",date:"Jun 27",result:null},
@@ -983,7 +1017,14 @@ function renderPlayerBreakdown(player, goalsWinners){
   const ko=STATE.knockout||{};
   const sp=STATE.special||{};
   const picks=player.special||{};
+  const streak=calcHotStreak(player);
   let html='';
+
+  // ── Streak ──
+  if(streak>0){
+    const label=streak>=3?`🔥 ${streak} correct in a row!`:`${streak} correct in a row`;
+    html+=`<div class="lbd-section"><div class="lbd-row"><span class="lbd-label">Current streak</span><span style="color:${streak>=3?'#F97316':'var(--text)'};font-weight:500">${label}</span></div></div>`;
+  }
 
   // ── Group stage ──
   html+=`<div class="lbd-section">
@@ -1064,6 +1105,142 @@ function renderPlayerBreakdown(player, goalsWinners){
   return html;
 }
 
+// ── FEATURE: HOT STREAK ───────────────────────────────────────────────────────
+function calcHotStreak(player){
+  const finished=[...STATE.matches].filter(m=>m.result).sort((a,b)=>{
+    // sort by match id (proxy for chronological order within same date)
+    return a.id - b.id;
+  });
+  let streak=0;
+  for(let i=finished.length-1;i>=0;i--){
+    const m=finished[i];
+    if(player.picks[m.id]===m.result)streak++;
+    else break;
+  }
+  return streak;
+}
+
+// ── FEATURE: LIVE MATCH / COUNTDOWN ───────────────────────────────────────────
+function getMatchStatus(m){
+  if(m.result)return'finished';
+  if(!m.kickoff)return null;
+  const now=new Date();
+  const ko=new Date(m.kickoff);
+  const end=new Date(ko.getTime()+2.5*60*60*1000); // ~2.5 hr match window
+  if(now>=ko&&now<=end)return'live';
+  // Same calendar date (UTC) counts as "today"
+  const nowDate=now.toISOString().slice(0,10);
+  const koDate=ko.toISOString().slice(0,10);
+  if(nowDate===koDate)return'today';
+  return null;
+}
+
+function getCountdownText(){
+  const next=STATE.matches
+    .filter(m=>!m.result&&m.kickoff)
+    .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
+  if(!next)return null;
+  const diff=new Date(next.kickoff)-new Date();
+  if(diff<=0)return null;
+  const h=Math.floor(diff/3600000);
+  const m=Math.floor((diff%3600000)/60000);
+  const hn=shortName(next.home),an=shortName(next.away);
+  if(h>24*3)return null; // more than 3 days away — don't show
+  const when=h>0?`${h}h ${m}m`:`${m}m`;
+  return`Next: <b>${hn} vs ${an}</b> in ${when}`;
+}
+
+// ── FEATURE: ROUND SUMMARY ────────────────────────────────────────────────────
+let ROUND_SUMMARY=null;
+
+function buildRoundSummary(newMatches){
+  if(!newMatches.length||!STATE.players.length)return null;
+  // Who gained most points from the new matches?
+  let bestName='',bestGain=0;
+  STATE.players.forEach(p=>{
+    const gain=newMatches.filter(m=>p.picks[m.id]===m.result).length;
+    if(gain>bestGain){bestGain=gain;bestName=p.name;}
+  });
+  // Which was the biggest upset? (result most players got wrong)
+  let upsetMatch=null,minCorrect=Infinity;
+  newMatches.forEach(m=>{
+    const correct=STATE.players.filter(p=>p.picks[m.id]===m.result).length;
+    if(correct<minCorrect){minCorrect=correct;upsetMatch=m;}
+  });
+  return{
+    count:newMatches.length,
+    bestName,bestGain,
+    upsetHome:upsetMatch?shortName(upsetMatch.home):null,
+    upsetAway:upsetMatch?shortName(upsetMatch.away):null,
+    upsetCorrect:minCorrect,
+    total:STATE.players.length,
+  };
+}
+
+// ── FEATURE: SHARE CARD ───────────────────────────────────────────────────────
+function generateShareText(){
+  const goalsWinners=calcGoalsWinners();
+  const scored=STATE.players.map(p=>{
+    const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p,goalsWinners);
+    return{...p,pts:gp.pts+bp.total+sp};
+  }).sort((a,b)=>b.pts-a.pts);
+
+  const medals=['🥇','🥈','🥉'];
+  const arrows={up:'↑',down:'↓',same:'→'};
+  const played=STATE.matches.filter(m=>m.result).length;
+
+  let lines=['🏆 WC2026 — Lehman Brothers','─'.repeat(26)];
+  scored.forEach((p,i)=>{
+    const medal=medals[i]||'  ';
+    const rank=i+1;
+    const prev=STATE.prevRanks?.[p.name];
+    const arrow=!prev||prev===rank?'':prev>rank?`↑${prev-rank}`:`↓${rank-prev}`;
+    const streak=calcHotStreak(p);
+    const fire=streak>=3?` 🔥${streak}`:'';
+    lines.push(`${rank}. ${medal} ${p.name.padEnd(10)} ${String(p.pts).padStart(3)} pts ${arrow}${fire}`.trimEnd());
+  });
+  lines.push('','After '+played+'/104 matches played');
+  lines.push('jakob-flygare.github.io/wc2026-predictor/');
+  return lines.join('\n');
+}
+
+function shareLeaderboard(btn){
+  const text=generateShareText();
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn.textContent;
+    btn.textContent='Copied ✓';
+    setTimeout(()=>{btn.textContent=orig;},2000);
+  }).catch(()=>{
+    // fallback: show in prompt
+    prompt('Copy this:',text);
+  });
+}
+
+// ── FEATURE: CONSENSUS MAP ────────────────────────────────────────────────────
+function computeConsensusStandings(){
+  if(!STATE.players.length)return{};
+  // Sum predicted points for each team across all players
+  const totals={};
+  STATE.players.forEach(p=>{
+    const standings=computeGroupStandings(p.picks);
+    Object.entries(standings).forEach(([g,teams])=>{
+      if(!totals[g])totals[g]={};
+      teams.forEach(t=>{
+        if(!totals[g][t.team])totals[g][t.team]=0;
+        totals[g][t.team]+=t.pts;
+      });
+    });
+  });
+  // Sort each group by average points
+  const result={};
+  Object.keys(totals).sort().forEach(g=>{
+    result[g]=Object.entries(totals[g])
+      .sort((a,b)=>b[1]-a[1])
+      .map(([team,pts])=>({team,avgPts:pts/STATE.players.length}));
+  });
+  return result;
+}
+
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
@@ -1082,15 +1259,42 @@ function renderLeaderboard(){
     <div class="stat-card"><div class="stat-val">${gamesPlayed}</div><div class="stat-lbl">Played</div></div>
     <div class="stat-card"><div class="stat-val">${STATE.players.length}</div><div class="stat-lbl">Players</div></div>
     <div class="stat-card"><div class="stat-val">${maxPts}</div><div class="stat-lbl">Top Score</div></div>`;
+  // Round summary banner
+  const lbGrid=document.getElementById('lb-grid');
+  const lbErr=document.getElementById('lb-error');
+  if(ROUND_SUMMARY&&lbErr){
+    const rs=ROUND_SUMMARY;
+    let txt=`📊 <b>${rs.count} new result${rs.count!==1?'s':''}</b>`;
+    if(rs.bestName&&rs.bestGain>0)txt+=` · Best pick: <b>${rs.bestName}</b> (${rs.bestGain}/${rs.count} correct)`;
+    if(rs.upsetHome&&rs.upsetCorrect<rs.total)txt+=` · Upset: <b>${rs.upsetHome} vs ${rs.upsetAway}</b> (only ${rs.upsetCorrect}/${rs.total} got it)`;
+    lbErr.innerHTML=`<div class="round-banner">${txt}<button class="round-banner-close" onclick="ROUND_SUMMARY=null;document.getElementById('lb-error').innerHTML=''">×</button></div>`;
+  }
+
+  // Countdown to next match
+  const countdown=getCountdownText();
+  const countdownEl=document.getElementById('lb-countdown');
+  if(countdownEl){
+    if(countdown)countdownEl.innerHTML=`<div class="lb-countdown">${countdown}</div>`;
+    else countdownEl.innerHTML='';
+  }
+
+  // Share button
+  const shareArea=document.getElementById('lb-share-area');
+  if(shareArea&&scored.length&&!locked){
+    shareArea.innerHTML=`<button class="share-btn" onclick="shareLeaderboard(this)">📋 Share</button>`;
+  }else if(shareArea){shareArea.innerHTML='';}
+
   const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
   const rc=['rank-1','rank-2','rank-3'];
-  document.getElementById('lb-grid').innerHTML=scored.length
+  lbGrid.innerHTML=scored.length
     ?scored.map((p,i)=>{
         const rank=i+1;
         const pct=p.total>0?Math.round((p.correct/p.total)*100):0;
         const bTag=p.bracketPts>0?`<span class="bracket-pts-tag">+${p.bracketPts} bracket</span>`:'';
         const arrow=formArrow(p.name,rank);
         const id=lbId(p.name);
+        const streak=calcHotStreak(p);
+        const streakBadge=streak>=3?`<span class="streak-badge" title="${streak} correct in a row">🔥${streak}</span>`:'';
         if(locked){
           return`<div class="lb-wrap" onclick="toggleLbBreakdown('${p.name.replace(/'/g,"\\'")}',event)">
             <div class="lb-row">
@@ -1104,7 +1308,7 @@ function renderLeaderboard(){
           <div class="lb-row ${rc[i]||''}">
             <div class="rank-num">${rank}${arrow}</div>
             <div>
-              <div class="lb-name">${p.name}${bTag}</div>
+              <div class="lb-name">${p.name}${bTag}${streakBadge}</div>
               <div class="lb-meta">${p.groupPts} group · ${p.bracketPts} bracket · ${p.specialPts||0} specials</div>
               <div class="progress-bar-wrap" style="max-width:160px"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
             </div>
@@ -1114,13 +1318,32 @@ function renderLeaderboard(){
         </div>`;
       }).join('')
     :'<div class="loading">No players yet — be the first to submit your picks!</div>';
+  applyFlags('lb-grid');
 }
 
 // ── RENDER MATCHES ────────────────────────────────────────────────────────────
 function renderMatches(){
+  const consensus=computeConsensusStandings();
+  const picksLockedOrPreview=isPreviewMode()||new Date()>=PICK_DEADLINE;
   const groups=[...new Set(STATE.matches.map(m=>m.group))];let html='';
   groups.forEach(g=>{
     html+=`<div class="group-label">${g}</div>`;
+    // Consensus row for this group
+    const gLetter=g.replace('Group ','');
+    if(consensus[gLetter]&&STATE.players.length&&picksLockedOrPreview){
+      const top2=consensus[gLetter].slice(0,2);
+      const t1=top2[0],t2=top2[1];
+      if(t1&&t2){
+        // Count how many players predict each team advancing
+        const n=STATE.players.length;
+        const agree1=STATE.players.filter(p=>{
+          const st=computeGroupStandings(p.picks);
+          const gl=g.replace('Group ','');
+          return st[gl]?.[0]?.team===t1.team||st[gl]?.[1]?.team===t1.team;
+        }).length;
+        html+=`<div class="consensus-row">Consensus: <b>${withFlag(t1.team)}</b> &amp; <b>${withFlag(t2.team)}</b> advance · ${agree1}/${n} agree on ${t1.team}</div>`;
+      }
+    }
     STATE.matches.filter(m=>m.group===g).forEach(m=>{
       let pill='';
       if(m.result==='home')pill=`<span class="result-pill result-home">${flagOf(m.home)}${shortName(m.home)} Win</span>`;
@@ -1129,6 +1352,10 @@ function renderMatches(){
       else pill=`<span class="result-pill result-pending">TBD</span>`;
       const hn=shortName(m.home),an=shortName(m.away);
       const fh=flagOf(m.home),fa=flagOf(m.away);
+      // Live / today badge
+      const mStatus=getMatchStatus(m);
+      if(mStatus==='live')pill=`<span class="badge-live">🔴 LIVE</span>`;
+      else if(mStatus==='today'&&!m.result)pill=`<span class="badge-today">Today</span>`;
       // Score display: "2 – 1" when available, "vs" otherwise
       const scoreBox = m.score
         ? `<div class="score-box">${m.score.home} – ${m.score.away}</div>`
@@ -1171,6 +1398,13 @@ function renderMatches(){
   });
   document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
   applyFlags('matches-list');
+  // Start countdown refresh if there's a live/upcoming match today
+  if(!window._cdTimer)window._cdTimer=setInterval(()=>{
+    const c=getCountdownText();
+    const el=document.getElementById('lb-countdown');
+    if(el)el.innerHTML=c?`<div class="lb-countdown">${c}</div>`:'';
+  },30000);
+
 }
 
 // ── PICKS LOCK HELPER ─────────────────────────────────────────────────────────
