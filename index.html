@@ -1136,18 +1136,31 @@ function getMatchStatus(m){
 }
 
 function getCountdownText(){
-  const next=STATE.matches
-    .filter(m=>!m.result&&m.kickoff)
-    .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff))[0];
-  if(!next)return null;
-  const diff=new Date(next.kickoff)-new Date();
-  if(diff<=0)return null;
-  const h=Math.floor(diff/3600000);
-  const m=Math.floor((diff%3600000)/60000);
-  const hn=shortName(next.home),an=shortName(next.away);
-  if(h>24*3)return null; // more than 3 days away — don't show
-  const when=h>0?`${h}h ${m}m`:`${m}m`;
-  return`Next: <b>${hn} vs ${an}</b> in ${when}`;
+  const unplayed=STATE.matches.filter(m=>!m.result);
+  if(!unplayed.length)return null;
+
+  // Try precise countdown (matches with kickoff time in the future)
+  const withKickoff=unplayed.filter(m=>m.kickoff)
+    .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  for(const next of withKickoff){
+    const diff=new Date(next.kickoff)-new Date();
+    if(diff<=0)continue; // already started or past
+    const h=Math.floor(diff/3600000);
+    const mins=Math.floor((diff%3600000)/60000);
+    if(h>72)break; // more than 3 days away — fall through to date display
+    const hn=shortName(next.home),an=shortName(next.away);
+    const when=h>0?`${h}h ${mins}m`:`${mins}m`;
+    return`Next: <b>${hn} vs ${an}</b> in ${when}`;
+  }
+
+  // Fallback: show next unplayed match by date label
+  const nextByDate=[...unplayed].sort((a,b)=>{
+    // Sort by match id as proxy for chronological order
+    return a.id-b.id;
+  })[0];
+  if(!nextByDate)return null;
+  const hn=shortName(nextByDate.home),an=shortName(nextByDate.away);
+  return`Next: <b>${hn} vs ${an}</b> · ${nextByDate.date}`;
 }
 
 // ── FEATURE: ROUND SUMMARY ────────────────────────────────────────────────────
