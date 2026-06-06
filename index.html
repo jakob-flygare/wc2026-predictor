@@ -1121,6 +1121,34 @@ function toggleAccordion(g){
 function closeAccordion(g){document.querySelector(`#ga-${g} .ga-header`)?.classList.remove('open');document.getElementById(`gabody-${g}`)?.classList.remove('open');}
 function openAccordion(g){document.querySelector(`#ga-${g} .ga-header`)?.classList.add('open');document.getElementById(`gabody-${g}`)?.classList.add('open');}
 
+// Persist bracket winner selections to localStorage so they survive page reloads.
+function saveBracketState(){
+  FORM_STATE.bracketWinners = FORM_BRACKET.map(round=>round.map(m=>m.winner||null));
+  FORM_STATE.bracket3rdWinner = FORM_BRACKET_3RD.winner||null;
+  saveFormState();
+}
+
+// After R32 slots are filled from group picks, restore previously-saved winners
+// where both teams in the match are still the same.
+function restoreBracketWinners(){
+  const saved=FORM_STATE.bracketWinners;
+  if(!saved)return;
+  // Restore R32 first, then let propagation fill R16-Final
+  for(let m=0;m<16;m++){
+    const w=saved[0]?.[m];
+    const match=FORM_BRACKET[0][m];
+    if(w&&(match.home===w||match.away===w)&&!match.winner){
+      match.winner=w;
+      propagateBkt(0,m,w);
+    }
+  }
+  // Restore 3rd place
+  const w3=FORM_STATE.bracket3rdWinner;
+  if(w3&&(FORM_BRACKET_3RD.home===w3||FORM_BRACKET_3RD.away===w3)){
+    FORM_BRACKET_3RD.winner=w3;
+  }
+}
+
 function rebuildFormBracket(){
   const cont=document.getElementById('bkt-container');if(!cont)return;
   if(Object.keys(FORM_STATE.picks).length<12){
@@ -1136,6 +1164,7 @@ function rebuildFormBracket(){
         cascadeClearBracket(0,i);
     }
   });
+  restoreBracketWinners();
   cont.innerHTML=renderBktHTML();
 }
 
@@ -1191,15 +1220,14 @@ function advanceBkt(round,matchIdx,side){
   if(match.winner===team){cascadeClearBracket(round,matchIdx);}
   else{
     match.winner=team;propagateBkt(round,matchIdx,team);
-    // SF losers go to 3rd place game
     if(round===3){
       const slot=matchIdx===0?'home':'away';
-      const prev=FORM_BRACKET_3RD[slot];
       FORM_BRACKET_3RD[slot]=loser!=='TBD'?loser:'TBD';
       if(FORM_BRACKET_3RD.winner&&FORM_BRACKET_3RD.winner!==FORM_BRACKET_3RD.home&&FORM_BRACKET_3RD.winner!==FORM_BRACKET_3RD.away)
         FORM_BRACKET_3RD.winner=null;
     }
   }
+  saveBracketState();
   const cont=document.getElementById('bkt-container');
   if(cont)cont.innerHTML=renderBktHTML();
 }
@@ -1207,6 +1235,7 @@ function advanceBkt3rd(side){
   const team=side==='home'?FORM_BRACKET_3RD.home:FORM_BRACKET_3RD.away;
   if(!team||team==='TBD')return;
   FORM_BRACKET_3RD.winner=(FORM_BRACKET_3RD.winner===team)?null:team;
+  saveBracketState();
   const cont=document.getElementById('bkt-container');
   if(cont)cont.innerHTML=renderBktHTML();
 }
