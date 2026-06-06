@@ -110,6 +110,30 @@
   .pick-wrong td:nth-child(4) { color: var(--red); }
 
   .special-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
+  .special-card.wide { grid-column: 1 / -1; }
+  /* live stats shared */
+  .live-section-title { font-size:0.68rem; font-weight:600; color:var(--gold); text-transform:uppercase; letter-spacing:.12em; margin:0.9rem 0 0.4rem; }
+  .live-lb-row { display:flex; align-items:baseline; gap:0.4rem; padding:0.3rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.82rem; }
+  .live-lb-rank { font-size:0.7rem; color:var(--muted); width:1.3rem; flex-shrink:0; }
+  .live-lb-name { flex:1; }
+  .live-lb-sub  { color:var(--muted); font-size:0.72rem; }
+  .live-lb-pts  { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:var(--gold); }
+  .live-pickers { color:var(--gold); font-size:0.7rem; margin-left:0.3rem; }
+  .live-outside { font-size:0.74rem; color:var(--muted); margin-top:0.5rem; }
+  /* team goals mini bar */
+  .team-mini-bar { height:3px; background:var(--surface2); border-radius:2px; margin-top:3px; max-width:140px; }
+  .team-mini-fill{ height:100%; background:var(--gold); border-radius:2px; }
+  /* goals bar chart */
+  .goals-summary { font-size:0.78rem; color:var(--muted); margin-bottom:0.75rem; line-height:1.6; }
+  .goals-legend  { display:flex; gap:1rem; font-size:0.7rem; color:var(--muted); margin-bottom:0.6rem; flex-wrap:wrap; }
+  .goals-bar-row { display:flex; align-items:center; gap:0.5rem; margin-bottom:0.45rem; }
+  .goals-bar-name{ font-size:0.78rem; width:52px; flex-shrink:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .goals-bar-track{ flex:1; height:16px; background:var(--surface2); border-radius:4px; position:relative; border:1px solid var(--border); overflow:hidden; }
+  .goals-bar-fill { height:100%; background:var(--gold); opacity:.85; }
+  .goals-bar-proj { position:absolute; top:0; bottom:0; width:2px; background:var(--green); opacity:.9; z-index:2; }
+  .goals-bar-guess{ position:absolute; top:0; bottom:0; width:2px; background:rgba(255,255,255,.3); z-index:1; }
+  .goals-bar-num  { font-size:0.72rem; color:var(--muted); width:28px; flex-shrink:0; text-align:right; }
+  .goals-bar-delta{ font-size:0.7rem; width:36px; flex-shrink:0; text-align:right; }
   .special-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.2rem 1.3rem; }
   .special-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 0.5rem; font-weight: 600; }
   .special-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.3rem 0; }
@@ -775,6 +799,47 @@ function calcSpecialPoints(player, goalsWinners=new Set()){
   return total;
 }
 
+// ── LIVE STATS HELPERS ────────────────────────────────────────────────────────
+function computeScorerLeaderboard(){
+  const counts={};
+  STATE.matches.forEach(m=>{
+    if(!m.scorers)return;
+    Object.values(m.scorers).forEach(s=>{
+      if(s.type==='OWN_GOAL')return;
+      if(!counts[s.player])counts[s.player]={player:s.player,team:s.team,goals:0};
+      counts[s.player].goals++;
+    });
+  });
+  return Object.values(counts).sort((a,b)=>b.goals-a.goals);
+}
+
+function computeTeamGoals(){
+  const totals={};
+  STATE.matches.forEach(m=>{
+    if(!m.score||m.result===null)return;
+    const hn=shortName(m.home),an=shortName(m.away);
+    totals[hn]=(totals[hn]||0)+(m.score.home||0);
+    totals[an]=(totals[an]||0)+(m.score.away||0);
+  });
+  return Object.entries(totals).map(([t,g])=>({team:t,goals:g})).filter(t=>t.goals>0).sort((a,b)=>b.goals-a.goals);
+}
+
+function computeTotalGoalsStats(){
+  let total=0,played=0;
+  STATE.matches.forEach(m=>{if(m.result!==null&&m.score){total+=(m.score.home||0)+(m.score.away||0);played++;}});
+  const TOTAL_MATCHES=104;
+  const projected=played>0?Math.round(total/played*TOTAL_MATCHES):0;
+  return{total,played,projected,totalMatches:TOTAL_MATCHES};
+}
+
+// Fuzzy match: does player's pick refer to this scorer/team name?
+function pickMatches(pick,name){
+  if(!pick||!name)return false;
+  const p=pick.toLowerCase().trim(),n=name.toLowerCase().trim();
+  const nLast=n.split(' ').pop();
+  return n.includes(p)||p.includes(nLast)||p===n;
+}
+
 // ── GROUP STAGE SCORING ───────────────────────────────────────────────────────
 function calcPoints(player){
   let pts=0,correct=0,total=0;
@@ -914,19 +979,25 @@ function showPlayerPicks(name){
 function renderSpecial(){
   if(new Date()<PICK_DEADLINE){document.getElementById('special-grid').innerHTML=PICKS_LOCKED_MSG;return;}
   const CATS=[
-    {key:'boot',       label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',       pts:5},
-    {key:'bestPlayer', label:'Golden Ball (Best Player)', stateKey:'Golden Ball',        pts:5},
-    {key:'bestGoalkeeper',label:'Golden Glove',           stateKey:'Golden Glove',       pts:4},
-    {key:'topScoringTeam',label:'Top Scoring Team',       stateKey:'Top Scoring Team',   pts:3},
-    {key:'mostAssists',label:'Most Assists',              stateKey:'Most Assists',        pts:3},
-    {key:'mostCards',  label:'Most Cards (Team)',         stateKey:'Most Cards Team',     pts:2},
-    {key:'totalGoals', label:'Total Goals in Tournament', stateKey:'Total Goals',         pts:4, closest:true},
-    {key:'firstScorer',label:'First Team to Score',       stateKey:'First Scorer',        pts:3},
+    {key:'boot',          label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',      pts:5, wide:true},
+    {key:'bestPlayer',    label:'Golden Ball (Best Player)', stateKey:'Golden Ball',       pts:5},
+    {key:'bestGoalkeeper',label:'Golden Glove',              stateKey:'Golden Glove',      pts:4},
+    {key:'topScoringTeam',label:'Top Scoring Team',          stateKey:'Top Scoring Team',  pts:3, wide:true},
+    {key:'mostAssists',   label:'Most Assists',              stateKey:'Most Assists',       pts:3},
+    {key:'mostCards',     label:'Most Cards (Team)',         stateKey:'Most Cards Team',    pts:2},
+    {key:'totalGoals',    label:'Total Goals in Tournament', stateKey:'Total Goals',        pts:4, closest:true, wide:true},
+    {key:'firstScorer',   label:'First Team to Score',       stateKey:'First Scorer',       pts:3},
   ];
   const gw=calcGoalsWinners();
-  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest})=>{
+  const scorerLB  = computeScorerLeaderboard();
+  const teamGoals = computeTeamGoals();
+  const goalStats = computeTotalGoalsStats();
+
+  document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest,wide})=>{
     const answer=STATE.special[stateKey];
     const actual=closest?parseInt(answer):null;
+
+    // Picks rows
     const rows=STATE.players.map(p=>{
       const pick=p.special?(p.special[key]||'—'):'—';
       let cls='',badge='';
@@ -942,11 +1013,110 @@ function renderSpecial(){
       }
       return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${pick}${badge}</span></div>`;
     }).join('');
+
     const status=answer
       ?(closest?`<span style="color:var(--green);font-size:0.75rem">Actual: ${answer}</span>`:`<span style="color:var(--green);font-size:0.75rem">✓ ${answer}</span>`)
       :`<span style="color:var(--muted);font-size:0.75rem">Awaiting result</span>`;
     const ptNote=closest?`+${pts} pts (closest)`:`+${pts} pts`;
-    return`<div class="special-card"><div class="special-label">${ptNote}</div><div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem"><div style="font-weight:500;font-size:0.95rem">${label}</div>${status}</div>${rows||'<div style="color:var(--muted);font-size:0.82rem">No picks yet.</div>'}</div>`;
+
+    // Live sections for enhanced cards
+    let liveHtml='';
+
+    if(key==='boot'&&scorerLB.length){
+      // Top 10 scorers + who picked them
+      const top=scorerLB.slice(0,10);
+      const inTop=new Set(top.map(s=>s.player));
+      const lbRows=top.map((s,i)=>{
+        const pickers=STATE.players.filter(p=>pickMatches(p.special?.boot,s.player)).map(p=>p.name);
+        const pickerStr=pickers.length?`<span class="live-pickers">${pickers.join(', ')}</span>`:'';
+        return`<div class="live-lb-row">
+          <span class="live-lb-rank">${i+1}</span>
+          <span class="live-lb-name">${s.player} <span class="live-lb-sub">${s.team}</span>${pickerStr}</span>
+          <span class="live-lb-pts">${s.goals}</span>
+        </div>`;
+      }).join('');
+      const outside=STATE.players.filter(p=>{
+        const pick=p.special?.boot?.trim();
+        return pick&&!top.some(s=>pickMatches(pick,s.player));
+      }).map(p=>`${p.name} (${p.special.boot})`).join(', ');
+      liveHtml=`<div class="live-section-title">⚽ Live Top Scorers</div>${lbRows}`
+        +(outside?`<div class="live-outside">Not yet in top 10: ${outside}</div>`:'');
+    }
+
+    if(key==='topScoringTeam'&&teamGoals.length){
+      const top=teamGoals.slice(0,10);
+      const maxG=top[0].goals;
+      const lbRows=top.map((t,i)=>{
+        const pickers=STATE.players.filter(p=>p.special?.topScoringTeam?.toLowerCase().trim()===t.team.toLowerCase()).map(p=>p.name);
+        const pickerStr=pickers.length?`<span class="live-pickers">${pickers.join(', ')}</span>`:'';
+        const barPct=maxG>0?(t.goals/maxG*100).toFixed(0):0;
+        return`<div class="live-lb-row">
+          <span class="live-lb-rank">${i+1}</span>
+          <span class="live-lb-name" style="flex:1">
+            ${t.team}${pickerStr}
+            <div class="team-mini-bar"><div class="team-mini-fill" style="width:${barPct}%"></div></div>
+          </span>
+          <span class="live-lb-pts">${t.goals}</span>
+        </div>`;
+      }).join('');
+      const outside=STATE.players.filter(p=>{
+        const pick=p.special?.topScoringTeam?.trim();
+        return pick&&!top.some(t=>t.team.toLowerCase()===pick.toLowerCase());
+      }).map(p=>`${p.name} (${p.special.topScoringTeam})`).join(', ');
+      liveHtml=`<div class="live-section-title">📊 Live Team Goals</div>${lbRows}`
+        +(outside?`<div class="live-outside">Outside top 10: ${outside}</div>`:'');
+    }
+
+    if(key==='totalGoals'&&goalStats.played>0){
+      const {total,played,projected,totalMatches}=goalStats;
+      const guesses=STATE.players
+        .map(p=>({name:p.name,guess:parseInt(p.special?.totalGoals||'0')}))
+        .filter(p=>p.guess>0)
+        .sort((a,b)=>a.guess-b.guess);
+      if(guesses.length){
+        const scale=Math.max(...guesses.map(p=>p.guess),projected,total)*1.08;
+        const fillPct=(Math.min(total,scale)/scale*100).toFixed(1);
+        const projPct=(Math.min(projected,scale)/scale*100).toFixed(1);
+        const bars=guesses.map(p=>{
+          const guessPct=(Math.min(p.guess,scale)/scale*100).toFixed(1);
+          const delta=p.guess-projected;
+          const dColor=Math.abs(delta)<=8?'var(--green)':delta>0?'var(--red)':'var(--muted)';
+          const dStr=(delta>=0?'+':'')+delta;
+          return`<div class="goals-bar-row">
+            <span class="goals-bar-name">${p.name}</span>
+            <div class="goals-bar-track">
+              <div class="goals-bar-fill" style="width:${fillPct}%"></div>
+              <div class="goals-bar-proj"  style="left:${projPct}%"  title="Projected: ${projected}"></div>
+              <div class="goals-bar-guess" style="left:${guessPct}%" title="Guess: ${p.guess}"></div>
+            </div>
+            <span class="goals-bar-num">${p.guess}</span>
+            <span class="goals-bar-delta" style="color:${dColor}">${dStr}</span>
+          </div>`;
+        }).join('');
+        liveHtml=`<div class="live-section-title">📈 Progress</div>
+          <div class="goals-summary">
+            ${played}/${totalMatches} matches played · <strong style="color:var(--gold)">${total}</strong> goals ·
+            Projected: <strong style="color:var(--green)">${projected}</strong>
+            <span style="font-size:0.72rem">(${(total/played).toFixed(1)}/game)</span>
+          </div>
+          <div class="goals-legend">
+            <span><span style="color:var(--gold)">■</span> Current (${total})</span>
+            <span><span style="color:var(--green)">|</span> Projected (${projected})</span>
+            <span><span style="color:rgba(255,255,255,0.3)">|</span> Your guess</span>
+            <span style="font-size:0.68rem">Δ vs projected</span>
+          </div>
+          ${bars}`;
+      }
+    }
+
+    return`<div class="special-card${wide?' wide':''}">
+      <div class="special-label">${ptNote}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem">
+        <div style="font-weight:500;font-size:0.95rem">${label}</div>${status}
+      </div>
+      ${rows||'<div style="color:var(--muted);font-size:0.82rem">No picks yet.</div>'}
+      ${liveHtml}
+    </div>`;
   }).join('');
 }
 
