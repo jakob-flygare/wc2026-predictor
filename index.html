@@ -513,7 +513,7 @@ function applyDataSnapshot(data) {
   STATE = {
     matches, players, source:'live', knockout,
     prevRanks: data.config?.prevRanks || {},
-    deadlineExceptions: (data.config?.deadlineExceptions || '').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
+    deadlineExceptions: (data.config?.deadlineExceptions || '').split(',').map(s=>s.trim()).filter(Boolean),
     special: {
       'Tournament Winner': results.tournament_winner || results.winner || null,
       'Golden Boot':       results.golden_boot       || null,
@@ -1855,7 +1855,8 @@ function renderKnockoutSection(){
 
 function hasDeadlineException(name){
   if(!name)return false;
-  return (STATE.deadlineExceptions||[]).includes(sanitizeName(name));
+  const key=name.trim().toLowerCase();
+  return (STATE.deadlineExceptions||[]).some(e=>e.toLowerCase()===key);
 }
 
 function renderSubmitTab(){
@@ -2196,13 +2197,16 @@ function renderAdminContent(cont){
 
     <div class="admin-section" style="margin-top:2rem">
       <div class="admin-section-title">Extended Deadline Access</div>
-      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Players listed here can still submit picks after the deadline. Comma-separated names (case-insensitive).</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Players listed here can still access Submit Picks after the deadline. To remove someone, delete their name and save again.</div>
       <div class="ko-row">
-        <div class="ko-label">Extended access players</div>
+        <div class="ko-label">Add / remove players</div>
         <input class="ko-input" id="ar-exceptions" placeholder="e.g. Pau, Erik" value="${(STATE.deadlineExceptions||[]).join(', ')}">
       </div>
       <button class="btn-sm" onclick="saveDeadlineExceptions()" style="margin-top:0.5rem">Save</button>
-      <span id="exceptions-save-status" style="font-size:0.78rem;margin-left:0.5rem;color:var(--muted)"></span>
+      <span id="exceptions-save-status" style="font-size:0.78rem;margin-left:0.5rem;color:var(--green)">${sessionStorage.getItem('wc2026_exceptions_saved')==='1'?(sessionStorage.removeItem('wc2026_exceptions_saved'),'✓ Saved!'):''}</span>
+      ${(STATE.deadlineExceptions||[]).length
+        ? `<div style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted)">Active: <strong style="color:var(--gold-light)">${(STATE.deadlineExceptions||[]).join(', ')}</strong></div>`
+        : `<div style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted)">No exceptions set — all picks are locked after the deadline.</div>`}
     </div>
 
     <div class="admin-section" style="margin-top:2.5rem">
@@ -2239,10 +2243,14 @@ function saveAdminData(){
 function saveDeadlineExceptions(){
   if(!db){document.getElementById('exceptions-save-status').textContent='✗ Not connected.';return;}
   const raw=document.getElementById('ar-exceptions')?.value||'';
-  const val=raw.split(',').map(s=>sanitizeName(s.trim())).filter(Boolean).join(',');
+  const val=raw.split(',').map(s=>s.trim()).filter(Boolean).join(',');
   const st=document.getElementById('exceptions-save-status');st.textContent='Saving…';
-  db.ref('wc2026/config/deadlineExceptions').set(val)
-    .then(()=>{st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);})
+  db.ref('wc2026/config/deadlineExceptions').set(val||null)
+    .then(()=>{
+      // Store confirmation in sessionStorage so it survives the re-render triggered by Firebase
+      sessionStorage.setItem('wc2026_exceptions_saved','1');
+      st.textContent='✓ Saved!';
+    })
     .catch(e=>{st.textContent='✗ '+e.message;});
 }
 
