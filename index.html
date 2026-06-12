@@ -922,7 +922,10 @@ function calcBracketPoints(player){
 }
 
 // Returns the Set of player names who guessed closest to the actual total goals.
+// Only awards points after the tournament ends (winner declared) — during the tournament
+// total_goals is a running count, not the final figure.
 function calcGoalsWinners(){
+  if(!STATE.special?.['Tournament Winner']) return new Set();
   const actual=parseInt(STATE.special?.['Total Goals']);
   if(isNaN(actual)) return new Set();
   let min=Infinity;
