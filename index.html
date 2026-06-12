@@ -513,6 +513,7 @@ function applyDataSnapshot(data) {
   STATE = {
     matches, players, source:'live', knockout,
     prevRanks: data.config?.prevRanks || {},
+    deadlineExceptions: (data.config?.deadlineExceptions || '').split(',').map(s=>s.trim().toLowerCase()).filter(Boolean),
     special: {
       'Tournament Winner': results.tournament_winner || results.winner || null,
       'Golden Boot':       results.golden_boot       || null,
@@ -1852,11 +1853,27 @@ function renderKnockoutSection(){
   applyFlags('knockout-section');
 }
 
+function hasDeadlineException(name){
+  if(!name)return false;
+  return (STATE.deadlineExceptions||[]).includes(sanitizeName(name));
+}
+
 function renderSubmitTab(){
   const cont=document.getElementById('submit-content');if(!cont)return;
   if(new Date()>PICK_DEADLINE){
-    cont.innerHTML=`<div class="error-msg" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.3);color:var(--gold-light)">🔒 Picks are locked — the tournament has started! View your predictions on the other tabs.</div>`;
-    return;
+    // Check if this player has been granted extended access
+    const nameInForm=FORM_STATE.name||'';
+    if(!hasDeadlineException(nameInForm)){
+      cont.innerHTML=`<div class="error-msg" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.3);color:var(--gold-light)">
+        🔒 Picks are locked — the tournament has started! View your predictions on the other tabs.
+        <div style="margin-top:1rem">
+          <input id="late-name-input" type="text" class="ko-input" placeholder="Your name" style="max-width:200px;margin-right:0.5rem" value="${nameInForm}" oninput="FORM_STATE.name=this.value.trim();saveFormState()">
+          <button class="btn-sm" onclick="renderSubmitTab()">Check access</button>
+        </div>
+      </div>`;
+      return;
+    }
+    // Player has extended access — fall through to normal form with a notice
   }
   const existingKey=FORM_STATE.name?sanitizeName(FORM_STATE.name):null;
   const existing=existingKey&&STATE.players.find(p=>sanitizeName(p.name)===existingKey);
@@ -1888,9 +1905,12 @@ function renderSubmitTab(){
   const teamOpts=ALL_TEAMS.map(t=>`<option value="${t}">`).join('');
   const playerOpts=ALL_PLAYERS.map(p=>`<option value="${p}">`).join('');
 
+  const lateAccess=new Date()>PICK_DEADLINE&&hasDeadlineException(FORM_STATE.name);
+
   cont.innerHTML=`
     <datalist id="teams-dl">${teamOpts}</datalist>
     <datalist id="players-dl">${playerOpts}</datalist>
+    ${lateAccess?`<div class="error-msg" style="background:rgba(201,168,76,0.08);border-color:rgba(201,168,76,0.3);color:var(--gold-light);margin-bottom:1rem">⏰ Extended deadline access — submit your picks as soon as possible!</div>`:''}
     <div class="config-box"><strong>Your identity</strong>
       <div class="form-identity">
         <input class="form-name-input" type="text" id="form-name-input" placeholder="Your name" maxlength="20"
@@ -2173,6 +2193,18 @@ function renderAdminContent(cont){
     </div>
     <button class="btn" onclick="saveAdminData()" style="min-width:160px;margin-top:0">Save All Results</button>
     <span class="save-status" id="admin-save-status"></span>
+
+    <div class="admin-section" style="margin-top:2rem">
+      <div class="admin-section-title">Extended Deadline Access</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Players listed here can still submit picks after the deadline. Comma-separated names (case-insensitive).</div>
+      <div class="ko-row">
+        <div class="ko-label">Extended access players</div>
+        <input class="ko-input" id="ar-exceptions" placeholder="e.g. Pau, Erik" value="${(STATE.deadlineExceptions||[]).join(', ')}">
+      </div>
+      <button class="btn-sm" onclick="saveDeadlineExceptions()" style="margin-top:0.5rem">Save</button>
+      <span id="exceptions-save-status" style="font-size:0.78rem;margin-left:0.5rem;color:var(--muted)"></span>
+    </div>
+
     <div class="admin-section" style="margin-top:2.5rem">
       <div class="admin-section-title">Players (${STATE.players.length})</div>
       ${playersHtml}
@@ -2200,6 +2232,16 @@ function saveAdminData(){
   };
   const st=document.getElementById('admin-save-status');st.textContent='Saving…';
   db.ref('wc2026').update(updates)
+    .then(()=>{st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);})
+    .catch(e=>{st.textContent='✗ '+e.message;});
+}
+
+function saveDeadlineExceptions(){
+  if(!db){document.getElementById('exceptions-save-status').textContent='✗ Not connected.';return;}
+  const raw=document.getElementById('ar-exceptions')?.value||'';
+  const val=raw.split(',').map(s=>sanitizeName(s.trim())).filter(Boolean).join(',');
+  const st=document.getElementById('exceptions-save-status');st.textContent='Saving…';
+  db.ref('wc2026/config/deadlineExceptions').set(val)
     .then(()=>{st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);})
     .catch(e=>{st.textContent='✗ '+e.message;});
 }
