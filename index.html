@@ -513,7 +513,6 @@ function applyDataSnapshot(data) {
   STATE = {
     matches, players, source:'live', knockout,
     prevRanks: data.config?.prevRanks || {},
-    deadlineExceptions: (results.deadline_exceptions || '').split(',').map(s=>s.trim()).filter(Boolean),
     special: {
       'Tournament Winner': results.tournament_winner || results.winner || null,
       'Golden Boot':       results.golden_boot       || null,
@@ -1853,28 +1852,12 @@ function renderKnockoutSection(){
   applyFlags('knockout-section');
 }
 
-function hasDeadlineException(name){
-  if(!name)return false;
-  const key=name.trim().toLowerCase();
-  return (STATE.deadlineExceptions||[]).some(e=>e.toLowerCase()===key);
-}
-
 function renderSubmitTab(){
   const cont=document.getElementById('submit-content');if(!cont)return;
-  if(new Date()>PICK_DEADLINE){
-    // Check if this player has been granted extended access
-    const nameInForm=FORM_STATE.name||'';
-    if(!hasDeadlineException(nameInForm)){
-      cont.innerHTML=`<div class="error-msg" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.3);color:var(--gold-light)">
-        🔒 Picks are locked — the tournament has started! View your predictions on the other tabs.
-        <div style="margin-top:1rem">
-          <input id="late-name-input" type="text" class="ko-input" placeholder="Your name" style="max-width:200px;margin-right:0.5rem" value="${nameInForm}" oninput="FORM_STATE.name=this.value.trim();saveFormState()">
-          <button class="btn-sm" onclick="renderSubmitTab()">Check access</button>
-        </div>
-      </div>`;
-      return;
-    }
-    // Player has extended access — fall through to normal form with a notice
+  const sessionUnlocked=sessionStorage.getItem('wc2026_submit_unlocked')==='1';
+  if(new Date()>PICK_DEADLINE&&!sessionUnlocked){
+    cont.innerHTML=`<div class="error-msg" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.3);color:var(--gold-light)">🔒 Picks are locked — the tournament has started! View your predictions on the other tabs.</div>`;
+    return;
   }
   const existingKey=FORM_STATE.name?sanitizeName(FORM_STATE.name):null;
   const existing=existingKey&&STATE.players.find(p=>sanitizeName(p.name)===existingKey);
@@ -2196,17 +2179,12 @@ function renderAdminContent(cont){
     <span class="save-status" id="admin-save-status"></span>
 
     <div class="admin-section" style="margin-top:2rem">
-      <div class="admin-section-title">Extended Deadline Access</div>
-      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Players listed here can still access Submit Picks after the deadline. To remove someone, delete their name and save again.</div>
-      <div class="ko-row">
-        <div class="ko-label">Add / remove players</div>
-        <input class="ko-input" id="ar-exceptions" placeholder="e.g. Pau, Erik" value="${(STATE.deadlineExceptions||[]).join(', ')}">
-      </div>
-      <button class="btn-sm" onclick="saveDeadlineExceptions()" style="margin-top:0.5rem">Save</button>
-      <span id="exceptions-save-status" style="font-size:0.78rem;margin-left:0.5rem;color:var(--green)">${sessionStorage.getItem('wc2026_exceptions_saved')==='1'?(sessionStorage.removeItem('wc2026_exceptions_saved'),'✓ Saved!'):''}</span>
-      ${(STATE.deadlineExceptions||[]).length
-        ? `<div style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted)">Active: <strong style="color:var(--gold-light)">${(STATE.deadlineExceptions||[]).join(', ')}</strong></div>`
-        : `<div style="margin-top:0.6rem;font-size:0.78rem;color:var(--muted)">No exceptions set — all picks are locked after the deadline.</div>`}
+      <div class="admin-section-title">Late Submission</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Use this on the player's device to temporarily unlock Submit Picks for this browser session only.</div>
+      ${sessionStorage.getItem('wc2026_submit_unlocked')==='1'
+        ? `<div style="color:var(--green);font-size:0.85rem;margin-bottom:0.5rem">✓ Submit Picks is currently unlocked on this device.</div>
+           <button class="btn-outline" onclick="sessionStorage.removeItem('wc2026_submit_unlocked');renderAdminTab()" style="font-size:0.8rem">Re-lock</button>`
+        : `<button class="btn" onclick="sessionStorage.setItem('wc2026_submit_unlocked','1');renderAdminTab()">Unlock Submit Picks for this session</button>`}
     </div>
 
     <div class="admin-section" style="margin-top:2.5rem">
@@ -2240,19 +2218,6 @@ function saveAdminData(){
     .catch(e=>{st.textContent='✗ '+e.message;});
 }
 
-function saveDeadlineExceptions(){
-  if(!db){alert('Not connected to Firebase.');return;}
-  const raw=document.getElementById('ar-exceptions')?.value||'';
-  const val=raw.split(',').map(s=>s.trim()).filter(Boolean).join(',');
-  // Set flag before the Firebase call — the optimistic on('value') re-render fires
-  // immediately and would detach the status element before .then() could update it.
-  sessionStorage.setItem('wc2026_exceptions_saved','1');
-  db.ref('wc2026').update({'results/deadline_exceptions': val||null})
-    .catch(e=>{
-      sessionStorage.removeItem('wc2026_exceptions_saved');
-      alert('Save failed: '+e.message);
-    });
-}
 
 function deletePlayer(name){
   if(!confirm(`Delete ${name}'s picks?`)||!db)return;
