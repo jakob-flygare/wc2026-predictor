@@ -349,6 +349,7 @@ async function run() {
   const finished = matches.filter(m => m.status === 'FINISHED').length;
   console.log(`  Finished matches processed: ${finished}`);
   console.log(`  Total goals: ${totalGoals}`);
+  process.exit(0); // Firebase Admin keeps connections open — must exit explicitly
 }
 
 run().catch(err => {
