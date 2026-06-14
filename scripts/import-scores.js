@@ -162,10 +162,10 @@ async function fetchESPNEvents(alreadyImported) {
   const result = { scorers: {}, cards: {}, processed: new Set() };
   const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
 
-  // 1 request: full WC2026 event list
+  // 1 request: full WC2026 event list across the entire tournament window
   let sbRes;
   try {
-    sbRes = await fetch(`${BASE}/scoreboard?limit=200`);
+    sbRes = await fetch(`${BASE}/scoreboard?dates=20260611-20260719&limit=500`);
   } catch (e) {
     console.error(`ESPN scoreboard network error: ${e.message}`);
     return result;
@@ -206,53 +206,53 @@ async function fetchESPNEvents(alreadyImported) {
     const sum = await sumRes.json();
     calls++;
 
-    // On the first summary, log the top-level keys so we can verify the shape
+    // Log the first keyEvent entry so we can verify the schema
     if (!loggedStructure) {
-      console.log(`ESPN summary keys: [${Object.keys(sum).join(', ')}]`);
-      // Log a sample of the first scoring/keyPlays entry to reveal the event schema
-      const sample = sum.scoring?.[0] ?? sum.keyPlays?.[0] ?? sum.plays?.[0] ?? null;
-      if (sample) console.log('ESPN first event sample:', JSON.stringify(sample).slice(0, 400));
+      const sample = (sum.keyEvents || [])[0] ?? null;
+      if (sample) console.log('ESPN keyEvent sample:', JSON.stringify(sample).slice(0, 600));
+      else console.log('ESPN: keyEvents array is empty for this match');
       loggedStructure = true;
     }
 
+    const keyEvents = sum.keyEvents || [];
+
     // ── Goals ────────────────────────────────────────────────────────────────
-    // ESPN soccer summaries put scoring events in `scoring[]` each with
-    // type.text, clock.displayValue, team.displayName, participants[].
-    const scoringPlays = (sum.scoring || []).filter(p => p.scoringPlay === true);
-    if (scoringPlays.length > 0) {
-      result.scorers[ourMatch.id] = scoringPlays.map(p => {
-        const scorer = p.participants?.find(a => a.type?.text?.toLowerCase().includes('scorer'))
-                    ?? p.participants?.[0];
-        const assist = p.participants?.find(a => a.type?.text?.toLowerCase().includes('assist'));
-        const minuteStr = p.clock?.displayValue || '0';
-        const minute    = parseInt(minuteStr) || 0;
+    const goalEvents = keyEvents.filter(e =>
+      e.scoringPlay === true || (e.type?.text || '').toLowerCase() === 'goal'
+    );
+    if (goalEvents.length > 0) {
+      result.scorers[ourMatch.id] = goalEvents.map(e => {
+        const scorer = e.participants?.find(a =>
+          (a.type?.text || a.type?.id || '').toLowerCase().includes('scorer')
+        ) ?? e.participants?.[0];
+        const assist = e.participants?.find(a =>
+          (a.type?.text || a.type?.id || '').toLowerCase().includes('assist')
+        );
+        const minute = parseInt(e.clock?.displayValue) || e.clock?.value || 0;
         return {
           player: scorer?.athlete?.displayName || 'Unknown',
-          team:   norm(p.team?.displayName || ''),
+          team:   norm(e.team?.displayName || ''),
           minute,
-          type:   (p.type?.text || '').toLowerCase().includes('penalty') ? 'PENALTY' : 'REGULAR',
+          type:   (e.type?.text || '').toLowerCase().includes('penalty') ? 'PENALTY' : 'REGULAR',
           assist: assist?.athlete?.displayName || null,
         };
       });
     }
 
     // ── Cards ─────────────────────────────────────────────────────────────────
-    // Cards often appear in keyPlays[] with type.text "Yellow Card" / "Red Card"
-    const keyPlays = sum.keyPlays || sum.plays || [];
-    const cardPlays = keyPlays.filter(p => {
-      const t = (p.type?.text || p.text || '').toLowerCase();
+    const cardEvents = keyEvents.filter(e => {
+      const t = (e.type?.text || '').toLowerCase();
       return t.includes('yellow') || t.includes('red card');
     });
-    if (cardPlays.length > 0) {
-      result.cards[ourMatch.id] = cardPlays.map(p => {
-        const player   = p.participants?.[0]?.athlete?.displayName || p.text || 'Unknown';
-        const minuteStr = p.clock?.displayValue || '0';
-        const minute    = parseInt(minuteStr) || 0;
-        const typeText  = p.type?.text || p.text || '';
-        const cardType  = typeText.toLowerCase().includes('red') ? 'Red Card' : 'Yellow Card';
+    if (cardEvents.length > 0) {
+      result.cards[ourMatch.id] = cardEvents.map(e => {
+        const player = e.participants?.[0]?.athlete?.displayName || 'Unknown';
+        const minute = parseInt(e.clock?.displayValue) || e.clock?.value || 0;
+        const t      = (e.type?.text || '').toLowerCase();
+        const cardType = t.includes('red') ? 'Red Card' : 'Yellow Card';
         return {
           player,
-          team:   norm(p.team?.displayName || ''),
+          team:   norm(e.team?.displayName || ''),
           minute,
           type:   cardType,
         };
