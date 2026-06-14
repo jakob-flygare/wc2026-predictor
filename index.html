@@ -114,9 +114,12 @@
   .match-wrap { margin-bottom: 0.4rem; }
   .match-scorers { display:none; background:var(--surface2); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:0.5rem 1.2rem 0.6rem; }
   .match-scorers.open { display:block; }
-  .scorer-row { font-size:0.78rem; color:var(--muted); padding:0.15rem 0; }
+  .scorer-row { font-size:0.78rem; color:var(--muted); padding:0.18rem 0; display:flex; align-items:baseline; gap:0.35rem; }
   .scorer-row b { color:var(--text); font-weight:500; }
   .scorer-row .scorer-og { color:var(--red); }
+  .scorer-team { font-size:0.7rem; margin-left:2px; }
+  .scorer-assist { font-size:0.7rem; color:var(--muted); opacity:0.7; margin-left:2px; }
+  .evt-icon { font-size:0.72rem; flex-shrink:0; }
   .score-box { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text); text-align:center; line-height:1; letter-spacing:0.05em; min-width:72px; }
   .match-picks-row { display:flex; justify-content:space-between; gap:0.5rem; font-size:0.74rem; padding:0.5rem 0 0.1rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:0.4rem; flex-wrap:wrap; }
   .mp-home { color:var(--green); } .mp-draw { color:var(--draw); } .mp-away { color:var(--red); }
@@ -1395,7 +1398,9 @@ function renderMatches(){
         : `<div class="vs">vs</div>`;
       const picksVisible = isPreviewMode() || new Date() >= PICK_DEADLINE;
       const sortedScorers = m.scorers ? [...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute) : [];
+      const sortedCards   = m.cards   ? [...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute) : [];
       const hasScorers = sortedScorers.length > 0;
+      const hasCards   = sortedCards.length > 0;
       // Picks breakdown (group stage only, visible after deadline or preview)
       let picksHtml = '';
       if(picksVisible && STATE.players.length){
@@ -1408,7 +1413,7 @@ function renderMatches(){
           <span><span class="mp-label">${an}:</span> <span class="mp-away">${av.length?av.join(', '):'—'}</span></span>
         </div>`;
       }
-      const hasDetail = hasScorers || picksHtml;
+      const hasDetail = hasScorers || hasCards || picksHtml;
       const clickAttr = hasDetail ? `onclick="toggleMatchDetail(${m.id})"` : '';
       html+=`<div class="match-wrap">
         <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
@@ -1418,13 +1423,23 @@ function renderMatches(){
           <div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div>
         </div>`;
       if(hasDetail){
-        const scorerRows=sortedScorers.map(s=>{
-          const isOG=s.type==='OWN_GOAL';
-          const isPen=s.type==='PENALTY';
-          const suffix=isOG?' (OG)':isPen?' (pen)':'';
-          return`<div class="scorer-row">${s.minute}' <b>${s.player}</b>${suffix} <span style="color:var(--muted);font-size:0.72rem">${s.team}</span></div>`;
+        // Merge goals + cards into a single timeline sorted by minute
+        const timeline=[
+          ...sortedScorers.map(s=>({...s,_evt:'goal'})),
+          ...sortedCards.map(c=>({...c,_evt:'card'})),
+        ].sort((a,b)=>a.minute-b.minute);
+        const timelineRows=timeline.map(e=>{
+          if(e._evt==='goal'){
+            const isOG=e.type==='OWN_GOAL',isPen=e.type==='PENALTY';
+            const suffix=isOG?' <span class="scorer-og">(OG)</span>':isPen?' (pen)':'';
+            const assist=e.assist?`<span class="scorer-assist">↳ ${e.assist}</span>`:'';
+            return`<div class="scorer-row"><span class="evt-icon">⚽</span><span>${e.minute}'</span> <b>${e.player}</b>${suffix} <span class="scorer-team">${e.team}</span>${assist}</div>`;
+          } else {
+            const icon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':'🟥';
+            return`<div class="scorer-row"><span class="evt-icon">${icon}</span><span>${e.minute}'</span> ${e.player} <span class="scorer-team">${e.team}</span></div>`;
+          }
         }).join('');
-        html+=`<div class="match-scorers" id="md-${m.id}">${scorerRows}${picksHtml}</div>`;
+        html+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${picksHtml}</div>`;
       }
       html+=`</div>`;
     });
@@ -1528,9 +1543,18 @@ function renderSpecial(){
       return`<div class="special-row"><span class="special-player">${p.name}</span><span class="special-pick ${cls}">${displayPick}${badge}</span></div>`;
     }).join('');
 
+    let liveLeader='';
+    if(!answer){
+      if(key==='boot'&&scorerLB.length)
+        liveLeader=`<span style="color:var(--gold-light);font-size:0.75rem">Leading: ${scorerLB[0].player} (${scorerLB[0].goals}⚽)</span>`;
+      else if(key==='mostCards'&&teamCards.length)
+        liveLeader=`<span style="color:var(--gold-light);font-size:0.75rem">Leading: ${withFlag(teamCards[0].team)} ${teamCards[0].yellow}🟨 ${teamCards[0].red}🟥</span>`;
+      else if(key==='topScoringTeam'&&teamGoals.length)
+        liveLeader=`<span style="color:var(--gold-light);font-size:0.75rem">Leading: ${withFlag(teamGoals[0].team)} (${teamGoals[0].goals} goals)</span>`;
+    }
     const status=answer
       ?(closest?`<span style="color:var(--green);font-size:0.75rem">Actual: ${answer}</span>`:`<span style="color:var(--green);font-size:0.75rem">✓ ${answer}</span>`)
-      :`<span style="color:var(--muted);font-size:0.75rem">Awaiting result</span>`;
+      :(liveLeader||`<span style="color:var(--muted);font-size:0.75rem">Awaiting result</span>`);
     const ptNote=closest?`+${pts} pts (closest)`:`+${pts} pts`;
 
     // Live sections for enhanced cards
