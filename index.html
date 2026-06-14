@@ -216,6 +216,18 @@
   .bracket-select { background:var(--surface2); border:1px solid var(--border); color:var(--text); padding:0.5rem 1rem; border-radius:6px; font-size:0.85rem; font-family:'DM Sans',sans-serif; cursor:pointer; }
   .bracket-select:focus { outline:none; border-color:var(--gold); }
   .no-bracket-msg { color:var(--muted); font-size:0.85rem; text-align:center; padding:3rem; }
+  .standings-table { width:100%; border-collapse:collapse; font-size:0.74rem; }
+  .standings-table th { color:var(--text-muted); font-weight:500; font-size:0.62rem; text-align:center; padding:3px 3px; border-bottom:1px solid var(--border); white-space:nowrap; }
+  .standings-table th:nth-child(2) { text-align:left; }
+  .standings-table td { padding:4px 3px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.04); }
+  .standings-table td:nth-child(2) { text-align:left; }
+  .standings-table .st-adv td { color:var(--text); }
+  .standings-table .st-out td { opacity:0.48; }
+  .standings-table .pts-col { font-weight:700; }
+  .standings-table .gd-pos { color:#4a9a6a; }
+  .standings-table .gd-neg { color:#a05050; }
+  .picks-scroll { max-height:440px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; }
+  .picks-section-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin:1.5rem 0 0.5rem; }
   .group-standings-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:0.6rem; margin-bottom:2rem; }
   .gs-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.75rem 1rem; }
   .gs-title { font-size:0.68rem; font-weight:600; color:var(--gold); text-transform:uppercase; letter-spacing:0.15em; margin-bottom:0.5rem; }
@@ -374,10 +386,7 @@
     <div class="player-grid" id="player-grid"></div>
     <div class="picks-detail" id="picks-detail">
       <div class="section-header"><div class="section-title" id="picks-detail-name"></div></div>
-      <table class="picks-table">
-        <thead><tr><th>Match</th><th>Pick</th><th>Result</th><th>Pts</th></tr></thead>
-        <tbody id="picks-tbody"></tbody>
-      </table>
+      <div id="picks-detail-body"></div>
     </div>
   </div>
 </div>
@@ -397,18 +406,10 @@
 <div id="bracket" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Bracket</div>
-      <div class="section-sub">Predicted group standings &amp; knockout picks</div>
-    </div>
-    <div class="bracket-player-bar">
-      <label>Viewing:</label>
-      <select class="bracket-select" id="bracket-player-select" onchange="renderBracketTab()">
-        <option value="">— select a player —</option>
-      </select>
-      <span id="bracket-pts-tag"></span>
+      <div class="section-title">Group Standings</div>
+      <div class="section-sub">Live standings based on match results · top 2 advance</div>
     </div>
     <div id="bracket-content">
-      <div class="no-bracket-msg">Select a player above to see their predicted standings and bracket picks.</div>
     </div>
   </div>
 </div>
@@ -916,6 +917,35 @@ function computeGroupStandings(playerPicks){
   const out={};
   Object.keys(gd).sort().forEach(g=>{
     out[g]=Object.values(gd[g]).sort((a,b)=>b.pts-a.pts||b.w-a.w||a.team.localeCompare(b.team));
+  });
+  return out;
+}
+
+function computeActualStandings(){
+  const gd={};
+  STATE.matches.forEach(m=>{
+    const g=m.group.replace('Group ',''),h=shortName(m.home),a=shortName(m.away);
+    if(!gd[g])gd[g]={};
+    if(!gd[g][h])gd[g][h]={team:h,pld:0,w:0,d:0,l:0,gf:0,ga:0,pts:0};
+    if(!gd[g][a])gd[g][a]={team:a,pld:0,w:0,d:0,l:0,gf:0,ga:0,pts:0};
+  });
+  STATE.matches.forEach(m=>{
+    if(!m.result)return;
+    const g=m.group.replace('Group ','');
+    const home=gd[g]?.[shortName(m.home)],away=gd[g]?.[shortName(m.away)];
+    if(!home||!away)return;
+    home.pld++;away.pld++;
+    const hg=m.score?.home??0,ag=m.score?.away??0;
+    home.gf+=hg;home.ga+=ag;away.gf+=ag;away.ga+=hg;
+    if(m.result==='home'){home.pts+=3;home.w++;away.l++;}
+    else if(m.result==='away'){away.pts+=3;away.w++;home.l++;}
+    else if(m.result==='draw'){home.pts++;home.d++;away.pts++;away.d++;}
+  });
+  const out={};
+  Object.keys(gd).sort().forEach(g=>{
+    out[g]=Object.values(gd[g]).sort((a,b)=>
+      b.pts-a.pts||(b.gf-b.ga)-(a.gf-a.ga)||b.gf-a.gf||a.team.localeCompare(b.team)
+    );
   });
   return out;
 }
@@ -1555,7 +1585,22 @@ function showPlayerPicks(name){
   selectedPlayer=name;renderPlayerGrid();
   const p=STATE.players.find(p=>p.name===name);if(!p)return;
   document.getElementById('picks-detail-name').textContent=name+"'s Picks";
-  // Finished matches on top, unplayed below
+
+  // Predicted group standings
+  const standings=computeGroupStandings(p.picks);
+  let html='<div class="picks-section-label">Predicted Group Standings</div><div class="group-standings-grid">';
+  Object.keys(standings).sort().forEach(g=>{
+    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>`;
+    standings[g].forEach((t,i)=>{
+      const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
+      const adv=i<2?'<span style="font-size:0.6rem;color:var(--gold)"> Q</span>':'';
+      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+
+  // Individual match picks (scrollable)
   const sorted=[...STATE.matches].sort((a,b)=>(a.result?0:1)-(b.result?0:1));
   const rows=sorted.map(m=>{
     const hn=shortName(m.home),an=shortName(m.away);
@@ -1569,9 +1614,17 @@ function showPlayerPicks(name){
     }
     return`<tr class="${cls}"><td>${withFlag(hn)} vs ${withFlag(an)}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${pts}</td></tr>`;
   }).join('');
-  document.getElementById('picks-tbody').innerHTML=rows;
+  html+=`<div class="picks-section-label" style="margin-top:1.5rem">Individual Matches</div>
+    <div class="picks-scroll">
+      <table class="picks-table">
+        <thead><tr><th>Match</th><th>Pick</th><th>Result</th><th>Pts</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+
+  document.getElementById('picks-detail-body').innerHTML=html;
   document.getElementById('picks-detail').classList.add('open');
-  applyFlags('picks-tbody');
+  applyFlags('picks-detail-body');
 }
 
 // ── RENDER SPECIAL BETS ───────────────────────────────────────────────────────
@@ -1756,48 +1809,40 @@ function renderSpecial(){
 }
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
-function initBracketPlayerSelect(){
-  const sel=document.getElementById('bracket-player-select');if(!sel)return;
-  const current=sel.value;
-  sel.innerHTML='<option value="">— select a player —</option>'+STATE.players.map(p=>`<option value="${p.name}"${p.name===current?' selected':''}>${p.name}</option>`).join('');
-}
-
 function renderBracketTab(){
-  const sel=document.getElementById('bracket-player-select'),cont=document.getElementById('bracket-content'),tag=document.getElementById('bracket-pts-tag');
-  if(!sel||!cont)return;
-  if(!isPreviewMode()&&new Date()<PICK_DEADLINE){cont.innerHTML=PICKS_LOCKED_MSG;if(tag)tag.innerHTML='';return;}
-  const name=sel.value;
-  if(!name){cont.innerHTML='<div class="no-bracket-msg">Select a player above to see their predicted standings and bracket picks.</div>';if(tag)tag.innerHTML='';return;}
-  const player=STATE.players.find(p=>p.name===name);if(!player)return;
-  const standings=computeGroupStandings(player.picks),bpts=calcBracketPoints(player);
-  if(tag)tag.innerHTML=bpts.total>0?`<span class="bracket-pts-tag">+${bpts.total} bracket pts</span>`:'';
-  let html=`<div class="section-header" style="margin-top:0"><div class="section-title" style="font-size:1.3rem">Predicted Group Standings</div><div class="section-sub">From their 72 match picks — top 2 advancing (Q)</div></div><div class="group-standings-grid">`;
+  const cont=document.getElementById('bracket-content');
+  if(!cont)return;
+  const standings=computeActualStandings();
+  const anyResults=STATE.matches.some(m=>m.result);
+  let html='<div class="group-standings-grid">';
   Object.keys(standings).sort().forEach(g=>{
-    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>`;
-    standings[g].forEach((t,i)=>{
-      const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
-      const adv=i<2?'<span style="font-size:0.6rem;color:var(--gold)"> Q</span>':'';
-      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
+    const rows=standings[g];
+    const played=rows.some(r=>r.pld>0);
+    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>
+      <table class="standings-table">
+        <thead><tr><th></th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr></thead>
+        <tbody>`;
+    rows.forEach((t,i)=>{
+      const gd=t.gf-t.ga;
+      const gdStr=gd>0?`+${gd}`:String(gd);
+      const gdCls=gd>0?'gd-pos':gd<0?'gd-neg':'';
+      const rowCls=played?(i<2?'st-adv':'st-out'):'';
+      const dot=i<2&&played?`<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--gold);margin-left:3px;vertical-align:middle"></span>`:'';
+      html+=`<tr class="${rowCls}">
+        <td style="color:var(--text-muted)">${i+1}</td>
+        <td>${withFlag(t.team)}${dot}</td>
+        <td>${t.pld}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
+        <td>${t.gf}</td><td>${t.ga}</td>
+        <td class="${gdCls}">${t.pld?gdStr:'–'}</td>
+        <td class="pts-col">${t.pts}</td>
+      </tr>`;
     });
-    html+=`</div>`;
+    html+=`</tbody></table></div>`;
   });
-  html+=`</div><div class="section-header" style="margin-top:1.5rem"><div class="section-title" style="font-size:1.3rem">Knockout Predictions</div><div class="section-sub">Points earned as teams reach each stage</div></div><div class="adv-stages">`;
-  const stages=[{key:'r16',label:'Round of 16',pts:BRACKET_PTS.r16},{key:'qf',label:'Quarter-Finals',pts:BRACKET_PTS.qf},{key:'sf',label:'Semi-Finals',pts:BRACKET_PTS.sf},{key:'final',label:'Finalists',pts:BRACKET_PTS.final},{key:'winner',label:'Winner',pts:BRACKET_PTS.winner}];
-  const bracket=player.bracket||{},ko=STATE.knockout||{};
-  stages.forEach(({key,label,pts})=>{
-    const picks=key==='winner'?(bracket.winner?[bracket.winner]:[]):(bracket[key]||[]);
-    const actual=key==='winner'?(ko.winner?[ko.winner]:[]):(ko[key]||[]);
-    html+=`<div class="adv-card"><div class="adv-title">${label}<span class="adv-pts-badge">+${pts}pt each</span></div>`;
-    if(!picks.length)html+=`<div style="color:var(--muted);font-size:0.78rem;padding:0.4rem 0">No picks yet</div>`;
-    else picks.forEach(team=>{
-      let cls='pending',badge='';
-      if(actual.length){const hit=actual.some(t=>t.toLowerCase().trim()===team.toLowerCase().trim());cls=hit?'correct':'wrong';badge=hit?`+${pts}`:'';}
-      html+=`<div class="adv-team ${cls}"><span>${withFlag(team)}</span><span class="adv-team-pts">${badge}</span></div>`;
-    });
-    const earned=bpts[key]||0;if(actual.length&&earned>0)html+=`<div style="font-size:0.7rem;color:var(--gold);margin-top:0.4rem;text-align:right">+${earned} pts</div>`;
-    html+=`</div>`;
-  });
-  html+=`</div>`;cont.innerHTML=html;applyFlags('bracket-content');
+  html+='</div>';
+  if(!anyResults) html+='<div class="no-bracket-msg">No results yet — standings update after each match</div>';
+  cont.innerHTML=html;
+  applyFlags('bracket-content');
 }
 
 // ── SUBMIT PICKS TAB ──────────────────────────────────────────────────────────
@@ -2461,7 +2506,6 @@ function renderAll(){
   renderMatches();
   renderPlayerGrid();
   renderSpecial();
-  initBracketPlayerSelect();
   const active=document.querySelector('.section.active');
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
