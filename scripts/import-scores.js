@@ -156,13 +156,13 @@ const STAGE_MAP = {
 };
 
 // ── ESPN unofficial API: goalscorers + cards ─────────────────────────────────
-// No API key required. Fetches all WC2026 events from the ESPN scoreboard,
-// then one summary request per newly-finished match for scorer/card detail.
+// No API key. Goal/card details are inline in scoreboard competitions[0].details
+// so everything comes from a single request — no per-match summary calls needed.
 async function fetchESPNEvents(alreadyImported) {
   const result = { scorers: {}, cards: {}, processed: new Set() };
   const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
 
-  // 1 request: full WC2026 event list across the entire tournament window
+  // 1 request: all WC2026 events with inline goal + card details
   let sbRes;
   try {
     sbRes = await fetch(`${BASE}/scoreboard?dates=20260611-20260719&limit=500`);
@@ -172,16 +172,13 @@ async function fetchESPNEvents(alreadyImported) {
   }
   if (!sbRes.ok) { console.warn(`ESPN scoreboard HTTP ${sbRes.status}`); return result; }
 
-  const sbData  = await sbRes.json();
-  const events  = sbData.events || [];
+  const sbData   = await sbRes.json();
+  const events   = sbData.events || [];
   const finished = events.filter(e => {
     const s = e.competitions?.[0]?.status?.type;
     return s?.completed === true || s?.state === 'post';
   });
   console.log(`ESPN: ${events.length} total events, ${finished.length} finished`);
-
-  let calls = 0;
-  let loggedStructure = false;
 
   for (const event of finished) {
     const comp     = event.competitions?.[0];
@@ -194,79 +191,44 @@ async function fetchESPNEvents(alreadyImported) {
     if (!ourMatch) continue;
     if (alreadyImported[String(ourMatch.id)]) continue;
 
-    let sumRes;
-    try {
-      sumRes = await fetch(`${BASE}/summary?event=${event.id}`);
-    } catch (e) {
-      console.error(`ESPN summary error for event ${event.id}: ${e.message}`);
-      continue;
-    }
-    if (!sumRes.ok) { console.warn(`ESPN summary HTTP ${sumRes.status} for ${event.id}`); continue; }
-
-    const sum = await sumRes.json();
-    calls++;
-
-    // Log the first keyEvent entry so we can verify the schema
-    if (!loggedStructure) {
-      const sample = (sum.keyEvents || [])[0] ?? null;
-      if (sample) console.log('ESPN keyEvent sample:', JSON.stringify(sample).slice(0, 600));
-      else console.log('ESPN: keyEvents array is empty for this match');
-      loggedStructure = true;
-    }
-
-    const keyEvents = sum.keyEvents || [];
-
-    // ── Goals ────────────────────────────────────────────────────────────────
-    const goalEvents = keyEvents.filter(e =>
-      e.scoringPlay === true || (e.type?.text || '').toLowerCase() === 'goal'
-    );
-    if (goalEvents.length > 0) {
-      result.scorers[ourMatch.id] = goalEvents.map(e => {
-        const scorer = e.participants?.find(a =>
-          (a.type?.text || a.type?.id || '').toLowerCase().includes('scorer')
-        ) ?? e.participants?.[0];
-        const assist = e.participants?.find(a =>
-          (a.type?.text || a.type?.id || '').toLowerCase().includes('assist')
-        );
-        const minute = parseInt(e.clock?.displayValue) || e.clock?.value || 0;
-        return {
-          player: scorer?.athlete?.displayName || 'Unknown',
-          team:   norm(e.team?.displayName || ''),
-          minute,
-          type:   (e.type?.text || '').toLowerCase().includes('penalty') ? 'PENALTY' : 'REGULAR',
-          assist: assist?.athlete?.displayName || null,
-        };
-      });
-    }
-
-    // ── Cards ─────────────────────────────────────────────────────────────────
-    const cardEvents = keyEvents.filter(e => {
-      const t = (e.type?.text || '').toLowerCase();
-      return t.includes('yellow') || t.includes('red card');
+    // Map ESPN team id → display name for this match
+    const teamById = {};
+    (comp?.competitors || []).forEach(c => {
+      if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
     });
-    if (cardEvents.length > 0) {
-      result.cards[ourMatch.id] = cardEvents.map(e => {
-        const player = e.participants?.[0]?.athlete?.displayName || 'Unknown';
-        const minute = parseInt(e.clock?.displayValue) || e.clock?.value || 0;
-        const t      = (e.type?.text || '').toLowerCase();
-        const cardType = t.includes('red') ? 'Red Card' : 'Yellow Card';
-        return {
-          player,
-          team:   norm(e.team?.displayName || ''),
-          minute,
-          type:   cardType,
-        };
-      });
+
+    const details = comp?.details || [];
+
+    // Goals: scoringPlay===true, skip own goals (ownGoal flag)
+    const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
+    result.scorers[ourMatch.id] = goalDetails.map(d => ({
+      player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+      team:   norm(teamById[d.team?.id] || ''),
+      minute: parseInt(d.clock?.displayValue) || 0,
+      type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
+      assist: null,
+    }));
+
+    // Cards: yellowCard and/or redCard flags
+    const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
+    if (cardDetails.length > 0) {
+      result.cards[ourMatch.id] = cardDetails.map(d => ({
+        player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+        team:   norm(teamById[d.team?.id] || ''),
+        minute: parseInt(d.clock?.displayValue) || 0,
+        type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
+              : d.redCard                   ? 'Red Card'
+              :                               'Yellow Card',
+      }));
     }
 
     result.processed.add(String(ourMatch.id));
     console.log(`  Match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
-      `${result.scorers[ourMatch.id]?.length ?? 0} goals, ` +
-      `${result.cards[ourMatch.id]?.length ?? 0} cards`);
+      `${goalDetails.length} goals, ${cardDetails.length} cards`);
   }
 
-  console.log(`ESPN: used ${1 + calls} requests this run (1 scoreboard + ${calls} summaries)`);
-  return result;  // result.scorers, result.cards, result.processed (Set of ourMatch ids fetched)
+  console.log(`ESPN: 1 request used (all details inline in scoreboard)`);
+  return result;
 }
 
 // ── Rank snapshot (for form arrows) ──────────────────────────────────────────
