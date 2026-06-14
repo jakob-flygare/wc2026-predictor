@@ -42,7 +42,7 @@
   h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.8rem, 6vw, 4.5rem); letter-spacing: 0.05em; color: var(--gold); line-height: 1; margin-bottom: 0.25rem; }
   .subtitle { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; }
   .deadline-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); color: var(--gold-light); font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.9rem; border-radius: 999px; }
-  .deadline-badge::before { content: '⏳'; font-size: 0.85rem; }
+  .deadline-badge::before { content: '⚽'; font-size: 0.85rem; }
 
   nav { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
   nav::-webkit-scrollbar { display: none; }
@@ -306,7 +306,7 @@
   <span class="trophy-icon">🏆</span>
   <h1>World Cup 2026</h1>
   <div class="subtitle">Lehman Brothers</div>
-  <div class="deadline-badge">Picks lock · Jun 11 2026</div>
+  <div class="deadline-badge" id="header-badge">Loading...</div>
 </header>
 
 <nav>
@@ -2393,6 +2393,12 @@ function renderAll(){
   const active=document.querySelector('.section.active');
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
+  // Update header badge with next match info
+  const badge=document.getElementById('header-badge');
+  if(badge){
+    const next=getCountdownText();
+    badge.innerHTML=next||`${STATE.matches.filter(m=>!m.result).length} matches remaining`;
+  }
 }
 
 initData();
