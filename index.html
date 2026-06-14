@@ -473,11 +473,13 @@ function applyDataSnapshot(data) {
 
   const scores  = data.scores  || {};
   const scorers = data.scorers || {};
+  const cardsDb = data.cards   || {};
   const matches = DEMO_MATCHES.map(m => ({
     ...m,
     result:  results[String(m.id)] || null,
-    score:   scores[String(m.id)]  || null,   // {home:2, away:1}
+    score:   scores[String(m.id)]  || null,
     scorers: scorers[String(m.id)] ? Object.values(scorers[String(m.id)]) : null,
+    cards:   cardsDb[String(m.id)] ? Object.values(cardsDb[String(m.id)]) : null,
   }));
   const knockout = {
     r16:    parseList(results.r16),
@@ -974,6 +976,20 @@ function computeTeamGoals(){
     totals[an]=(totals[an]||0)+(m.score.away||0);
   });
   return Object.entries(totals).map(([t,g])=>({team:t,goals:g})).filter(t=>t.goals>0).sort((a,b)=>b.goals-a.goals);
+}
+
+function computeTeamCards(){
+  const totals={};
+  STATE.matches.forEach(m=>{
+    if(!m.cards)return;
+    m.cards.forEach(c=>{
+      if(!totals[c.team])totals[c.team]={team:c.team,yellow:0,red:0,total:0};
+      if(c.type==='Yellow Card')totals[c.team].yellow++;
+      else if(c.type==='Red Card'||c.type==='Yellow Red Card')totals[c.team].red++;
+      totals[c.team].total++;
+    });
+  });
+  return Object.values(totals).filter(t=>t.total>0).sort((a,b)=>b.total-a.total);
 }
 
 function computeTotalGoalsStats(){
@@ -1487,6 +1503,7 @@ function renderSpecial(){
   const gw=calcGoalsWinners();
   const scorerLB  = computeScorerLeaderboard();
   const teamGoals = computeTeamGoals();
+  const teamCards = computeTeamCards();
   const goalStats = computeTotalGoalsStats();
 
   document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest,wide,teamPick})=>{
@@ -1561,6 +1578,30 @@ function renderSpecial(){
         return pick&&!top.some(t=>t.team.toLowerCase()===pick.toLowerCase());
       }).map(p=>`${p.name} (${p.special.topScoringTeam})`).join(', ');
       liveHtml=`<div class="live-section-title">📊 Live Team Goals</div>${lbRows}`
+        +(outside?`<div class="live-outside">Outside top 10: ${outside}</div>`:'');
+    }
+
+    if(key==='mostCards'&&teamCards.length){
+      const top=teamCards.slice(0,10);
+      const maxC=top[0].total;
+      const lbRows=top.map((t,i)=>{
+        const pickers=STATE.players.filter(p=>p.special?.mostCards?.toLowerCase().trim()===t.team.toLowerCase()).map(p=>p.name);
+        const pickerStr=pickers.length?`<span class="live-pickers">${pickers.join(', ')}</span>`:'';
+        const barPct=maxC>0?(t.total/maxC*100).toFixed(0):0;
+        return`<div class="live-lb-row">
+          <span class="live-lb-rank">${i+1}</span>
+          <span class="live-lb-name" style="flex:1">
+            ${withFlag(t.team)}${pickerStr}
+            <div class="team-mini-bar"><div class="team-mini-fill" style="width:${barPct}%"></div></div>
+          </span>
+          <span class="live-lb-pts" style="font-size:0.75rem;color:var(--muted)"><span style="color:#facc15">${t.yellow}🟨</span> <span style="color:var(--red)">${t.red}🟥</span></span>
+        </div>`;
+      }).join('');
+      const outside=STATE.players.filter(p=>{
+        const pick=p.special?.mostCards?.trim();
+        return pick&&!top.some(t=>t.team.toLowerCase()===pick.toLowerCase());
+      }).map(p=>`${p.name} (${p.special.mostCards})`).join(', ');
+      liveHtml=`<div class="live-section-title">🟨 Live Card Counts</div>${lbRows}`
         +(outside?`<div class="live-outside">Outside top 10: ${outside}</div>`:'');
     }
 
