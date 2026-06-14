@@ -108,6 +108,15 @@
   .section-sub { font-size: 0.8rem; color: var(--muted); }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
+  .sort-bar { display:flex; gap:8px; padding:12px 0 4px; }
+  .sort-btn { padding:5px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background 0.15s,color 0.15s; }
+  .sort-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }
+  .match-time { font-size:0.7rem; color:var(--text-muted); margin-top:2px; }
+  .odds-bar { display:flex; height:20px; border-radius:4px; overflow:hidden; margin:6px 8px 2px; cursor:default; }
+  .odds-home { background:#22c55e; display:flex; align-items:center; justify-content:center; transition:width 0.3s; }
+  .odds-draw { background:#ca8a04; display:flex; align-items:center; justify-content:center; transition:width 0.3s; }
+  .odds-away { background:#ef4444; display:flex; align-items:center; justify-content:center; transition:width 0.3s; }
+  .odds-label { font-size:10px; font-weight:700; color:rgba(255,255,255,0.95); white-space:nowrap; overflow:hidden; letter-spacing:-0.01em; }
   .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 0; display: grid; grid-template-columns: 1fr 80px 1fr 140px; align-items: center; gap: 0.75rem; }
   .match-card.has-scorers { cursor: pointer; }
   .match-card.has-scorers:hover { border-color: rgba(255,255,255,0.15); }
@@ -350,6 +359,7 @@
 <!-- MATCHES -->
 <div id="matches" class="section">
   <div class="container">
+    <div id="matches-sort-bar"></div>
     <div id="matches-list"></div>
   </div>
 </div>
@@ -477,12 +487,14 @@ function applyDataSnapshot(data) {
   const scores  = data.scores  || {};
   const scorers = data.scorers || {};
   const cardsDb = data.cards   || {};
+  const oddsDb  = data.odds    || {};
   const matches = DEMO_MATCHES.map(m => ({
     ...m,
     result:  results[String(m.id)] || null,
     score:   scores[String(m.id)]  || null,
     scorers: scorers[String(m.id)] ? Object.values(scorers[String(m.id)]) : null,
     cards:   cardsDb[String(m.id)] ? Object.values(cardsDb[String(m.id)]) : null,
+    odds:    oddsDb[String(m.id)]  || null,
   }));
   const knockout = {
     r16:    parseList(results.r16),
@@ -535,90 +547,90 @@ function applyDataSnapshot(data) {
 
 // ── DEMO DATA ─────────────────────────────────────────────────────────────────
 const DEMO_MATCHES = [
-  // Group A  (kickoff = local CET, ISO date for live detection)
-  {id:1, home:"🇲🇽 Mexico",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 11",kickoff:"2026-06-11T19:00",result:"home"},
-  {id:2, home:"🇰🇷 South Korea",away:"🇨🇿 Czechia",group:"Group A",date:"Jun 11",kickoff:"2026-06-11T22:00",result:"draw"},
-  {id:25,home:"🇨🇿 Czechia",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 18",result:null},
-  {id:28,home:"🇲🇽 Mexico",away:"🇰🇷 South Korea",group:"Group A",date:"Jun 18",result:null},
-  {id:53,home:"🇨🇿 Czechia",away:"🇲🇽 Mexico",group:"Group A",date:"Jun 24",result:null},
-  {id:54,home:"🇿🇦 South Africa",away:"🇰🇷 South Korea",group:"Group A",date:"Jun 24",result:null},
+  // Group A  (kickoff = Swedish local time CEST = UTC+2)
+  {id:1, home:"🇲🇽 Mexico",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 11",kickoff:"2026-06-11T21:00",result:"home"},
+  {id:2, home:"🇰🇷 South Korea",away:"🇨🇿 Czechia",group:"Group A",date:"Jun 12",kickoff:"2026-06-12T04:00",result:"draw"},
+  {id:25,home:"🇨🇿 Czechia",away:"🇿🇦 South Africa",group:"Group A",date:"Jun 18",kickoff:"2026-06-18T18:00",result:null},
+  {id:28,home:"🇲🇽 Mexico",away:"🇰🇷 South Korea",group:"Group A",date:"Jun 19",kickoff:"2026-06-19T03:00",result:null},
+  {id:53,home:"🇨🇿 Czechia",away:"🇲🇽 Mexico",group:"Group A",date:"Jun 25",kickoff:"2026-06-25T03:00",result:null},
+  {id:54,home:"🇿🇦 South Africa",away:"🇰🇷 South Korea",group:"Group A",date:"Jun 25",kickoff:"2026-06-25T03:00",result:null},
   // Group B
-  {id:3, home:"🇨🇦 Canada",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 12",kickoff:"2026-06-12T22:00",result:"home"},
-  {id:5, home:"🇶🇦 Qatar",away:"🇨🇭 Switzerland",group:"Group B",date:"Jun 13",kickoff:"2026-06-13T13:00",result:"away"},
-  {id:26,home:"🇨🇭 Switzerland",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 18",result:null},
-  {id:27,home:"🇨🇦 Canada",away:"🇶🇦 Qatar",group:"Group B",date:"Jun 18",result:null},
-  {id:49,home:"🇨🇭 Switzerland",away:"🇨🇦 Canada",group:"Group B",date:"Jun 24",result:null},
-  {id:50,home:"🇧🇦 Bosnia-Herzegovina",away:"🇶🇦 Qatar",group:"Group B",date:"Jun 24",result:null},
+  {id:3, home:"🇨🇦 Canada",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 12",kickoff:"2026-06-12T21:00",result:"home"},
+  {id:5, home:"🇶🇦 Qatar",away:"🇨🇭 Switzerland",group:"Group B",date:"Jun 13",kickoff:"2026-06-13T21:00",result:"away"},
+  {id:26,home:"🇨🇭 Switzerland",away:"🇧🇦 Bosnia-Herzegovina",group:"Group B",date:"Jun 18",kickoff:"2026-06-18T21:00",result:null},
+  {id:27,home:"🇨🇦 Canada",away:"🇶🇦 Qatar",group:"Group B",date:"Jun 19",kickoff:"2026-06-19T00:00",result:null},
+  {id:49,home:"🇨🇭 Switzerland",away:"🇨🇦 Canada",group:"Group B",date:"Jun 24",kickoff:"2026-06-24T21:00",result:null},
+  {id:50,home:"🇧🇦 Bosnia-Herzegovina",away:"🇶🇦 Qatar",group:"Group B",date:"Jun 24",kickoff:"2026-06-24T21:00",result:null},
   // Group C
-  {id:6, home:"🇧🇷 Brazil",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 13",kickoff:"2026-06-13T16:00",result:"home"},
-  {id:7, home:"🇭🇹 Haiti",away:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",group:"Group C",date:"Jun 13",kickoff:"2026-06-13T19:00",result:"away"},
-  {id:30,home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 19",result:null},
-  {id:31,home:"🇧🇷 Brazil",away:"🇭🇹 Haiti",group:"Group C",date:"Jun 19",result:null},
-  {id:51,home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",away:"🇧🇷 Brazil",group:"Group C",date:"Jun 24",result:null},
-  {id:52,home:"🇲🇦 Morocco",away:"🇭🇹 Haiti",group:"Group C",date:"Jun 24",result:null},
+  {id:6, home:"🇧🇷 Brazil",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 14",kickoff:"2026-06-14T00:00",result:"home"},
+  {id:7, home:"🇭🇹 Haiti",away:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",group:"Group C",date:"Jun 14",kickoff:"2026-06-14T03:00",result:"away"},
+  {id:30,home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",away:"🇲🇦 Morocco",group:"Group C",date:"Jun 20",kickoff:"2026-06-20T00:00",result:null},
+  {id:31,home:"🇧🇷 Brazil",away:"🇭🇹 Haiti",group:"Group C",date:"Jun 20",kickoff:"2026-06-20T02:30",result:null},
+  {id:51,home:"🏴󠁧󠁢󠁳󠁣󠁴󠁿 Scotland",away:"🇧🇷 Brazil",group:"Group C",date:"Jun 25",kickoff:"2026-06-25T00:00",result:null},
+  {id:52,home:"🇲🇦 Morocco",away:"🇭🇹 Haiti",group:"Group C",date:"Jun 25",kickoff:"2026-06-25T00:00",result:null},
   // Group D
-  {id:4, home:"🇺🇸 USA",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 12",kickoff:"2026-06-12T19:00",result:"home"},
-  {id:8, home:"🇦🇺 Australia",away:"🇹🇷 Türkiye",group:"Group D",date:"Jun 13",kickoff:"2026-06-13T22:00",result:"draw"},
-  {id:29,home:"🇺🇸 USA",away:"🇦🇺 Australia",group:"Group D",date:"Jun 19",result:null},
-  {id:32,home:"🇹🇷 Türkiye",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 19",result:null},
-  {id:59,home:"🇹🇷 Türkiye",away:"🇺🇸 USA",group:"Group D",date:"Jun 25",result:null},
-  {id:60,home:"🇵🇾 Paraguay",away:"🇦🇺 Australia",group:"Group D",date:"Jun 25",result:null},
+  {id:4, home:"🇺🇸 USA",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 13",kickoff:"2026-06-13T03:00",result:"home"},
+  {id:8, home:"🇦🇺 Australia",away:"🇹🇷 Türkiye",group:"Group D",date:"Jun 14",kickoff:"2026-06-14T06:00",result:"draw"},
+  {id:29,home:"🇺🇸 USA",away:"🇦🇺 Australia",group:"Group D",date:"Jun 19",kickoff:"2026-06-19T21:00",result:null},
+  {id:32,home:"🇹🇷 Türkiye",away:"🇵🇾 Paraguay",group:"Group D",date:"Jun 20",kickoff:"2026-06-20T05:00",result:null},
+  {id:59,home:"🇹🇷 Türkiye",away:"🇺🇸 USA",group:"Group D",date:"Jun 26",kickoff:"2026-06-26T04:00",result:null},
+  {id:60,home:"🇵🇾 Paraguay",away:"🇦🇺 Australia",group:"Group D",date:"Jun 26",kickoff:"2026-06-26T04:00",result:null},
   // Group E
   {id:9, home:"🇩🇪 Germany",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 14",kickoff:"2026-06-14T19:00",result:"home"},
-  {id:11,home:"🇨🇮 Ivory Coast",away:"🇪🇨 Ecuador",group:"Group E",date:"Jun 14",kickoff:"2026-06-14T22:00",result:"draw"},
-  {id:34,home:"🇩🇪 Germany",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 20",result:null},
-  {id:35,home:"🇪🇨 Ecuador",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 20",result:null},
-  {id:55,home:"🇪🇨 Ecuador",away:"🇩🇪 Germany",group:"Group E",date:"Jun 25",result:null},
-  {id:56,home:"🇨🇼 Curaçao",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 25",result:null},
+  {id:11,home:"🇨🇮 Ivory Coast",away:"🇪🇨 Ecuador",group:"Group E",date:"Jun 15",kickoff:"2026-06-15T01:00",result:"draw"},
+  {id:34,home:"🇩🇪 Germany",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 20",kickoff:"2026-06-20T22:00",result:null},
+  {id:35,home:"🇪🇨 Ecuador",away:"🇨🇼 Curaçao",group:"Group E",date:"Jun 21",kickoff:"2026-06-21T02:00",result:null},
+  {id:55,home:"🇪🇨 Ecuador",away:"🇩🇪 Germany",group:"Group E",date:"Jun 25",kickoff:"2026-06-25T22:00",result:null},
+  {id:56,home:"🇨🇼 Curaçao",away:"🇨🇮 Ivory Coast",group:"Group E",date:"Jun 25",kickoff:"2026-06-25T22:00",result:null},
   // Group F
-  {id:10,home:"🇳🇱 Netherlands",away:"🇯🇵 Japan",group:"Group F",date:"Jun 14",kickoff:"2026-06-14T16:00",result:"home"},
-  {id:12,home:"🇸🇪 Sweden",away:"🇹🇳 Tunisia",group:"Group F",date:"Jun 14",kickoff:"2026-06-14T13:00",result:"home"},
-  {id:33,home:"🇳🇱 Netherlands",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 20",result:null},
-  {id:36,home:"🇹🇳 Tunisia",away:"🇯🇵 Japan",group:"Group F",date:"Jun 20",result:null},
-  {id:57,home:"🇯🇵 Japan",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 25",result:null},
-  {id:58,home:"🇹🇳 Tunisia",away:"🇳🇱 Netherlands",group:"Group F",date:"Jun 25",result:null},
+  {id:10,home:"🇳🇱 Netherlands",away:"🇯🇵 Japan",group:"Group F",date:"Jun 14",kickoff:"2026-06-14T22:00",result:"home"},
+  {id:12,home:"🇸🇪 Sweden",away:"🇹🇳 Tunisia",group:"Group F",date:"Jun 15",kickoff:"2026-06-15T04:00",result:"home"},
+  {id:33,home:"🇳🇱 Netherlands",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 20",kickoff:"2026-06-20T19:00",result:null},
+  {id:36,home:"🇹🇳 Tunisia",away:"🇯🇵 Japan",group:"Group F",date:"Jun 21",kickoff:"2026-06-21T06:00",result:null},
+  {id:57,home:"🇯🇵 Japan",away:"🇸🇪 Sweden",group:"Group F",date:"Jun 26",kickoff:"2026-06-26T01:00",result:null},
+  {id:58,home:"🇹🇳 Tunisia",away:"🇳🇱 Netherlands",group:"Group F",date:"Jun 26",kickoff:"2026-06-26T01:00",result:null},
   // Group G
-  {id:14,home:"🇧🇪 Belgium",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 15",kickoff:"2026-06-15T19:00",result:"home"},
-  {id:16,home:"🇮🇷 Iran",away:"🇳🇿 New Zealand",group:"Group G",date:"Jun 15",kickoff:"2026-06-15T22:00",result:"home"},
-  {id:38,home:"🇧🇪 Belgium",away:"🇮🇷 Iran",group:"Group G",date:"Jun 21",result:null},
-  {id:40,home:"🇳🇿 New Zealand",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 21",result:null},
-  {id:65,home:"🇪🇬 Egypt",away:"🇮🇷 Iran",group:"Group G",date:"Jun 26",result:null},
-  {id:66,home:"🇳🇿 New Zealand",away:"🇧🇪 Belgium",group:"Group G",date:"Jun 26",result:null},
+  {id:14,home:"🇧🇪 Belgium",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 15",kickoff:"2026-06-15T21:00",result:"home"},
+  {id:16,home:"🇮🇷 Iran",away:"🇳🇿 New Zealand",group:"Group G",date:"Jun 16",kickoff:"2026-06-16T03:00",result:"home"},
+  {id:38,home:"🇧🇪 Belgium",away:"🇮🇷 Iran",group:"Group G",date:"Jun 21",kickoff:"2026-06-21T21:00",result:null},
+  {id:40,home:"🇳🇿 New Zealand",away:"🇪🇬 Egypt",group:"Group G",date:"Jun 22",kickoff:"2026-06-22T03:00",result:null},
+  {id:65,home:"🇪🇬 Egypt",away:"🇮🇷 Iran",group:"Group G",date:"Jun 27",kickoff:"2026-06-27T05:00",result:null},
+  {id:66,home:"🇳🇿 New Zealand",away:"🇧🇪 Belgium",group:"Group G",date:"Jun 27",kickoff:"2026-06-27T05:00",result:null},
   // Group H
-  {id:13,home:"🇪🇸 Spain",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 15",kickoff:"2026-06-15T13:00",result:"home"},
-  {id:15,home:"🇸🇦 Saudi Arabia",away:"🇺🇾 Uruguay",group:"Group H",date:"Jun 15",kickoff:"2026-06-15T16:00",result:"away"},
-  {id:37,home:"🇪🇸 Spain",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 21",result:null},
-  {id:39,home:"🇺🇾 Uruguay",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 21",result:null},
-  {id:63,home:"🇨🇻 Cape Verde",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 26",result:null},
-  {id:64,home:"🇺🇾 Uruguay",away:"🇪🇸 Spain",group:"Group H",date:"Jun 26",result:null},
+  {id:13,home:"🇪🇸 Spain",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 15",kickoff:"2026-06-15T18:00",result:"home"},
+  {id:15,home:"🇸🇦 Saudi Arabia",away:"🇺🇾 Uruguay",group:"Group H",date:"Jun 16",kickoff:"2026-06-16T00:00",result:"away"},
+  {id:37,home:"🇪🇸 Spain",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 21",kickoff:"2026-06-21T18:00",result:null},
+  {id:39,home:"🇺🇾 Uruguay",away:"🇨🇻 Cape Verde",group:"Group H",date:"Jun 22",kickoff:"2026-06-22T00:00",result:null},
+  {id:63,home:"🇨🇻 Cape Verde",away:"🇸🇦 Saudi Arabia",group:"Group H",date:"Jun 27",kickoff:"2026-06-27T02:00",result:null},
+  {id:64,home:"🇺🇾 Uruguay",away:"🇪🇸 Spain",group:"Group H",date:"Jun 27",kickoff:"2026-06-27T02:00",result:null},
   // Group I
-  {id:17,home:"🇫🇷 France",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 16",kickoff:"2026-06-16T19:00",result:"home"},
-  {id:18,home:"🇮🇶 Iraq",away:"🇳🇴 Norway",group:"Group I",date:"Jun 16",kickoff:"2026-06-16T16:00",result:"away"},
-  {id:42,home:"🇫🇷 France",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 22",result:null},
-  {id:43,home:"🇳🇴 Norway",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 22",result:null},
-  {id:61,home:"🇳🇴 Norway",away:"🇫🇷 France",group:"Group I",date:"Jun 26",result:null},
-  {id:62,home:"🇸🇳 Senegal",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 26",result:null},
+  {id:17,home:"🇫🇷 France",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 16",kickoff:"2026-06-16T21:00",result:"home"},
+  {id:18,home:"🇮🇶 Iraq",away:"🇳🇴 Norway",group:"Group I",date:"Jun 17",kickoff:"2026-06-17T00:00",result:"away"},
+  {id:42,home:"🇫🇷 France",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 22",kickoff:"2026-06-22T23:00",result:null},
+  {id:43,home:"🇳🇴 Norway",away:"🇸🇳 Senegal",group:"Group I",date:"Jun 23",kickoff:"2026-06-23T02:00",result:null},
+  {id:61,home:"🇳🇴 Norway",away:"🇫🇷 France",group:"Group I",date:"Jun 26",kickoff:"2026-06-26T21:00",result:null},
+  {id:62,home:"🇸🇳 Senegal",away:"🇮🇶 Iraq",group:"Group I",date:"Jun 26",kickoff:"2026-06-26T21:00",result:null},
   // Group J
-  {id:19,home:"🇦🇷 Argentina",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 16",kickoff:"2026-06-16T22:00",result:"home"},
-  {id:20,home:"🇦🇹 Austria",away:"🇯🇴 Jordan",group:"Group J",date:"Jun 16",kickoff:"2026-06-16T13:00",result:"draw"},
-  {id:41,home:"🇦🇷 Argentina",away:"🇦🇹 Austria",group:"Group J",date:"Jun 22",result:null},
-  {id:44,home:"🇯🇴 Jordan",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 22",result:null},
-  {id:71,home:"🇩🇿 Algeria",away:"🇦🇹 Austria",group:"Group J",date:"Jun 27",result:null},
-  {id:72,home:"🇯🇴 Jordan",away:"🇦🇷 Argentina",group:"Group J",date:"Jun 27",result:null},
+  {id:19,home:"🇦🇷 Argentina",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 17",kickoff:"2026-06-17T03:00",result:"home"},
+  {id:20,home:"🇦🇹 Austria",away:"🇯🇴 Jordan",group:"Group J",date:"Jun 17",kickoff:"2026-06-17T06:00",result:"draw"},
+  {id:41,home:"🇦🇷 Argentina",away:"🇦🇹 Austria",group:"Group J",date:"Jun 22",kickoff:"2026-06-22T19:00",result:null},
+  {id:44,home:"🇯🇴 Jordan",away:"🇩🇿 Algeria",group:"Group J",date:"Jun 23",kickoff:"2026-06-23T05:00",result:null},
+  {id:71,home:"🇩🇿 Algeria",away:"🇦🇹 Austria",group:"Group J",date:"Jun 28",kickoff:"2026-06-28T04:00",result:null},
+  {id:72,home:"🇯🇴 Jordan",away:"🇦🇷 Argentina",group:"Group J",date:"Jun 28",kickoff:"2026-06-28T04:00",result:null},
   // Group K
-  {id:21,home:"🇵🇹 Portugal",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 17",kickoff:"2026-06-17T16:00",result:"home"},
-  {id:24,home:"🇺🇿 Uzbekistan",away:"🇨🇴 Colombia",group:"Group K",date:"Jun 17",kickoff:"2026-06-17T13:00",result:"away"},
-  {id:45,home:"🇵🇹 Portugal",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 23",result:null},
-  {id:48,home:"🇨🇴 Colombia",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 23",result:null},
-  {id:69,home:"🇨🇴 Colombia",away:"🇵🇹 Portugal",group:"Group K",date:"Jun 27",result:null},
-  {id:70,home:"🇨🇩 DR Congo",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 27",result:null},
+  {id:21,home:"🇵🇹 Portugal",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 17",kickoff:"2026-06-17T19:00",result:"home"},
+  {id:24,home:"🇺🇿 Uzbekistan",away:"🇨🇴 Colombia",group:"Group K",date:"Jun 17",kickoff:"2026-06-17T15:00",result:"away"},
+  {id:45,home:"🇵🇹 Portugal",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 23",kickoff:"2026-06-23T19:00",result:null},
+  {id:48,home:"🇨🇴 Colombia",away:"🇨🇩 DR Congo",group:"Group K",date:"Jun 24",kickoff:"2026-06-24T04:00",result:null},
+  {id:69,home:"🇨🇴 Colombia",away:"🇵🇹 Portugal",group:"Group K",date:"Jun 28",kickoff:"2026-06-28T01:30",result:null},
+  {id:70,home:"🇨🇩 DR Congo",away:"🇺🇿 Uzbekistan",group:"Group K",date:"Jun 28",kickoff:"2026-06-28T01:30",result:null},
   // Group L
-  {id:22,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 17",kickoff:"2026-06-17T19:00",result:"home"},
-  {id:23,home:"🇬🇭 Ghana",away:"🇵🇦 Panama",group:"Group L",date:"Jun 17",kickoff:"2026-06-17T22:00",result:"away"},
-  {id:46,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇬🇭 Ghana",group:"Group L",date:"Jun 23",result:null},
-  {id:47,home:"🇵🇦 Panama",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 23",result:null},
-  {id:67,home:"🇵🇦 Panama",away:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",group:"Group L",date:"Jun 27",result:null},
-  {id:68,home:"🇭🇷 Croatia",away:"🇬🇭 Ghana",group:"Group L",date:"Jun 27",result:null},
+  {id:22,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 17",kickoff:"2026-06-17T22:00",result:"home"},
+  {id:23,home:"🇬🇭 Ghana",away:"🇵🇦 Panama",group:"Group L",date:"Jun 18",kickoff:"2026-06-18T01:00",result:"away"},
+  {id:46,home:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",away:"🇬🇭 Ghana",group:"Group L",date:"Jun 23",kickoff:"2026-06-23T22:00",result:null},
+  {id:47,home:"🇵🇦 Panama",away:"🇭🇷 Croatia",group:"Group L",date:"Jun 24",kickoff:"2026-06-24T01:00",result:null},
+  {id:67,home:"🇵🇦 Panama",away:"🏴󠁧󠁢󠁥󠁮󠁧󠁿 England",group:"Group L",date:"Jun 27",kickoff:"2026-06-27T23:00",result:null},
+  {id:68,home:"🇭🇷 Croatia",away:"🇬🇭 Ghana",group:"Group L",date:"Jun 27",kickoff:"2026-06-27T23:00",result:null},
 ];
 
 const _PC=['home','home','draw','home','away','draw'];
@@ -859,6 +871,27 @@ const R32_BRACKET=[
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
 let selectedPlayer=null;
+let matchSortMode='group';
+
+// Sortable timestamp for a match — uses kickoff ISO string if available,
+// otherwise parses the display date ("Jun 14") as 2026-Mon-Day midnight.
+const MONTH_IDX={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+function matchSortKey(m){
+  if(m.kickoff) return new Date(m.kickoff).getTime();
+  const [mon,day]=m.date.split(' ');
+  return new Date(2026,(MONTH_IDX[mon]??5),parseInt(day)).getTime();
+}
+
+// Returns "HH.mm" Swedish time from the kickoff field (stored as local CET/CEST).
+function matchTimeStr(m){
+  if(!m.kickoff) return '';
+  return m.kickoff.slice(11,16).replace(':','.');
+}
+
+function setMatchSort(mode){
+  matchSortMode=mode;
+  renderMatches();
+}
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function shortName(n){return n.charCodeAt(0)>127?n.replace(/^\S+\s*/,''):n;}
@@ -1359,94 +1392,132 @@ function renderLeaderboard(){
 
 // ── RENDER MATCHES ────────────────────────────────────────────────────────────
 function renderMatches(){
+  // Sort toggle bar
+  const sortBar=document.getElementById('matches-sort-bar');
+  if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
+    <button class="sort-btn${matchSortMode==='group'?' active':''}" onclick="setMatchSort('group')">By Group</button>
+    <button class="sort-btn${matchSortMode==='date'?' active':''}" onclick="setMatchSort('date')">By Date</button>
+  </div>`;
+
   const consensus=computeConsensusStandings();
   const picksLockedOrPreview=isPreviewMode()||new Date()>=PICK_DEADLINE;
-  const groups=[...new Set(STATE.matches.map(m=>m.group))];let html='';
-  groups.forEach(g=>{
-    html+=`<div class="group-label">${g}</div>`;
-    // Consensus row for this group
-    const gLetter=g.replace('Group ','');
-    if(consensus[gLetter]&&STATE.players.length&&picksLockedOrPreview){
-      const top2=consensus[gLetter].slice(0,2);
-      const t1=top2[0],t2=top2[1];
-      if(t1&&t2){
-        // Count how many players predict each team advancing
-        const n=STATE.players.length;
-        const agree1=STATE.players.filter(p=>{
-          const st=computeGroupStandings(p.picks);
-          const gl=g.replace('Group ','');
-          return st[gl]?.[0]?.team===t1.team||st[gl]?.[1]?.team===t1.team;
-        }).length;
-        html+=`<div class="consensus-row">Consensus: <b>${withFlag(t1.team)}</b> &amp; <b>${withFlag(t2.team)}</b> advance · ${agree1}/${n} agree on ${t1.team}</div>`;
-      }
+  let html='';
+
+  // Build HTML for a single match card.
+  // inDateMode=true → date header is the date label, so show group abbrev + time in card.
+  // inDateMode=false → group header shown, so show date + time in card.
+  function cardHtml(m, inDateMode){
+    let pill='';
+    if(m.result==='home')pill=`<span class="result-pill result-home">${flagOf(m.home)}${shortName(m.home)} Win</span>`;
+    else if(m.result==='away')pill=`<span class="result-pill result-away">${flagOf(m.away)}${shortName(m.away)} Win</span>`;
+    else if(m.result==='draw')pill=`<span class="result-pill result-draw">Draw</span>`;
+    else pill=`<span class="result-pill result-pending">TBD</span>`;
+    const hn=shortName(m.home),an=shortName(m.away);
+    const fh=flagOf(m.home),fa=flagOf(m.away);
+    const mStatus=getMatchStatus(m);
+    if(mStatus==='live')pill=`<span class="badge-live">🔴 LIVE</span>`;
+    else if(mStatus==='today'&&!m.result)pill=`<span class="badge-today">Today</span>`;
+    const scoreBox=m.score
+      ?`<div class="score-box">${m.score.home} – ${m.score.away}</div>`
+      :`<div class="vs">vs</div>`;
+    const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
+    const sortedScorers=m.scorers?[...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute):[];
+    const sortedCards=m.cards?[...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute):[];
+    let picksHtml='';
+    if(picksVisible&&STATE.players.length){
+      const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
+      const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
+      const av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
+      picksHtml=`<div class="match-picks-row">
+        <span><span class="mp-label">${hn}:</span> <span class="mp-home">${hv.length?hv.join(', '):'—'}</span></span>
+        <span><span class="mp-label">Draw:</span> <span class="mp-draw">${dv.length?dv.join(', '):'—'}</span></span>
+        <span><span class="mp-label">${an}:</span> <span class="mp-away">${av.length?av.join(', '):'—'}</span></span>
+      </div>`;
     }
-    STATE.matches.filter(m=>m.group===g).forEach(m=>{
-      let pill='';
-      if(m.result==='home')pill=`<span class="result-pill result-home">${flagOf(m.home)}${shortName(m.home)} Win</span>`;
-      else if(m.result==='away')pill=`<span class="result-pill result-away">${flagOf(m.away)}${shortName(m.away)} Win</span>`;
-      else if(m.result==='draw')pill=`<span class="result-pill result-draw">Draw</span>`;
-      else pill=`<span class="result-pill result-pending">TBD</span>`;
-      const hn=shortName(m.home),an=shortName(m.away);
-      const fh=flagOf(m.home),fa=flagOf(m.away);
-      // Live / today badge
-      const mStatus=getMatchStatus(m);
-      if(mStatus==='live')pill=`<span class="badge-live">🔴 LIVE</span>`;
-      else if(mStatus==='today'&&!m.result)pill=`<span class="badge-today">Today</span>`;
-      // Score display: "2 – 1" when available, "vs" otherwise
-      const scoreBox = m.score
-        ? `<div class="score-box">${m.score.home} – ${m.score.away}</div>`
-        : `<div class="vs">vs</div>`;
-      const picksVisible = isPreviewMode() || new Date() >= PICK_DEADLINE;
-      const sortedScorers = m.scorers ? [...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute) : [];
-      const sortedCards   = m.cards   ? [...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute) : [];
-      const hasScorers = sortedScorers.length > 0;
-      const hasCards   = sortedCards.length > 0;
-      // Picks breakdown (group stage only, visible after deadline or preview)
-      let picksHtml = '';
-      if(picksVisible && STATE.players.length){
-        const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
-        const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
-        const av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
-        picksHtml=`<div class="match-picks-row">
-          <span><span class="mp-label">${hn}:</span> <span class="mp-home">${hv.length?hv.join(', '):'—'}</span></span>
-          <span><span class="mp-label">Draw:</span> <span class="mp-draw">${dv.length?dv.join(', '):'—'}</span></span>
-          <span><span class="mp-label">${an}:</span> <span class="mp-away">${av.length?av.join(', '):'—'}</span></span>
-        </div>`;
-      }
-      const hasDetail = hasScorers || hasCards || picksHtml;
-      const clickAttr = hasDetail ? `onclick="toggleMatchDetail(${m.id})"` : '';
-      html+=`<div class="match-wrap">
-        <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
-          <div class="team">${fh}${hn}</div>
-          ${scoreBox}
-          <div class="team away">${fa}${an}</div>
-          <div>${pill}<div class="match-date" style="margin-top:4px">${m.date}</div></div>
-        </div>`;
-      if(hasDetail){
-        // Merge goals + cards into a single timeline sorted by minute
-        const timeline=[
-          ...sortedScorers.map(s=>({...s,_evt:'goal'})),
-          ...sortedCards.map(c=>({...c,_evt:'card'})),
-        ].sort((a,b)=>a.minute-b.minute);
-        const timelineRows=timeline.map(e=>{
-          if(e._evt==='goal'){
-            const isOG=e.type==='OWN_GOAL',isPen=e.type==='PENALTY';
-            const suffix=isOG?' <span class="scorer-og">(OG)</span>':isPen?' (pen)':'';
-            const assist=e.assist?`<span class="scorer-assist">↳ ${e.assist}</span>`:'';
-            return`<div class="scorer-row"><span class="evt-icon">⚽</span><span>${e.minute}'</span> <b>${e.player}</b>${suffix} <span class="scorer-team">${e.team}</span>${assist}</div>`;
-          } else {
-            const icon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':'🟥';
-            return`<div class="scorer-row"><span class="evt-icon">${icon}</span><span>${e.minute}'</span> ${e.player} <span class="scorer-team">${e.team}</span></div>`;
-          }
-        }).join('');
-        html+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${picksHtml}</div>`;
-      }
-      html+=`</div>`;
+    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml;
+    const clickAttr=hasDetail?`onclick="toggleMatchDetail(${m.id})"`:'' ;
+    const t=matchTimeStr(m);
+    // In date mode: show group abbreviation + time. In group mode: show date + time.
+    const dateArea=inDateMode
+      ?`${m.group.replace('Group ','')}${t?' · '+t:''}`
+      :`${m.date}${t?' · '+t:''}`;
+    let out=`<div class="match-wrap">
+      <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
+        <div class="team">${fh}${hn}</div>
+        ${scoreBox}
+        <div class="team away">${fa}${an}</div>
+        <div>${pill}<div class="match-date" style="margin-top:4px">${dateArea}</div></div>
+      </div>`;
+    if(m.odds){
+      const h=Math.round(m.odds.home*100);
+      const d=Math.round(m.odds.draw*100);
+      const a=100-h-d;
+      const hn2=shortName(m.home),an2=shortName(m.away);
+      out+=`<div class="odds-bar" title="${hn2} ${h}% · Draw ${d}% · ${an2} ${a}%">
+        <div class="odds-home" style="width:${h}%">${h>=16?`<span class="odds-label">${h}%</span>`:''}</div>
+        <div class="odds-draw" style="width:${d}%">${d>=12?`<span class="odds-label">${d}%</span>`:''}</div>
+        <div class="odds-away" style="width:${a}%">${a>=16?`<span class="odds-label">${a}%</span>`:''}</div>
+      </div>`;
+    }
+    if(hasDetail){
+      const timeline=[
+        ...sortedScorers.map(s=>({...s,_evt:'goal'})),
+        ...sortedCards.map(c=>({...c,_evt:'card'})),
+      ].sort((a,b)=>a.minute-b.minute);
+      const timelineRows=timeline.map(e=>{
+        if(e._evt==='goal'){
+          const isOG=e.type==='OWN_GOAL',isPen=e.type==='PENALTY';
+          const suffix=isOG?' <span class="scorer-og">(OG)</span>':isPen?' (pen)':'';
+          const assist=e.assist?`<span class="scorer-assist">↳ ${e.assist}</span>`:'';
+          return`<div class="scorer-row"><span class="evt-icon">⚽</span><span>${e.minute}'</span> <b>${e.player}</b>${suffix} <span class="scorer-team">${e.team}</span>${assist}</div>`;
+        } else {
+          const icon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':'🟥';
+          return`<div class="scorer-row"><span class="evt-icon">${icon}</span><span>${e.minute}'</span> ${e.player} <span class="scorer-team">${e.team}</span></div>`;
+        }
+      }).join('');
+      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${picksHtml}</div>`;
+    }
+    out+=`</div>`;
+    return out;
+  }
+
+  if(matchSortMode==='date'){
+    // Sort all matches chronologically, then group by date label
+    const sorted=[...STATE.matches].sort((a,b)=>matchSortKey(a)-matchSortKey(b));
+    const byDate={};
+    const dateOrder=[];
+    sorted.forEach(m=>{
+      if(!byDate[m.date]){byDate[m.date]=[];dateOrder.push(m.date);}
+      byDate[m.date].push(m);
     });
-  });
+    dateOrder.forEach(d=>{
+      html+=`<div class="group-label">${d}</div>`;
+      byDate[d].forEach(m=>{ html+=cardHtml(m,true); });
+    });
+  } else {
+    // By group (default)
+    const groups=[...new Set(STATE.matches.map(m=>m.group))];
+    groups.forEach(g=>{
+      html+=`<div class="group-label">${g}</div>`;
+      const gLetter=g.replace('Group ','');
+      if(consensus[gLetter]&&STATE.players.length&&picksLockedOrPreview){
+        const top2=consensus[gLetter].slice(0,2);
+        const t1=top2[0],t2=top2[1];
+        if(t1&&t2){
+          const n=STATE.players.length;
+          const agree1=STATE.players.filter(p=>{
+            const st=computeGroupStandings(p.picks);
+            return st[gLetter]?.[0]?.team===t1.team||st[gLetter]?.[1]?.team===t1.team;
+          }).length;
+          html+=`<div class="consensus-row">Consensus: <b>${withFlag(t1.team)}</b> &amp; <b>${withFlag(t2.team)}</b> advance · ${agree1}/${n} agree on ${t1.team}</div>`;
+        }
+      }
+      STATE.matches.filter(m=>m.group===g).forEach(m=>{ html+=cardHtml(m,false); });
+    });
+  }
+
   document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
   applyFlags('matches-list');
-  // Start countdown refresh if there's a live/upcoming match today
   if(!window._cdTimer)window._cdTimer=setInterval(()=>{
     const c=getCountdownText();
     const el=document.getElementById('lb-countdown');

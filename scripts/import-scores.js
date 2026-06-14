@@ -158,11 +158,18 @@ const STAGE_MAP = {
 // ── ESPN unofficial API: goalscorers + cards ─────────────────────────────────
 // No API key. Goal/card details are inline in scoreboard competitions[0].details
 // so everything comes from a single request — no per-match summary calls needed.
+// Convert American moneyline odds string to implied probability (raw, before normalisation)
+function americanToProb(oddsStr) {
+  const n = parseInt(oddsStr);
+  if (isNaN(n)) return null;
+  return n < 0 ? (-n) / (-n + 100) : 100 / (n + 100);
+}
+
 async function fetchESPNEvents(alreadyImported) {
-  const result = { scorers: {}, cards: {}, processed: new Set() };
+  const result = { scorers: {}, cards: {}, odds: {}, processed: new Set() };
   const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
 
-  // 1 request: all WC2026 events with inline goal + card details
+  // 1 request: all WC2026 events with inline goal + card details + odds
   let sbRes;
   try {
     sbRes = await fetch(`${BASE}/scoreboard?dates=20260611-20260719&limit=500`);
@@ -180,6 +187,38 @@ async function fetchESPNEvents(alreadyImported) {
   });
   console.log(`ESPN: ${events.length} total events, ${finished.length} finished`);
 
+  // Extract pre-match odds from ALL events (odds disappear after kickoff so grab while available)
+  for (const event of events) {
+    const comp     = event.competitions?.[0];
+    const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
+    const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
+    const apiHome  = homeComp?.team?.displayName || '';
+    const apiAway  = awayComp?.team?.displayName || '';
+    const ourMatch = findOurMatch(apiHome, apiAway);
+    if (!ourMatch) continue;
+
+    const oddsEntry = comp?.odds?.[0];
+    if (!oddsEntry) continue;
+    const hOdds = oddsEntry.moneyline?.home?.close?.odds;
+    const dOdds = oddsEntry.moneyline?.draw?.close?.odds;
+    const aOdds = oddsEntry.moneyline?.away?.close?.odds;
+    if (!hOdds || !dOdds || !aOdds) continue;
+
+    const h = americanToProb(hOdds);
+    const d = americanToProb(dOdds);
+    const a = americanToProb(aOdds);
+    if (h === null || d === null || a === null) continue;
+
+    const total = h + d + a;
+    result.odds[ourMatch.id] = {
+      home: +((h / total).toFixed(3)),
+      draw: +((d / total).toFixed(3)),
+      away: +((a / total).toFixed(3)),
+    };
+  }
+  console.log(`ESPN: odds captured for ${Object.keys(result.odds).length} matches`);
+
+  // Extract goals + cards from FINISHED events only
   for (const event of finished) {
     const comp     = event.competitions?.[0];
     const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
@@ -371,14 +410,18 @@ async function run() {
   if (totalGoals > 0)               updates['results/total_goals'] = String(totalGoals);
   if (updates['results/winner'])    updates['results/tournament_winner'] = updates['results/winner'];
 
-  // ── ESPN: goalscorers + cards ─────────────────────────────────────────────
-  const { scorers, cards, processed } = await fetchESPNEvents(alreadyImported);
+  // ── ESPN: goalscorers + cards + pre-match odds ────────────────────────────
+  const { scorers, cards, odds, processed } = await fetchESPNEvents(alreadyImported);
 
   for (const [id, scorerList] of Object.entries(scorers)) {
     updates[`scorers/${id}`] = scorerList;
   }
   for (const [id, cardList] of Object.entries(cards)) {
     updates[`cards/${id}`] = cardList;
+  }
+  // Only write odds when non-null (odds vanish after kickoff — don't overwrite stored values)
+  for (const [id, probs] of Object.entries(odds)) {
+    updates[`odds/${id}`] = probs;
   }
   // Mark every match we fetched a summary for as imported (even 0-goal matches)
   // so we don't re-spend a request on them next run.
@@ -415,6 +458,7 @@ async function run() {
   console.log(`  ESPN matches processed: ${processed.size}`);
   console.log(`  Matches with scorer data: ${Object.keys(scorers).length}`);
   console.log(`  Matches with card data: ${Object.keys(cards).length}`);
+  console.log(`  Matches with odds data: ${Object.keys(odds).length}`);
   process.exit(0);
 }
 
