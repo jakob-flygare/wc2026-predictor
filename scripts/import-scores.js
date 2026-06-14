@@ -192,20 +192,30 @@ async function snapshotRanks(existingResults) {
 async function fetchApiFootballEvents(alreadyImported) {
   const result = { scorers: {}, cards: {} };
   if (!AF_KEY) {
-    console.log('API_FOOTBALL_KEY not set — skipping events fetch.');
+    console.log('⚠  API_FOOTBALL_KEY not set — skipping events fetch.');
     return result;
   }
 
-  // 1 request: get all finished WC2026 fixtures
-  const fixturesRes = await fetch(
-    'https://v3.football.api-sports.io/fixtures?league=1&season=2026&status=FT',
-    { headers: { 'x-apisports-key': AF_KEY } }
-  );
+  console.log('Calling api-football for WC2026 finished fixtures...');
+  let fixturesRes;
+  try {
+    // FT=Full Time, AET=After Extra Time, PEN=Penalties — cover all finished states
+    fixturesRes = await fetch(
+      'https://v3.football.api-sports.io/fixtures?league=1&season=2026&status=FT-AET-PEN',
+      { headers: { 'x-apisports-key': AF_KEY } }
+    );
+  } catch (netErr) {
+    console.error(`api-football network error: ${netErr.message}`);
+    return result;
+  }
+
   const remaining = fixturesRes.headers.get('x-ratelimit-requests-remaining') ?? '?';
-  console.log(`api-football: fixtures fetched — ${remaining} daily requests remaining`);
+  const dailyLimit = fixturesRes.headers.get('x-ratelimit-requests-limit') ?? '?';
+  console.log(`api-football: HTTP ${fixturesRes.status} — ${remaining}/${dailyLimit} daily requests remaining`);
 
   if (!fixturesRes.ok) {
-    console.warn(`api-football fixtures error ${fixturesRes.status} — skipping events.`);
+    const body = await fixturesRes.text().catch(() => '(no body)');
+    console.warn(`api-football fixtures error ${fixturesRes.status}: ${body.slice(0, 200)}`);
     return result;
   }
 
@@ -272,6 +282,14 @@ async function fetchApiFootballEvents(alreadyImported) {
 }
 
 async function run() {
+  // ── Env diagnostics (safe — never prints full key) ──────────────────────
+  console.log('=== import-scores diagnostics ===');
+  console.log(`  FOOTBALL_DATA_API_KEY : ${API_KEY ? `set (${API_KEY.length} chars)` : 'NOT SET ⚠'}`);
+  console.log(`  API_FOOTBALL_KEY      : ${AF_KEY  ? `set (${AF_KEY.length} chars)`  : 'NOT SET ⚠'}`);
+  console.log(`  FIREBASE_DATABASE_URL : ${DB_URL  ? DB_URL : 'NOT SET ⚠'}`);
+  console.log(`  Node version          : ${process.version}`);
+  console.log('=================================');
+
   const isManual = process.env.GITHUB_EVENT_NAME === 'workflow_dispatch';
   if (!isManual) {
     const now   = new Date();
