@@ -1846,17 +1846,14 @@ function renderBracketTab(){
   if(!cont)return;
   const standings=computeActualStandings();
   const anyResults=STATE.matches.some(m=>m.result);
-  let html='<div class="adv-stages">';
+  let html='<div class="group-standings-grid">';
   Object.keys(standings).sort().forEach(g=>{
     const rows=standings[g];
-    const played=rows.some(r=>r.pld>0);
-    html+=`<div class="adv-card"><div class="adv-title">Group ${g}</div>`;
+    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>`;
     rows.forEach((t,i)=>{
-      const cls=!played?'pending':i<2?'correct':'wrong';
-      html+=`<div class="adv-team ${cls}">
-        <span>${withFlag(t.team)}</span>
-        <span class="adv-team-pts">${t.pts} pts</span>
-      </div>`;
+      const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
+      const adv=i<2?'<span style="font-size:0.6rem;color:var(--gold)"> Q</span>':'';
+      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
     });
     html+=`</div>`;
   });
