@@ -6,7 +6,6 @@
 const admin = require('firebase-admin');
 
 const API_KEY = process.env.FOOTBALL_DATA_API_KEY;
-const AF_KEY  = process.env.API_FOOTBALL_KEY;
 const DB_URL  = process.env.FIREBASE_DATABASE_URL;
 const SA      = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
@@ -187,116 +186,11 @@ async function snapshotRanks(existingResults) {
   return Object.fromEntries(scored.map((p, i) => [p.name, i + 1]));
 }
 
-// ── api-football: fetch goalscorers + cards for finished matches ──────────────
-// Only fetches events for matches not already imported (saves daily quota).
-async function fetchApiFootballEvents(alreadyImported) {
-  const result = { scorers: {}, cards: {} };
-  if (!AF_KEY) {
-    console.log('⚠  API_FOOTBALL_KEY not set — skipping events fetch.');
-    return result;
-  }
-
-  console.log('Calling api-football for WC2026 fixtures (league=1 season=2026)...');
-  let fixturesRes;
-  try {
-    // Fetch all fixtures without a status filter — filter to finished locally.
-    // The multi-status filter format (FT-AET-PEN) was found to return 0 results.
-    fixturesRes = await fetch(
-      'https://v3.football.api-sports.io/fixtures?league=1&season=2026',
-      { headers: { 'x-apisports-key': AF_KEY } }
-    );
-  } catch (netErr) {
-    console.error(`api-football network error: ${netErr.message}`);
-    return result;
-  }
-
-  const remaining = fixturesRes.headers.get('x-ratelimit-requests-remaining') ?? '?';
-  const dailyLimit = fixturesRes.headers.get('x-ratelimit-requests-limit') ?? '?';
-  console.log(`api-football: HTTP ${fixturesRes.status} — ${remaining}/${dailyLimit} daily requests remaining`);
-
-  if (!fixturesRes.ok) {
-    const body = await fixturesRes.text().catch(() => '(no body)');
-    console.warn(`api-football fixtures error ${fixturesRes.status}: ${body.slice(0, 200)}`);
-    return result;
-  }
-
-  const fixturesData = await fixturesRes.json();
-
-  // api-football returns HTTP 200 even for auth errors — check the errors field
-  const errors = fixturesData.errors;
-  if (errors && (Array.isArray(errors) ? errors.length > 0 : Object.keys(errors).length > 0)) {
-    console.warn('api-football returned errors:', JSON.stringify(errors));
-    return result;
-  }
-
-  const allFixtures = fixturesData.response || [];
-  const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
-  const fixtures = allFixtures.filter(fx => FINISHED_STATUSES.has(fx.fixture?.status?.short));
-  console.log(`api-football: ${allFixtures.length} total fixtures, ${fixtures.length} finished`);
-
-  let eventCalls = 0;
-  for (const fx of fixtures) {
-    const apiHome = fx.teams?.home?.name || '';
-    const apiAway = fx.teams?.away?.name || '';
-    const ourMatch = findOurMatch(apiHome, apiAway);
-
-    if (!ourMatch) {
-      // Knockout matches — not in OUR_MATCHES, skip for now
-      continue;
-    }
-
-    // Skip if we've already imported events for this match
-    if (alreadyImported[String(ourMatch.id)]) continue;
-
-    // 1 request per new finished match
-    const evRes = await fetch(
-      `https://v3.football.api-sports.io/fixtures/events?fixture=${fx.fixture.id}`,
-      { headers: { 'x-apisports-key': AF_KEY } }
-    );
-    eventCalls++;
-
-    if (!evRes.ok) {
-      console.warn(`  api-football events error ${evRes.status} for fixture ${fx.fixture.id}`);
-      continue;
-    }
-
-    const evData = await evRes.json();
-    const events = evData.response || [];
-
-    // Goals (exclude own goals from scorer credit)
-    const goals = events.filter(e => e.type === 'Goal' && e.detail !== 'Own Goal');
-    result.scorers[ourMatch.id] = goals.map(g => ({
-      player: g.player?.name || 'Unknown',
-      team:   norm(g.team?.name || ''),
-      minute: g.time?.elapsed || 0,
-      type:   g.detail === 'Penalty' ? 'PENALTY' : 'REGULAR',
-      assist: g.assist?.name || null,
-    }));
-
-    // Cards (yellow, red, yellow-red)
-    const cards = events.filter(e => e.type === 'Card');
-    if (cards.length) {
-      result.cards[ourMatch.id] = cards.map(c => ({
-        player: c.player?.name || 'Unknown',
-        team:   norm(c.team?.name || ''),
-        minute: c.time?.elapsed || 0,
-        type:   c.detail, // "Yellow Card" | "Red Card" | "Yellow Red Card"
-      }));
-    }
-
-    console.log(`  Match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
-      `${goals.length} goals, ${cards.length} cards`);
-  }
-
-  console.log(`api-football: used ${1 + eventCalls} requests this run (1 fixtures + ${eventCalls} events)`);
-  return result;
-}
 
 async function run() {
   // ── Env diagnostics (safe — never prints full key) ──────────────────────
   console.log('=== import-scores diagnostics ===');
   console.log(`  FOOTBALL_DATA_API_KEY : ${API_KEY ? `set (${API_KEY.length} chars)` : 'NOT SET ⚠'}`);
-  console.log(`  API_FOOTBALL_KEY      : ${AF_KEY  ? `set (${AF_KEY.length} chars)`  : 'NOT SET ⚠'}`);
   console.log(`  FIREBASE_DATABASE_URL : ${DB_URL  ? DB_URL : 'NOT SET ⚠'}`);
   console.log(`  Node version          : ${process.version}`);
   console.log('=================================');
@@ -339,18 +233,20 @@ async function run() {
   const matches = fdData.matches || [];
   console.log(`Got ${matches.length} matches from football-data.org`);
 
-  // Read existing data from Firebase
-  const [existingSnap, eventsImportedSnap] = await Promise.all([
-    db.ref('wc2026/results').once('value'),
-    db.ref('wc2026/eventsImported').once('value'),
-  ]);
-  const existingResults   = existingSnap.val() || {};
-  const alreadyImported   = eventsImportedSnap.val() || {};
-  const ranksBefore       = await snapshotRanks(existingResults);
+  // Read existing results from Firebase for rank snapshot
+  const existingSnap = await db.ref('wc2026/results').once('value');
+  const existingResults = existingSnap.val() || {};
+  const ranksBefore = await snapshotRanks(existingResults);
 
   const updates = {};
   const knockoutBuckets = { r16:[], qf:[], sf:[], final:[], winner:[], bronze:[] };
   let totalGoals = 0;
+
+  // scorers and cards collected from football-data.org goals/bookings arrays
+  const scorers = {};  // { [ourMatchId]: [{player, team, minute, type, assist}] }
+  const cards   = {};  // { [ourMatchId]: [{player, team, minute, type}] }
+
+  const CARD_TYPE_MAP = { YELLOW: 'Yellow Card', RED: 'Red Card', YELLOW_RED: 'Yellow Red Card' };
 
   for (const m of matches) {
     if (m.status !== 'FINISHED') continue;
@@ -375,6 +271,34 @@ async function run() {
       updates[`scores/${ourMatch.id}`] = flipped
         ? { home: score.away, away: score.home }
         : { home: score.home, away: score.away };
+
+      // Goals — football-data.org provides a goals[] array per finished match
+      const goalList = (m.goals || []).filter(g => g.type !== 'OWN_GOAL');
+      if (goalList.length > 0 || (m.goals || []).length > 0) {
+        scorers[ourMatch.id] = goalList.map(g => ({
+          player: g.scorer?.name  || 'Unknown',
+          team:   norm(g.team?.name || ''),
+          minute: g.minute        || 0,
+          type:   g.type === 'PENALTY' ? 'PENALTY' : 'REGULAR',
+          assist: g.assist?.name  || null,
+        }));
+      }
+
+      // Bookings — yellow/red cards
+      const bookingList = m.bookings || [];
+      if (bookingList.length > 0) {
+        cards[ourMatch.id] = bookingList.map(b => ({
+          player: b.player?.name || 'Unknown',
+          team:   norm(b.team?.name || ''),
+          minute: b.minute       || 0,
+          type:   CARD_TYPE_MAP[b.card] || b.card,
+        }));
+      }
+
+      if (m.goals || m.bookings) {
+        console.log(`  Match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
+          `${goalList.length} goals, ${bookingList.length} bookings`);
+      }
 
     } else {
       const bucket = STAGE_MAP[m.stage];
@@ -401,37 +325,20 @@ async function run() {
   if (totalGoals > 0)               updates['results/total_goals'] = String(totalGoals);
   if (updates['results/winner'])    updates['results/tournament_winner'] = updates['results/winner'];
 
-  // ── api-football: goalscorers + cards ────────────────────────────────────
-  const { scorers, cards } = await fetchApiFootballEvents(alreadyImported);
-
-  // Write scorers and cards, mark each match as imported
+  // Write scorers and cards from football-data.org
   for (const [id, scorerList] of Object.entries(scorers)) {
     updates[`scorers/${id}`] = scorerList;
-    updates[`eventsImported/${id}`] = true;
   }
   for (const [id, cardList] of Object.entries(cards)) {
     updates[`cards/${id}`] = cardList;
   }
-  // Also mark matches with no goals/cards as imported so we don't re-fetch them
-  for (const id of Object.keys(scorers)) {
-    updates[`eventsImported/${id}`] = true;
-  }
 
-  // Recompute Golden Boot leader from real scorer data
+  // Golden Boot leader — tally goals across all matches this run
   const scorerTotals = {};
   Object.values(scorers).forEach(list => {
     list.forEach(s => {
       if (!scorerTotals[s.player]) scorerTotals[s.player] = { player: s.player, team: s.team, goals: 0 };
       scorerTotals[s.player].goals++;
-    });
-  });
-  // Also include any previously imported scorers from Firebase for the full picture
-  const existingScorersSnap = await db.ref('wc2026/scorers').once('value');
-  const existingScorers = existingScorersSnap.val() || {};
-  Object.values(existingScorers).forEach(list => {
-    (Array.isArray(list) ? list : Object.values(list)).forEach(s => {
-      if (!s.player || scorerTotals[s.player]) return; // skip unknowns and already-counted
-      scorerTotals[s.player] = { player: s.player, team: s.team, goals: 1 };
     });
   });
   const topScorer = Object.values(scorerTotals).sort((a, b) => b.goals - a.goals)[0];
@@ -452,7 +359,8 @@ async function run() {
   const finished = matches.filter(m => m.status === 'FINISHED').length;
   console.log(`  football-data.org finished matches: ${finished}`);
   console.log(`  Total goals: ${totalGoals}`);
-  console.log(`  New event imports: ${Object.keys(scorers).length} matches`);
+  console.log(`  Matches with scorer data: ${Object.keys(scorers).length}`);
+  console.log(`  Matches with card data: ${Object.keys(cards).length}`);
   process.exit(0);
 }
 
