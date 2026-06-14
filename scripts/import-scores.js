@@ -196,12 +196,13 @@ async function fetchApiFootballEvents(alreadyImported) {
     return result;
   }
 
-  console.log('Calling api-football for WC2026 finished fixtures...');
+  console.log('Calling api-football for WC2026 fixtures (league=1 season=2026)...');
   let fixturesRes;
   try {
-    // FT=Full Time, AET=After Extra Time, PEN=Penalties — cover all finished states
+    // Fetch all fixtures without a status filter — filter to finished locally.
+    // The multi-status filter format (FT-AET-PEN) was found to return 0 results.
     fixturesRes = await fetch(
-      'https://v3.football.api-sports.io/fixtures?league=1&season=2026&status=FT-AET-PEN',
+      'https://v3.football.api-sports.io/fixtures?league=1&season=2026',
       { headers: { 'x-apisports-key': AF_KEY } }
     );
   } catch (netErr) {
@@ -220,7 +221,6 @@ async function fetchApiFootballEvents(alreadyImported) {
   }
 
   const fixturesData = await fixturesRes.json();
-  const fixtures = fixturesData.response || [];
 
   // api-football returns HTTP 200 even for auth errors — check the errors field
   const errors = fixturesData.errors;
@@ -229,26 +229,10 @@ async function fetchApiFootballEvents(alreadyImported) {
     return result;
   }
 
-  console.log(`api-football: ${fixtures.length} finished WC2026 fixtures (league=1 season=2026)`);
-  if (fixtures.length === 0) {
-    // No matches found — probe leagues to find the correct WC2026 league ID
-    console.log('Probing api-football leagues to find WC2026...');
-    try {
-      const leagueRes = await fetch(
-        'https://v3.football.api-sports.io/leagues?season=2026&type=Cup&search=World%20Cup',
-        { headers: { 'x-apisports-key': AF_KEY } }
-      );
-      const leagueData = await leagueRes.json();
-      const leagues = leagueData.response || [];
-      if (leagues.length) {
-        leagues.forEach(l => console.log(`  League found: id=${l.league?.id} name="${l.league?.name}"`));
-      } else {
-        console.log('  No leagues found for WC 2026. Errors:', JSON.stringify(leagueData.errors || {}));
-      }
-    } catch (e) {
-      console.error('League probe failed:', e.message);
-    }
-  }
+  const allFixtures = fixturesData.response || [];
+  const FINISHED_STATUSES = new Set(['FT', 'AET', 'PEN']);
+  const fixtures = allFixtures.filter(fx => FINISHED_STATUSES.has(fx.fixture?.status?.short));
+  console.log(`api-football: ${allFixtures.length} total fixtures, ${fixtures.length} finished`);
 
   let eventCalls = 0;
   for (const fx of fixtures) {
