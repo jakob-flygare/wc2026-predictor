@@ -407,7 +407,7 @@
   <div class="container">
     <div class="section-header">
       <div class="section-title">Group Standings</div>
-      <div class="section-sub">Live standings based on match results · top 2 advance</div>
+      <div class="section-sub">Live standings based on match results · top 2 per group advance + best 3rd-place teams</div>
     </div>
     <div id="bracket-content">
     </div>
@@ -1846,33 +1846,22 @@ function renderBracketTab(){
   if(!cont)return;
   const standings=computeActualStandings();
   const anyResults=STATE.matches.some(m=>m.result);
-  let html='<div class="group-standings-grid">';
+  let html='<div class="adv-stages">';
   Object.keys(standings).sort().forEach(g=>{
     const rows=standings[g];
     const played=rows.some(r=>r.pld>0);
-    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>
-      <table class="standings-table">
-        <thead><tr><th></th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th></tr></thead>
-        <tbody>`;
+    html+=`<div class="adv-card"><div class="adv-title">Group ${g}</div>`;
     rows.forEach((t,i)=>{
-      const gd=t.gf-t.ga;
-      const gdStr=gd>0?`+${gd}`:String(gd);
-      const gdCls=gd>0?'gd-pos':gd<0?'gd-neg':'';
-      const rowCls=played?(i<2?'st-adv':'st-out'):'';
-      const dot=i<2&&played?`<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--gold);margin-left:3px;vertical-align:middle"></span>`:'';
-      html+=`<tr class="${rowCls}">
-        <td style="color:var(--text-muted)">${i+1}</td>
-        <td>${withFlag(t.team)}${dot}</td>
-        <td>${t.pld}</td><td>${t.w}</td><td>${t.d}</td><td>${t.l}</td>
-        <td>${t.gf}</td><td>${t.ga}</td>
-        <td class="${gdCls}">${t.pld?gdStr:'–'}</td>
-        <td class="pts-col">${t.pts}</td>
-      </tr>`;
+      const cls=!played?'pending':i<2?'correct':'wrong';
+      html+=`<div class="adv-team ${cls}">
+        <span>${withFlag(t.team)}</span>
+        <span class="adv-team-pts">${t.pts} pts</span>
+      </div>`;
     });
-    html+=`</tbody></table></div>`;
+    html+=`</div>`;
   });
   html+='</div>';
-  if(!anyResults) html+='<div class="no-bracket-msg">No results yet — standings update after each match</div>';
+  if(!anyResults) html+='<div class="no-bracket-msg" style="margin-top:1rem">No results yet — standings update after each match</div>';
   cont.innerHTML=html;
   applyFlags('bracket-content');
 }
