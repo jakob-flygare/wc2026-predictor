@@ -1600,6 +1600,38 @@ function showPlayerPicks(name){
   });
   html+=`</div>`;
 
+  // Knockout picks
+  const ko=STATE.knockout||{},bracket=p.bracket||{},bp=calcBracketPoints(p);
+  const koStages=[
+    {key:'r16',   label:'Round of 16',    pts:BRACKET_PTS.r16,   multi:true},
+    {key:'qf',    label:'Quarter-Finals', pts:BRACKET_PTS.qf,    multi:true},
+    {key:'sf',    label:'Semi-Finals',    pts:BRACKET_PTS.sf,    multi:true},
+    {key:'final', label:'Finalists',      pts:BRACKET_PTS.final, multi:true},
+    {key:'winner',label:'Winner',         pts:BRACKET_PTS.winner,multi:false},
+    {key:'bronze',label:'Bronze Medal',   pts:BRACKET_PTS.bronze,multi:false},
+  ];
+  const hasKoPicks=koStages.some(({key,multi})=>multi?(bracket[key]||[]).length>0:!!bracket[key]);
+  if(hasKoPicks){
+    html+='<div class="picks-section-label" style="margin-top:1.5rem">Knockout Predictions</div><div class="adv-stages">';
+    koStages.forEach(({key,label,pts,multi})=>{
+      const predicted=multi?(bracket[key]||[]):(bracket[key]?[bracket[key]]:[]);
+      if(!predicted.length)return;
+      const actual=multi?(ko[key]||[]):(ko[key]?[ko[key]]:[]);
+      html+=`<div class="adv-card"><div class="adv-title">${label}<span class="adv-pts-badge">${pts} pt${pts>1?'s':''} each</span></div>`;
+      predicted.forEach(team=>{
+        let cls='pending';
+        if(actual.length)cls=actual.some(a=>a.toLowerCase().trim()===team.toLowerCase().trim())?'correct':'wrong';
+        html+=`<div class="adv-team ${cls}">${withFlag(team)}</div>`;
+      });
+      if(actual.length){
+        const earned=bp[key]||0;
+        html+=`<div style="font-size:0.68rem;color:var(--muted);margin-top:0.4rem;text-align:right">+${earned} pts</div>`;
+      }
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+
   // Individual match picks (scrollable)
   const sorted=[...STATE.matches].sort((a,b)=>(a.result?0:1)-(b.result?0:1));
   const rows=sorted.map(m=>{
@@ -2476,6 +2508,7 @@ function showTab(id,el){
   if(id==='submit') renderSubmitTab();
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
+  if(id==='bracket')renderBracketTab();
 }
 
 function loadDemo(){
@@ -2506,6 +2539,7 @@ function renderAll(){
   renderMatches();
   renderPlayerGrid();
   renderSpecial();
+  renderBracketTab();
   const active=document.querySelector('.section.active');
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
