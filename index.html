@@ -112,11 +112,11 @@
   .sort-btn { padding:5px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background 0.15s,color 0.15s; }
   .sort-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }
   .match-time { font-size:0.7rem; color:var(--text-muted); margin-top:2px; }
-  .odds-bar { display:flex; height:20px; border-radius:4px; overflow:hidden; margin:6px 8px 2px; cursor:default; }
-  .odds-home { background:#22c55e; display:flex; align-items:center; justify-content:center; transition:width 0.3s; }
-  .odds-draw { background:#ca8a04; display:flex; align-items:center; justify-content:center; transition:width 0.3s; }
-  .odds-away { background:#ef4444; display:flex; align-items:center; justify-content:center; transition:width 0.3s; }
-  .odds-label { font-size:10px; font-weight:700; color:rgba(255,255,255,0.95); white-space:nowrap; overflow:hidden; letter-spacing:-0.01em; }
+  .odds-bar { display:flex; height:10px; border-radius:3px; overflow:hidden; margin:10px 0 4px; cursor:default; opacity:0.7; }
+  .odds-home { background:rgba(80,160,100,0.6); }
+  .odds-draw { background:rgba(160,140,60,0.5); }
+  .odds-away { background:rgba(170,80,80,0.6); }
+  .odds-meta { font-size:10px; color:var(--text-muted); margin-top:3px; display:flex; justify-content:space-between; opacity:0.75; }
   .match-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: 0; display: grid; grid-template-columns: 1fr 80px 1fr 140px; align-items: center; gap: 0.75rem; }
   .match-card.has-scorers { cursor: pointer; }
   .match-card.has-scorers:hover { border-color: rgba(255,255,255,0.15); }
@@ -1448,17 +1448,6 @@ function renderMatches(){
         <div class="team away">${fa}${an}</div>
         <div>${pill}<div class="match-date" style="margin-top:4px">${dateArea}</div></div>
       </div>`;
-    if(m.odds){
-      const h=Math.round(m.odds.home*100);
-      const d=Math.round(m.odds.draw*100);
-      const a=100-h-d;
-      const hn2=shortName(m.home),an2=shortName(m.away);
-      out+=`<div class="odds-bar" title="${hn2} ${h}% · Draw ${d}% · ${an2} ${a}%">
-        <div class="odds-home" style="width:${h}%">${h>=16?`<span class="odds-label">${h}%</span>`:''}</div>
-        <div class="odds-draw" style="width:${d}%">${d>=12?`<span class="odds-label">${d}%</span>`:''}</div>
-        <div class="odds-away" style="width:${a}%">${a>=16?`<span class="odds-label">${a}%</span>`:''}</div>
-      </div>`;
-    }
     if(hasDetail){
       const timeline=[
         ...sortedScorers.map(s=>({...s,_evt:'goal'})),
@@ -1475,7 +1464,19 @@ function renderMatches(){
           return`<div class="scorer-row"><span class="evt-icon">${icon}</span><span>${e.minute}'</span> ${e.player} <span class="scorer-team">${e.team}</span></div>`;
         }
       }).join('');
-      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${picksHtml}</div>`;
+      let oddsHtml='';
+      if(m.odds){
+        const h=Math.round(m.odds.home*100);
+        const d=Math.round(m.odds.draw*100);
+        const a=100-h-d;
+        oddsHtml=`<div class="odds-bar" title="Pre-match odds">
+          <div class="odds-home" style="width:${h}%"></div>
+          <div class="odds-draw" style="width:${d}%"></div>
+          <div class="odds-away" style="width:${a}%"></div>
+        </div>
+        <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
+      }
+      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${oddsHtml}${picksHtml}</div>`;
     }
     out+=`</div>`;
     return out;
