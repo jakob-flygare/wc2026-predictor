@@ -221,7 +221,34 @@ async function fetchApiFootballEvents(alreadyImported) {
 
   const fixturesData = await fixturesRes.json();
   const fixtures = fixturesData.response || [];
-  console.log(`api-football: ${fixtures.length} finished fixtures`);
+
+  // api-football returns HTTP 200 even for auth errors — check the errors field
+  const errors = fixturesData.errors;
+  if (errors && (Array.isArray(errors) ? errors.length > 0 : Object.keys(errors).length > 0)) {
+    console.warn('api-football returned errors:', JSON.stringify(errors));
+    return result;
+  }
+
+  console.log(`api-football: ${fixtures.length} finished WC2026 fixtures (league=1 season=2026)`);
+  if (fixtures.length === 0) {
+    // No matches found — probe leagues to find the correct WC2026 league ID
+    console.log('Probing api-football leagues to find WC2026...');
+    try {
+      const leagueRes = await fetch(
+        'https://v3.football.api-sports.io/leagues?season=2026&type=Cup&search=World%20Cup',
+        { headers: { 'x-apisports-key': AF_KEY } }
+      );
+      const leagueData = await leagueRes.json();
+      const leagues = leagueData.response || [];
+      if (leagues.length) {
+        leagues.forEach(l => console.log(`  League found: id=${l.league?.id} name="${l.league?.name}"`));
+      } else {
+        console.log('  No leagues found for WC 2026. Errors:', JSON.stringify(leagueData.errors || {}));
+      }
+    } catch (e) {
+      console.error('League probe failed:', e.message);
+    }
+  }
 
   let eventCalls = 0;
   for (const fx of fixtures) {
