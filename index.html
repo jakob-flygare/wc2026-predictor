@@ -43,6 +43,8 @@
   .subtitle { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; }
   .deadline-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); color: var(--gold-light); font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.9rem; border-radius: 999px; }
   .deadline-badge::before { content: '⚽'; font-size: 0.85rem; }
+  .spoiler-btn { display:block; margin: 0.6rem auto 0; background:none; border:1px solid var(--border); color:var(--muted); font-family:'DM Sans',sans-serif; font-size:0.72rem; letter-spacing:0.08em; text-transform:uppercase; padding:0.28rem 0.85rem; border-radius:999px; cursor:pointer; transition:all .15s; opacity:0.55; }
+  .spoiler-btn:hover { opacity:1; }
 
   nav { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
   nav::-webkit-scrollbar { display: none; }
@@ -227,6 +229,13 @@
   .standings-table .gd-pos { color:#4a9a6a; }
   .standings-table .gd-neg { color:#a05050; }
   .picks-scroll { max-height:440px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; }
+  .match-stars { display:block; font-size:0.7rem; letter-spacing:1px; margin-top:3px; }
+  .star.filled { color:var(--gold); }
+  .star.empty  { color:var(--border); }
+  .match-stakes { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
+  .stakes-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
+  .stake-row { font-size:0.78rem; color:var(--text); padding:2px 0; }
+  .stake-name { color:var(--gold); font-weight:500; }
   .picks-section-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin:1.5rem 0 0.5rem; }
   .group-standings-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:0.6rem; margin-bottom:2rem; }
   .gs-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.75rem 1rem; }
@@ -328,6 +337,7 @@
   <h1>World Cup 2026</h1>
   <div class="subtitle">Lehman Brothers</div>
   <div class="deadline-badge" id="header-badge">Loading...</div>
+  <button id="spoiler-btn" class="spoiler-btn" onclick="toggleSpoiler()">👁 Show scores</button>
 </header>
 
 <nav>
@@ -450,6 +460,22 @@ const FIREBASE_CONFIG = {
 const PICK_DEADLINE = new Date('2026-06-11T17:00:00');
 const PLAYER_COLORS = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC4899','#06B6D4','#84CC16'];
 let db = null;
+let spoilerMode = localStorage.getItem('wc2026_spoiler') === '1';
+
+function toggleSpoiler(){
+  spoilerMode = !spoilerMode;
+  localStorage.setItem('wc2026_spoiler', spoilerMode ? '1' : '0');
+  renderMatches();
+  updateSpoilerBtn();
+}
+function updateSpoilerBtn(){
+  const btn=document.getElementById('spoiler-btn');
+  if(!btn)return;
+  btn.textContent=spoilerMode?'👁 Spoilers hidden':'👁 Show scores';
+  btn.style.opacity=spoilerMode?'1':'0.55';
+  btn.style.borderColor=spoilerMode?'rgba(201,168,76,0.5)':'';
+  btn.style.color=spoilerMode?'var(--gold)':'';
+}
 
 function sanitizeName(n) {
   return n.trim().toLowerCase().replace(/\s+/g,'_').replace(/[^a-z0-9_]/g,'') || 'player';
@@ -1448,13 +1474,13 @@ function renderMatches(){
     const mStatus=getMatchStatus(m);
     if(mStatus==='live')pill=`<span class="badge-live">🔴 LIVE</span>`;
     else if(mStatus==='today'&&!m.result)pill=`<span class="badge-today">Today</span>`;
-    const scoreBox=m.score
+    const scoreBox=m.score&&!spoilerMode
       ?`<div class="score-box">${m.score.home} – ${m.score.away}</div>`
       :`<div class="vs">vs</div>`;
     const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
     const sortedScorers=m.scorers?[...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute):[];
     const sortedCards=m.cards?[...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute):[];
-    let picksHtml='';
+    let picksHtml='',stakesHtml='',starsHtml='';
     if(picksVisible&&STATE.players.length){
       const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
       const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
@@ -1464,8 +1490,45 @@ function renderMatches(){
         <span><span class="mp-label">Draw:</span> <span class="mp-draw">${dv.length?dv.join(', '):'—'}</span></span>
         <span><span class="mp-label">${an}:</span> <span class="mp-away">${av.length?av.join(', '):'—'}</span></span>
       </div>`;
+      // Special stakes — team-based specials linking to this match
+      const homeTeam=shortName(m.home).toLowerCase(),awayTeam=shortName(m.away).toLowerCase();
+      const STAKE_KEYS=[
+        {key:'topScoringTeam',label:'Top Scoring Team'},
+        {key:'mostCards',     label:'Most Cards'},
+        {key:'firstScorer',   label:'First to Score'},
+      ];
+      const stakeLines=[];
+      STATE.players.forEach(p=>{
+        STAKE_KEYS.forEach(({key,label})=>{
+          const pick=(p.special?.[key]||'').toLowerCase();
+          if(pick&&(pick===homeTeam||pick===awayTeam))
+            stakeLines.push(`<div class="stake-row"><span class="stake-name">${p.name}</span> → ${label}: <b>${p.special[key]}</b></div>`);
+        });
+        const boot=p.special?.boot;
+        if(boot&&m.scorers){
+          const scored=Object.values(m.scorers).some(s=>s.player?.toLowerCase()===boot.toLowerCase());
+          if(scored) stakeLines.push(`<div class="stake-row"><span class="stake-name">${p.name}</span> → Golden Boot pick scored ⚽</div>`);
+        }
+      });
+      if(stakeLines.length) stakesHtml=`<div class="match-stakes"><div class="stakes-label">Special Stakes</div>${stakeLines.join('')}</div>`;
+      // ── Interest stars ──────────────────────────────────────────────────────
+      // Divergence: 0 = everyone agrees, 0.5 = perfect split
+      const tot=hv.length+dv.length+av.length;
+      if(tot>0){
+        const divergence=1-Math.max(hv.length,dv.length,av.length)/tot;
+        const hasStakes=stakeLines.length>0;
+        let score=0;
+        if(divergence>=0.2) score++;   // at least one dissenter
+        if(divergence>=0.4) score++;   // genuine split
+        if(hasStakes)       score++;   // special money on the table
+        if(score>0){
+          const filled='<span class="star filled">★</span>';
+          const empty='<span class="star empty">★</span>';
+          starsHtml=`<span class="match-stars">${[1,2,3].map(i=>i<=score?filled:empty).join('')}</span>`;
+        }
+      }
     }
-    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml;
+    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml||!!stakesHtml;
     const clickAttr=hasDetail?`onclick="toggleMatchDetail(${m.id})"`:'' ;
     const t=matchTimeStr(m);
     // In date mode: show group abbreviation + time. In group mode: show date + time.
@@ -1477,14 +1540,14 @@ function renderMatches(){
         <div class="team">${fh}${hn}</div>
         ${scoreBox}
         <div class="team away">${fa}${an}</div>
-        <div>${pill}<div class="match-date" style="margin-top:4px">${dateArea}</div></div>
+        <div>${pill}<div class="match-date" style="margin-top:4px">${dateArea}</div>${starsHtml}</div>
       </div>`;
     if(hasDetail){
       const timeline=[
         ...sortedScorers.map(s=>({...s,_evt:'goal'})),
         ...sortedCards.map(c=>({...c,_evt:'card'})),
       ].sort((a,b)=>a.minute-b.minute);
-      const timelineRows=timeline.map(e=>{
+      const timelineRows=spoilerMode?'':timeline.map(e=>{
         if(e._evt==='goal'){
           const isOG=e.type==='OWN_GOAL',isPen=e.type==='PENALTY';
           const suffix=isOG?' <span class="scorer-og">(OG)</span>':isPen?' (pen)':'';
@@ -1508,7 +1571,7 @@ function renderMatches(){
         <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
       }
       const hlLink=m.result?`<div style="margin-top:10px;text-align:center"><a href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/highlights/all-matches" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;display:inline-block">🎬 Watch Highlights on FIFA.com</a></div>`:'';
-      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${oddsHtml}${picksHtml}${hlLink}</div>`;
+      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${oddsHtml}${picksHtml}${stakesHtml}${hlLink}</div>`;
     }
     out+=`</div>`;
     return out;
@@ -2545,12 +2608,18 @@ function renderAll(){
   const active=document.querySelector('.section.active');
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
-  // Update header badge with next match info
+  // Update header badge — show LIVE match if one is in progress, else next match
   const badge=document.getElementById('header-badge');
   if(badge){
-    const next=getCountdownText();
-    badge.innerHTML=next||`${STATE.matches.filter(m=>!m.result).length} matches remaining`;
+    const live=STATE.matches.find(m=>getMatchStatus(m)==='live');
+    if(live){
+      badge.innerHTML=`🔴 LIVE · ${shortName(live.home)} vs ${shortName(live.away)}`;
+    } else {
+      const next=getCountdownText();
+      badge.innerHTML=next||`${STATE.matches.filter(m=>!m.result).length} matches remaining`;
+    }
   }
+  updateSpoilerBtn();
 }
 
 initData();
