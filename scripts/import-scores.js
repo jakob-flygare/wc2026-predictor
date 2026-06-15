@@ -1,38 +1,29 @@
 // import-scores.js
-// Fetches WC2026 results from football-data.org (results/scores/knockout)
-// and from api-football (goalscorers + cards), then writes to Firebase.
-// Runs as a GitHub Action every 30 minutes.
+// Fetches WC2026 results, scores, scorers, cards, and odds entirely from
+// the ESPN unofficial API (no key required). Writes to Firebase Realtime DB.
+// Runs as a GitHub Action every 5 minutes + on every push to main.
 
 const admin = require('firebase-admin');
 
-const API_KEY = process.env.FOOTBALL_DATA_API_KEY;
-const DB_URL  = process.env.FIREBASE_DATABASE_URL;
-const SA      = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const DB_URL = process.env.FIREBASE_DATABASE_URL;
+const SA     = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
 admin.initializeApp({ credential: admin.credential.cert(SA), databaseURL: DB_URL });
 const db = admin.database();
 
 // ── Team name normalisation ───────────────────────────────────────────────────
-// Covers both football-data.org and api-football naming variations
 const TEAM_MAP = {
-  // football-data.org
+  // ESPN display name variations
   'United States':                  'USA',
   'Korea Republic':                 'South Korea',
   'Czech Republic':                 'Czechia',
   'Turkey':                         'Türkiye',
   'Bosnia and Herzegovina':         'Bosnia-Herzegovina',
-  'Democratic Republic of Congo':   'DR Congo',
   'Congo DR':                       'DR Congo',
-  'Côte d\'Ivoire':                 'Ivory Coast',
+  'Democratic Republic of Congo':   'DR Congo',
   "Cote d'Ivoire":                  'Ivory Coast',
+  "Côte d'Ivoire":                  'Ivory Coast',
   'Curacao':                        'Curaçao',
-  // api-football variations
-  'Bosnia Herzegovina':             'Bosnia-Herzegovina',
-  'DR Congo':                       'DR Congo',
-  'Ivory Coast':                    'Ivory Coast',
-  'South Korea':                    'South Korea',
-  'Czechia':                        'Czechia',
-  'Curaçao':                        'Curaçao',
 };
 const norm = name => TEAM_MAP[name] || name;
 
@@ -132,44 +123,51 @@ function findOurMatch(apiHome, apiAway) {
   ) || null;
 }
 
-// Map API winner field → our "home"/"draw"/"away" (relative to OUR match home team)
-function mapResult(winner, ourMatch, apiHome) {
-  if (!winner || winner === 'DRAW') return 'draw';
-  const apiWinner = winner === 'HOME_TEAM' ? norm(apiHome) : null;
-  const homeWon   = apiWinner !== null
-    ? apiWinner === ourMatch.home
-    : winner === 'AWAY_TEAM' ? false : null;
-  if (homeWon === null) return 'draw';
-  return homeWon ? 'home' : 'away';
+// ── Knockout stage detection by date ─────────────────────────────────────────
+// Bucket names: who advanced *past* that round.
+// r16  = 16 teams who won the Round of 32  (matches ~Jul 1-4)
+// qf   = 8 teams who won the Round of 16   (matches ~Jul 7-10)
+// sf   = 4 teams who won the QF            (matches ~Jul 11-12)
+// final = 2 finalists                      (matches ~Jul 15-16)
+// winner = champion                        (Jul 19)
+// bronze = 3rd place                       (Jul 18)
+const KNOCKOUT_DATE_RANGES = [
+  { stage: 'r16',    from: '2026-07-01', to: '2026-07-04' },
+  { stage: 'qf',     from: '2026-07-07', to: '2026-07-10' },
+  { stage: 'sf',     from: '2026-07-11', to: '2026-07-12' },
+  { stage: 'final',  from: '2026-07-15', to: '2026-07-16' },
+  { stage: 'bronze', from: '2026-07-18', to: '2026-07-18' },
+  { stage: 'winner', from: '2026-07-19', to: '2026-07-19' },
+];
+
+function knockoutStageForDate(dateStr) {
+  // dateStr: 'YYYY-MM-DD'
+  for (const { stage, from, to } of KNOCKOUT_DATE_RANGES) {
+    if (dateStr >= from && dateStr <= to) return stage;
+  }
+  return null;
 }
 
-// football-data.org stage → our knockout stage bucket
-const STAGE_MAP = {
-  'LAST_32':        'r16',
-  'ROUND_OF_32':    'r16',
-  'LAST_16':        'qf',
-  'ROUND_OF_16':    'qf',
-  'QUARTER_FINALS': 'sf',
-  'SEMI_FINALS':    'final',
-  'FINAL':          'winner',
-  'THIRD_PLACE':    'bronze',
-};
-
-// ── ESPN unofficial API: goalscorers + cards ─────────────────────────────────
-// No API key. Goal/card details are inline in scoreboard competitions[0].details
-// so everything comes from a single request — no per-match summary calls needed.
-// Convert American moneyline odds string to implied probability (raw, before normalisation)
+// ── American odds → implied probability (raw, before normalisation) ───────────
 function americanToProb(oddsStr) {
   const n = parseInt(oddsStr);
   if (isNaN(n)) return null;
   return n < 0 ? (-n) / (-n + 100) : 100 / (n + 100);
 }
 
-async function fetchESPNEvents(alreadyImported) {
-  const result = { scorers: {}, cards: {}, odds: {}, processed: new Set() };
-  const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
+// ── ESPN: all match data in one request ───────────────────────────────────────
+async function fetchESPNData(alreadyImported) {
+  const result = {
+    results: {},
+    scores:  {},
+    scorers: {},
+    cards:   {},
+    odds:    {},
+    knockoutWinners: { r16: [], qf: [], sf: [], final: [], winner: [], bronze: [] },
+    processed: new Set(),
+  };
 
-  // 1 request: all WC2026 events with inline goal + card details + odds
+  const BASE = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
   let sbRes;
   try {
     sbRes = await fetch(`${BASE}/scoreboard?dates=20260611-20260719&limit=500`);
@@ -179,21 +177,22 @@ async function fetchESPNEvents(alreadyImported) {
   }
   if (!sbRes.ok) { console.warn(`ESPN scoreboard HTTP ${sbRes.status}`); return result; }
 
-  const sbData   = await sbRes.json();
-  const events   = sbData.events || [];
+  const sbData = await sbRes.json();
+  const events = sbData.events || [];
   const finished = events.filter(e => {
     const s = e.competitions?.[0]?.status?.type;
     return s?.completed === true || s?.state === 'post';
   });
   console.log(`ESPN: ${events.length} total events, ${finished.length} finished`);
 
-  // Extract pre-match odds from ALL events (odds disappear after kickoff so grab while available)
+  // Pre-match odds from ALL events (disappear after kickoff — grab while available)
   for (const event of events) {
     const comp     = event.competitions?.[0];
     const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
     const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
-    const apiHome  = homeComp?.team?.displayName || '';
-    const apiAway  = awayComp?.team?.displayName || '';
+    if (!homeComp || !awayComp) continue;
+    const apiHome = homeComp.team?.displayName || '';
+    const apiAway = awayComp.team?.displayName || '';
     const ourMatch = findOurMatch(apiHome, apiAway);
     if (!ourMatch) continue;
 
@@ -218,52 +217,85 @@ async function fetchESPNEvents(alreadyImported) {
   }
   console.log(`ESPN: odds captured for ${Object.keys(result.odds).length} matches`);
 
-  // Extract goals + cards from FINISHED events only
+  // Results, scores, scorers, cards from finished events
   for (const event of finished) {
     const comp     = event.competitions?.[0];
     const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
     const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
-    const apiHome  = homeComp?.team?.displayName || '';
-    const apiAway  = awayComp?.team?.displayName || '';
+    if (!homeComp || !awayComp) continue;
+
+    const apiHome = homeComp.team?.displayName || '';
+    const apiAway = awayComp.team?.displayName || '';
+
+    const homeScore = parseInt(homeComp.score) || 0;
+    const awayScore = parseInt(awayComp.score) || 0;
 
     const ourMatch = findOurMatch(apiHome, apiAway);
-    if (!ourMatch) continue;
-    if (alreadyImported[String(ourMatch.id)]) continue;
 
-    // Map ESPN team id → display name for this match
-    const teamById = {};
-    (comp?.competitors || []).forEach(c => {
-      if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
-    });
+    if (ourMatch) {
+      // Group stage match — write result + score
+      const flipped = norm(apiHome) !== ourMatch.home;
+      const ourHome = flipped ? awayScore : homeScore;
+      const ourAway = flipped ? homeScore : awayScore;
 
-    const details = comp?.details || [];
+      result.results[ourMatch.id] = ourHome > ourAway ? 'home' : ourAway > ourHome ? 'away' : 'draw';
+      result.scores[ourMatch.id]  = { home: ourHome, away: ourAway };
 
-    // Goals: scoringPlay===true, skip own goals (ownGoal flag)
-    const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
-    result.scorers[ourMatch.id] = goalDetails.map(d => ({
-      player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
-      team:   norm(teamById[d.team?.id] || ''),
-      minute: parseInt(d.clock?.displayValue) || 0,
-      type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
-      assist: null,
-    }));
+      // Scorers + cards (skip if already imported)
+      if (!alreadyImported[String(ourMatch.id)]) {
+        const teamById = {};
+        (comp?.competitors || []).forEach(c => {
+          if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
+        });
 
-    // Cards: yellowCard and/or redCard flags
-    const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
-    if (cardDetails.length > 0) {
-      result.cards[ourMatch.id] = cardDetails.map(d => ({
-        player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
-        team:   norm(teamById[d.team?.id] || ''),
-        minute: parseInt(d.clock?.displayValue) || 0,
-        type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
-              : d.redCard                   ? 'Red Card'
-              :                               'Yellow Card',
-      }));
+        const details = comp?.details || [];
+
+        const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
+        result.scorers[ourMatch.id] = goalDetails.map(d => ({
+          player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+          team:   norm(teamById[d.team?.id] || ''),
+          minute: parseInt(d.clock?.displayValue) || 0,
+          type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
+          assist: null,
+        }));
+
+        const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
+        if (cardDetails.length > 0) {
+          result.cards[ourMatch.id] = cardDetails.map(d => ({
+            player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+            team:   norm(teamById[d.team?.id] || ''),
+            minute: parseInt(d.clock?.displayValue) || 0,
+            type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
+                  : d.redCard                   ? 'Red Card'
+                  :                               'Yellow Card',
+          }));
+        }
+
+        result.processed.add(String(ourMatch.id));
+        console.log(`  Group match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
+          `${ourHome}-${ourAway}, ${goalDetails.length} goals, ${cardDetails.length} cards`);
+      } else {
+        // Still log the result even for already-imported scorers
+        console.log(`  Group match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
+          `${homeScore}-${awayScore} (scorers already imported)`);
+      }
+
+    } else {
+      // Knockout match — detect stage by event date, record winner
+      const eventDate = event.date ? event.date.slice(0, 10) : '';
+      const stage = knockoutStageForDate(eventDate);
+      if (!stage) {
+        console.log(`  Unknown stage for ${apiHome} vs ${apiAway} on ${eventDate}`);
+        continue;
+      }
+      const winner = homeScore > awayScore ? norm(apiHome)
+                   : awayScore > homeScore ? norm(apiAway)
+                   : null; // draw shouldn't happen in knockout (extra time/pens determine winner)
+      if (winner) {
+        result.knockoutWinners[stage].push(winner);
+        console.log(`  Knockout [${stage}]: ${winner} (${homeScore}-${awayScore})`);
+      }
     }
-
-    result.processed.add(String(ourMatch.id));
-    console.log(`  Match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
-      `${goalDetails.length} goals, ${cardDetails.length} cards`);
   }
 
   console.log(`ESPN: 1 request used (all details inline in scoreboard)`);
@@ -303,10 +335,8 @@ async function snapshotRanks(existingResults) {
 
 
 async function run() {
-  // ── Env diagnostics (safe — never prints full key) ──────────────────────
   console.log('=== import-scores diagnostics ===');
-  console.log(`  FOOTBALL_DATA_API_KEY : ${API_KEY ? `set (${API_KEY.length} chars)` : 'NOT SET ⚠'}`);
-  console.log(`  FIREBASE_DATABASE_URL : ${DB_URL  ? DB_URL : 'NOT SET ⚠'}`);
+  console.log(`  FIREBASE_DATABASE_URL : ${DB_URL ? DB_URL : 'NOT SET ⚠'}`);
   console.log(`  Node version          : ${process.version}`);
   console.log('=================================');
 
@@ -321,34 +351,7 @@ async function run() {
     }
   }
 
-  // ── football-data.org: results, scores, knockout progression ─────────────
-  console.log('Fetching WC2026 matches from football-data.org...');
-  const res = await fetch('https://api.football-data.org/v4/competitions/WC/matches?season=2026', {
-    headers: { 'X-Auth-Token': API_KEY },
-  });
-
-  const requestsAvailable = parseInt(res.headers.get('X-RequestsAvailable') ?? '99');
-  const resetInSeconds    = res.headers.get('X-RequestCounter-Reset') ?? '?';
-  const apiVersion        = res.headers.get('X-API-Version') ?? '?';
-  console.log(`football-data.org v${apiVersion} — ${requestsAvailable} requests remaining (resets in ${resetInSeconds}s)`);
-
-  if (!res.ok) {
-    if (res.status === 429) {
-      console.error(`Rate limited. Resets in ${resetInSeconds}s. Skipping this run.`);
-      process.exit(0);
-    }
-    const body = await res.text();
-    throw new Error(`football-data.org error ${res.status}: ${body}`);
-  }
-  if (requestsAvailable < 3) {
-    console.warn(`⚠ Only ${requestsAvailable} football-data.org requests remaining!`);
-  }
-
-  const fdData = await res.json();
-  const matches = fdData.matches || [];
-  console.log(`Got ${matches.length} matches from football-data.org`);
-
-  // Read existing results + already-imported event tracker from Firebase
+  // Read existing state from Firebase
   const [existingSnap, eventsImportedSnap] = await Promise.all([
     db.ref('wc2026/results').once('value'),
     db.ref('wc2026/eventsImported').once('value'),
@@ -357,79 +360,50 @@ async function run() {
   const alreadyImported = eventsImportedSnap.val() || {};
   const ranksBefore     = await snapshotRanks(existingResults);
 
+  // ── ESPN: all data in one request ──────────────────────────────────────────
+  const { results, scores, scorers, cards, odds, knockoutWinners, processed } =
+    await fetchESPNData(alreadyImported);
+
   const updates = {};
-  const knockoutBuckets = { r16:[], qf:[], sf:[], final:[], winner:[], bronze:[] };
-  let totalGoals = 0;
 
-  for (const m of matches) {
-    if (m.status !== 'FINISHED') continue;
-
-    const apiHome = m.homeTeam?.name || '';
-    const apiAway = m.awayTeam?.name || '';
-    const score   = m.score?.fullTime || {};
-    const winner  = m.score?.winner;
-
-    if (score.home != null) totalGoals += (score.home || 0) + (score.away || 0);
-
-    if (m.stage === 'GROUP_STAGE') {
-      const ourMatch = findOurMatch(apiHome, apiAway);
-      if (!ourMatch) {
-        console.warn(`  No match found for: ${apiHome} vs ${apiAway}`);
-        continue;
-      }
-
-      updates[`results/${ourMatch.id}`] = mapResult(winner, ourMatch, apiHome);
-
-      const flipped = norm(apiHome) !== ourMatch.home;
-      updates[`scores/${ourMatch.id}`] = flipped
-        ? { home: score.away, away: score.home }
-        : { home: score.home, away: score.away };
-
-    } else {
-      const bucket = STAGE_MAP[m.stage];
-      if (!bucket) {
-        console.warn(`  Unknown stage: "${m.stage}" — add to STAGE_MAP if needed`);
-        continue;
-      }
-      if (bucket === 'winner') {
-        const champ = winner === 'HOME_TEAM' ? norm(apiHome) : norm(apiAway);
-        knockoutBuckets.winner.push(champ);
-        updates['results/winner'] = champ;
-      } else if (bucket === 'bronze') {
-        updates['results/bronze'] = winner === 'HOME_TEAM' ? norm(apiHome) : norm(apiAway);
-      } else {
-        knockoutBuckets[bucket].push(winner === 'HOME_TEAM' ? norm(apiHome) : norm(apiAway));
-      }
-    }
+  // Group stage results + scores
+  for (const [id, result] of Object.entries(results)) {
+    updates[`results/${id}`] = result;
+  }
+  for (const [id, score] of Object.entries(scores)) {
+    updates[`scores/${id}`] = score;
   }
 
-  if (knockoutBuckets.r16.length)   updates['results/r16']   = knockoutBuckets.r16.join(',');
-  if (knockoutBuckets.qf.length)    updates['results/qf']    = knockoutBuckets.qf.join(',');
-  if (knockoutBuckets.sf.length)    updates['results/sf']    = knockoutBuckets.sf.join(',');
-  if (knockoutBuckets.final.length) updates['results/final'] = knockoutBuckets.final.join(',');
-  if (totalGoals > 0)               updates['results/total_goals'] = String(totalGoals);
-  if (updates['results/winner'])    updates['results/tournament_winner'] = updates['results/winner'];
+  // Total goals
+  const totalGoals = Object.values(scores).reduce((sum, s) => sum + (s.home || 0) + (s.away || 0), 0);
+  if (totalGoals > 0) updates['results/total_goals'] = String(totalGoals);
 
-  // ── ESPN: goalscorers + cards + pre-match odds ────────────────────────────
-  const { scorers, cards, odds, processed } = await fetchESPNEvents(alreadyImported);
+  // Knockout progression
+  if (knockoutWinners.r16.length)    updates['results/r16']    = knockoutWinners.r16.join(',');
+  if (knockoutWinners.qf.length)     updates['results/qf']     = knockoutWinners.qf.join(',');
+  if (knockoutWinners.sf.length)     updates['results/sf']     = knockoutWinners.sf.join(',');
+  if (knockoutWinners.final.length)  updates['results/final']  = knockoutWinners.final.join(',');
+  if (knockoutWinners.winner.length) {
+    updates['results/winner']             = knockoutWinners.winner[0];
+    updates['results/tournament_winner']  = knockoutWinners.winner[0];
+  }
+  if (knockoutWinners.bronze.length) updates['results/bronze'] = knockoutWinners.bronze[0];
 
+  // Scorers, cards, odds
   for (const [id, scorerList] of Object.entries(scorers)) {
     updates[`scorers/${id}`] = scorerList;
   }
   for (const [id, cardList] of Object.entries(cards)) {
     updates[`cards/${id}`] = cardList;
   }
-  // Only write odds when non-null (odds vanish after kickoff — don't overwrite stored values)
   for (const [id, probs] of Object.entries(odds)) {
     updates[`odds/${id}`] = probs;
   }
-  // Mark every match we fetched a summary for as imported (even 0-goal matches)
-  // so we don't re-spend a request on them next run.
   for (const id of processed) {
     updates[`eventsImported/${id}`] = true;
   }
 
-  // Golden Boot leader — tally goals across all imported matches
+  // Golden Boot leader
   const scorerTotals = {};
   Object.values(scorers).forEach(list => {
     list.forEach(s => {
@@ -452,10 +426,9 @@ async function run() {
   await db.ref('wc2026').update(updates);
   console.log('Done ✓');
 
-  const finished = matches.filter(m => m.status === 'FINISHED').length;
-  console.log(`  football-data.org finished matches: ${finished}`);
+  console.log(`  Group stage results written: ${Object.keys(results).length}`);
   console.log(`  Total goals: ${totalGoals}`);
-  console.log(`  ESPN matches processed: ${processed.size}`);
+  console.log(`  ESPN matches processed for scorers: ${processed.size}`);
   console.log(`  Matches with scorer data: ${Object.keys(scorers).length}`);
   console.log(`  Matches with card data: ${Object.keys(cards).length}`);
   console.log(`  Matches with odds data: ${Object.keys(odds).length}`);

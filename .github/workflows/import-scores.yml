@@ -1,9 +1,11 @@
 name: Import WC2026 Scores
 
 on:
+  push:
+    branches: [main]      # run immediately on every deploy
   schedule:
-    - cron: '*/30 * * * *'   # every 30 minutes
-  workflow_dispatch:           # manual trigger from Actions tab
+    - cron: '*/5 * * * *' # every 5 minutes (GitHub minimum)
+  workflow_dispatch:       # manual trigger from Actions tab
 
 jobs:
   import:
@@ -18,11 +20,9 @@ jobs:
       - name: Install dependencies
         run: npm install --prefix scripts firebase-admin
 
-      - name: Import scores from football-data.org → Firebase
+      - name: Import scores from ESPN → Firebase
         run: node scripts/import-scores.js
         env:
-          FOOTBALL_DATA_API_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
-          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
           GITHUB_EVENT_NAME: ${{ github.event_name }}
