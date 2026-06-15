@@ -570,7 +570,7 @@ function applyDataSnapshot(data) {
       color:    p.color || PLAYER_COLORS[idx % PLAYER_COLORS.length],
       picks:    p.picks   || {},
       bracket:  p.bracket || { r16:[], qf:[], sf:[], final:[], winner:'' },
-      special:  p.special || { winner:'', boot:'' },
+      special:  Object.fromEntries(Object.entries(p.special||{winner:'',boot:''}).map(([k,v])=>[k,normalizeSpecialName(v)])),
     }));
   // Detect new results for round summary banner
   const fp=matches.filter(m=>m.result).map(m=>`${m.id}:${m.result}`).sort().join(',');
@@ -930,6 +930,7 @@ const R32_BRACKET=[
 let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
 let selectedPlayer=null;
 let matchSortMode='group';
+let hideFinished=localStorage.getItem('wc2026_hide_finished')==='1';
 
 // Sortable timestamp for a match — uses kickoff ISO string if available,
 // otherwise parses the display date ("Jun 14") as 2026-Mon-Day midnight.
@@ -949,6 +950,36 @@ function matchTimeStr(m){
 function setMatchSort(mode){
   matchSortMode=mode;
   renderMatches();
+}
+function toggleHideFinished(){
+  hideFinished=!hideFinished;
+  localStorage.setItem('wc2026_hide_finished',hideFinished?'1':'0');
+  renderMatches();
+}
+function getFeaturedMatch(){
+  const live=STATE.matches.find(m=>getMatchStatus(m)==='live');
+  if(live)return live;
+  const unplayed=STATE.matches.filter(m=>!m.result);
+  if(!unplayed.length)return null;
+  const sorted=unplayed.filter(m=>m.kickoff).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
+  for(const m of sorted){if(new Date(m.kickoff)>new Date())return m;}
+  return unplayed.sort((a,b)=>a.id-b.id)[0]||null;
+}
+function goToMatch(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('matches')?.classList.add('active');
+  document.querySelector('button.tab[onclick*="\'matches\'"]')?.classList.add('active');
+  matchSortMode='date';
+  hideFinished=false;
+  localStorage.setItem('wc2026_hide_finished','0');
+  renderMatches();
+  setTimeout(()=>{
+    const detail=document.getElementById('md-'+id);
+    if(detail&&!detail.classList.contains('open'))detail.classList.add('open');
+    const wrap=document.getElementById('mw-'+id);
+    if(wrap)wrap.scrollIntoView({behavior:'smooth',block:'center'});
+  },80);
 }
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -1514,6 +1545,7 @@ function renderMatches(){
   if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
     <button class="sort-btn${matchSortMode==='group'?' active':''}" onclick="setMatchSort('group')">By Group</button>
     <button class="sort-btn${matchSortMode==='date'?' active':''}" onclick="setMatchSort('date')">By Date</button>
+    ${matchSortMode==='date'?`<button class="sort-btn${hideFinished?' active':''}" onclick="toggleHideFinished()" style="margin-left:auto">Hide finished</button>`:''}
   </div>`;
 
   const consensus=computeConsensusStandings();
@@ -1595,7 +1627,7 @@ function renderMatches(){
     const dateArea=inDateMode
       ?`${m.group.replace('Group ','')}${t?' · '+t:''}`
       :`${m.date}${t?' · '+t:''}`;
-    let out=`<div class="match-wrap">
+    let out=`<div class="match-wrap" id="mw-${m.id}">
       <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
         <div class="team">${fh}${hn}</div>
         ${scoreBox}
@@ -1640,12 +1672,14 @@ function renderMatches(){
   if(matchSortMode==='date'){
     // Sort all matches chronologically, then group by date label
     const sorted=[...STATE.matches].sort((a,b)=>matchSortKey(a)-matchSortKey(b));
+    const visible=hideFinished?sorted.filter(m=>!m.result):sorted;
     const byDate={};
     const dateOrder=[];
-    sorted.forEach(m=>{
+    visible.forEach(m=>{
       if(!byDate[m.date]){byDate[m.date]=[];dateOrder.push(m.date);}
       byDate[m.date].push(m);
     });
+    if(!dateOrder.length) html='<div class="loading">No upcoming matches.</div>';
     dateOrder.forEach(d=>{
       html+=`<div class="group-label">${d}</div>`;
       byDate[d].forEach(m=>{ html+=cardHtml(m,true); });
@@ -1855,14 +1889,14 @@ function showPlayerPicks(name){
 function renderSpecial(){
   if(!isPreviewMode()&&new Date()<PICK_DEADLINE){document.getElementById('special-grid').innerHTML=PICKS_LOCKED_MSG;return;}
   const CATS=[
-    {key:'boot',          label:'Golden Boot (Top Scorer)',  stateKey:'Golden Boot',      pts:5, wide:true},
-    {key:'bestPlayer',    label:'Golden Ball (Best Player)', stateKey:'Golden Ball',       pts:5},
-    {key:'bestGoalkeeper',label:'Golden Glove',              stateKey:'Golden Glove',      pts:4},
-    {key:'topScoringTeam',label:'Top Scoring Team',          stateKey:'Top Scoring Team',  pts:3, wide:true, teamPick:true},
-    {key:'mostAssists',   label:'Most Assists',              stateKey:'Most Assists',       pts:3},
-    {key:'mostCards',     label:'Most Cards (Team)',         stateKey:'Most Cards Team',    pts:2, teamPick:true},
-    {key:'totalGoals',    label:'Total Goals in Tournament', stateKey:'Total Goals',        pts:4, closest:true, wide:true},
-    {key:'firstScorer',   label:'First Team to Score',       stateKey:'First Scorer',       pts:3, teamPick:true},
+    {key:'boot',          label:'Golden Boot',          stateKey:'Golden Boot',     pts:5},
+    {key:'bestPlayer',    label:'Golden Ball',          stateKey:'Golden Ball',     pts:5},
+    {key:'bestGoalkeeper',label:'Golden Glove',         stateKey:'Golden Glove',    pts:4},
+    {key:'topScoringTeam',label:'Top Scoring Team',     stateKey:'Top Scoring Team',pts:3, teamPick:true},
+    {key:'mostCards',     label:'Most Cards',           stateKey:'Most Cards Team', pts:2, teamPick:true},
+    {key:'firstScorer',   label:'First to Score',       stateKey:'First Scorer',    pts:3, teamPick:true},
+    {key:'mostAssists',   label:'Most Assists',         stateKey:'Most Assists',    pts:3},
+    {key:'totalGoals',    label:'Total Goals',          stateKey:'Total Goals',     pts:4, closest:true, wide:true},
   ];
   const gw=calcGoalsWinners();
   const scorerLB  = computeScorerLeaderboard();
@@ -2365,6 +2399,26 @@ function renderKnockoutSection(){
   applyFlags('knockout-section');
 }
 
+// ── NAME NORMALIZATION ────────────────────────────────────────────────────────
+const NAME_CORRECTIONS={
+  // Courtois variants
+  'cortouis':'Thibaut Courtois','cortois':'Thibaut Courtois','courtious':'Thibaut Courtois',
+  'courtois':'Thibaut Courtois',
+  // Maignan variants (last name only)
+  'maignan':'Mike Maignan','maignant':'Mike Maignan',
+  // Mbappé variants
+  'mbappe':'Kylian Mbappé','mbappé':'Kylian Mbappé',
+  'kylian mbappe':'Kylian Mbappé',
+  // Dembélé variants
+  'dembele':'Ousmane Dembélé','dembelé':'Ousmane Dembélé',
+  'dembéle':'Ousmane Dembélé','dembélé':'Ousmane Dembélé',
+  'ousmane dembele':'Ousmane Dembélé','ousmane dembelé':'Ousmane Dembélé',
+};
+function normalizeSpecialName(s){
+  if(!s||typeof s!=='string')return s;
+  return NAME_CORRECTIONS[s.toLowerCase().trim()]||s;
+}
+
 const LATE_EXCEPTIONS=['Pau'];
 function hasDeadlineException(name){
   return LATE_EXCEPTIONS.some(n=>n.toLowerCase()===(name||'').toLowerCase().trim());
@@ -2857,6 +2911,16 @@ function renderAll(){
     } else {
       const next=getCountdownText();
       badge.innerHTML=next||`${STATE.matches.filter(m=>!m.result).length} matches remaining`;
+    }
+    const featured=getFeaturedMatch();
+    if(featured){
+      badge.onclick=()=>goToMatch(featured.id);
+      badge.style.cursor='pointer';
+      badge.title='Go to match';
+    } else {
+      badge.onclick=null;
+      badge.style.cursor='';
+      badge.title='';
     }
   }
   updateSpoilerBtn();
