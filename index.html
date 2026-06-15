@@ -2365,10 +2365,16 @@ function renderKnockoutSection(){
   applyFlags('knockout-section');
 }
 
+const LATE_EXCEPTIONS=['Pau'];
+function hasDeadlineException(name){
+  return LATE_EXCEPTIONS.some(n=>n.toLowerCase()===(name||'').toLowerCase().trim());
+}
+
 function renderSubmitTab(){
   const cont=document.getElementById('submit-content');if(!cont)return;
   const sessionUnlocked=sessionStorage.getItem('wc2026_submit_unlocked')==='1';
-  if(new Date()>PICK_DEADLINE&&!sessionUnlocked){
+  const nameUnlocked=hasDeadlineException(FORM_STATE.name);
+  if(new Date()>PICK_DEADLINE&&!sessionUnlocked&&!nameUnlocked){
     cont.innerHTML=`<div class="error-msg" style="background:rgba(201,168,76,0.1);border-color:rgba(201,168,76,0.3);color:var(--gold-light)">🔒 Picks are locked — the tournament has started! View your predictions on the other tabs.</div>`;
     return;
   }
