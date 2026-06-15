@@ -1507,7 +1507,8 @@ function renderMatches(){
         </div>
         <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
       }
-      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${oddsHtml}${picksHtml}</div>`;
+      const hlLink=m.result?`<div style="margin-top:10px;text-align:center"><a href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/highlights/all-matches" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;display:inline-block">🎬 Watch Highlights on FIFA.com</a></div>`:'';
+      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${oddsHtml}${picksHtml}${hlLink}</div>`;
     }
     out+=`</div>`;
     return out;
