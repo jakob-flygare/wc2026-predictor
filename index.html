@@ -145,16 +145,24 @@
   .result-pending { background: rgba(138,136,128,0.15); color: var(--muted); }
   .match-date { font-size: 0.7rem; color: var(--muted); text-align: right; }
 
-  .player-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 2rem; }
-  .player-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.1rem; cursor: pointer; transition: all 0.2s; }
-  .player-card:hover { border-color: rgba(201,168,76,0.35); transform: translateY(-1px); }
-  .player-card.selected { border-color: var(--gold); background: rgba(201,168,76,0.07); }
-  .player-initials { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.85rem; margin-bottom: 0.6rem; }
-  .player-picks-name { font-weight: 500; font-size: 0.9rem; }
-  .player-picks-pts { font-size: 0.78rem; color: var(--muted); }
-
-  .picks-detail { display: none; margin-top: 1rem; }
-  .picks-detail.open { display: block; }
+  .player-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:0.75rem; margin-bottom:2rem; align-items:start; }
+  .stake-cell.open { grid-column:1 / -1; }
+  .stake-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.9rem 1rem; cursor:pointer; transition:border-color .15s; }
+  .stake-card:hover { border-color:rgba(201,168,76,0.35); }
+  .stake-cell.open > .stake-card { border-radius:10px 10px 0 0; border-bottom-color:transparent; }
+  .stake-detail { display:none; background:var(--surface); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:1.2rem; }
+  .stake-cell.open > .stake-detail { display:block; }
+  .stake-header { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.65rem; }
+  .stake-player-name { font-weight:600; font-size:0.9rem; color:var(--text); flex:1; }
+  .stake-score { font-family:'Bebas Neue',sans-serif; font-size:1.25rem; color:var(--gold); line-height:1; }
+  .stake-pts-label { font-family:'DM Sans',sans-serif; font-size:0.6rem; color:var(--muted); font-weight:400; }
+  .stake-divider { height:1px; background:var(--border); margin:0.4rem 0; opacity:0.5; }
+  .path-sub { color:var(--muted); font-size:0.65rem; }
+  .stake-specials { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:0.25rem 1rem; margin-top:0.3rem; }
+  .stake-special-row { display:flex; align-items:center; gap:0.5rem; font-size:0.75rem; padding:0.15rem 0; }
+  .stake-special-label { color:var(--text-muted); font-size:0.65rem; min-width:120px; }
+  .stake-special-val { flex:1; color:var(--text); }
+  .stake-special-pts { color:var(--gold); font-size:0.68rem; font-weight:600; }
   .picks-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
   .picks-table th { text-align: left; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border); }
   .picks-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.03); }
@@ -251,6 +259,24 @@
   .gs-row.r3 .gs-name,.gs-row.r4 .gs-name { color:var(--muted); }
   .gs-card-clickable { cursor:pointer; transition:border-color .15s; }
   .gs-card-clickable:hover { border-color:rgba(201,168,76,0.35); }
+  .paths-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(255px,1fr)); gap:0.75rem; }
+  .path-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.9rem 1rem; }
+  .path-header { display:flex; align-items:center; gap:0.6rem; margin-bottom:0.7rem; }
+  .path-avatar { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; border-radius:50%; font-size:0.68rem; font-weight:700; color:#1a1409; flex-shrink:0; }
+  .path-name { font-weight:600; font-size:0.9rem; color:var(--text); }
+  .path-section-label { font-size:0.58rem; letter-spacing:0.13em; text-transform:uppercase; color:var(--text-muted); margin:0.55rem 0 0.25rem; }
+  .path-section-label:first-of-type { margin-top:0; }
+  .path-row { display:flex; align-items:center; gap:0.35rem; padding:0.2rem 0; font-size:0.75rem; border-top:1px solid rgba(255,255,255,0.04); }
+  .path-row:first-of-type { border-top:none; }
+  .path-item { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .path-tag { font-size:0.6rem; color:var(--text-muted); background:var(--card); border:1px solid var(--border); border-radius:999px; padding:0.08rem 0.4rem; white-space:nowrap; flex-shrink:0; }
+  .path-pts { font-size:0.68rem; font-weight:600; flex-shrink:0; }
+  .path-good .path-item { color:var(--text); }
+  .path-good .path-pts { color:var(--gold); }
+  .path-good .path-tag { border-color:rgba(201,168,76,0.3); color:var(--gold); }
+  .path-threat .path-item { color:var(--muted); }
+  .path-threat .path-pts { color:#a05050; }
+  .path-empty { font-size:0.75rem; color:var(--muted); font-style:italic; padding:0.2rem 0; }
   .gs-picks { display:none; margin-top:0.55rem; padding-top:0.5rem; border-top:1px solid var(--border); }
   .gs-picks.open { display:block; }
   .gs-pick-row { display:flex; align-items:baseline; gap:0.4rem; padding:0.18rem 0; font-size:0.73rem; }
@@ -394,18 +420,14 @@
   </div>
 </div>
 
-<!-- ALL PICKS -->
+<!-- STAKES -->
 <div id="picks" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Player Picks</div>
-      <div class="section-sub">Click a player to expand their predictions</div>
+      <div class="section-title">Stakes</div>
+      <div class="section-sub">Exclusive &amp; rare picks — click a player to see all their predictions</div>
     </div>
     <div class="player-grid" id="player-grid"></div>
-    <div class="picks-detail" id="picks-detail">
-      <div class="section-header"><div class="section-title" id="picks-detail-name"></div></div>
-      <div id="picks-detail-body"></div>
-    </div>
   </div>
 </div>
 
@@ -1676,39 +1698,9 @@ function toggleMatchDetail(id){
   if(el)el.classList.toggle('open');
 }
 
-// ── RENDER PLAYER PICKS ───────────────────────────────────────────────────────
-function renderPlayerGrid(){
-  if(!isPreviewMode()&&new Date()<PICK_DEADLINE){document.getElementById('player-grid').innerHTML=PICKS_LOCKED_MSG;document.getElementById('picks-detail').classList.remove('open');return;}
-  document.getElementById('player-grid').innerHTML=STATE.players.map(p=>{
-    const{pts,correct,total}=calcPoints(p);
-    return`<div class="player-card ${selectedPlayer===p.name?'selected':''}" onclick="showPlayerPicks('${p.name.replace(/'/g,"\\'")}')">
-      <div class="player-initials" style="background:${p.color}22;color:${p.color}">${p.initials}</div>
-      <div class="player-picks-name">${p.name}</div>
-      <div class="player-picks-pts">${pts} pts · ${correct}/${total} correct</div>
-    </div>`;
-  }).join('')||'<div class="loading">No players yet.</div>';
-}
-
-function showPlayerPicks(name){
-  selectedPlayer=name;renderPlayerGrid();
-  const p=STATE.players.find(p=>p.name===name);if(!p)return;
-  document.getElementById('picks-detail-name').textContent=name+"'s Picks";
-
-  // Predicted group standings
-  const standings=computeGroupStandings(p.picks);
-  let html='<div class="picks-section-label">Predicted Group Standings</div><div class="group-standings-grid">';
-  Object.keys(standings).sort().forEach(g=>{
-    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>`;
-    standings[g].forEach((t,i)=>{
-      const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
-      const adv=i<2?'<span style="font-size:0.6rem;color:var(--gold)"> Q</span>':'';
-      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
-    });
-    html+=`</div>`;
-  });
-  html+=`</div>`;
-
-  // Knockout picks
+// ── STAKES TAB ────────────────────────────────────────────────────────────────
+function buildPicksDetailHtml(p){
+  let html='';
   const ko=STATE.knockout||{},bracket=p.bracket||{},bp=calcBracketPoints(p);
   const koStages=[
     {key:'r16',   label:'Round of 16',    pts:BRACKET_PTS.r16,   multi:true},
@@ -1720,7 +1712,7 @@ function showPlayerPicks(name){
   ];
   const hasKoPicks=koStages.some(({key,multi})=>multi?(bracket[key]||[]).length>0:!!bracket[key]);
   if(hasKoPicks){
-    html+='<div class="picks-section-label" style="margin-top:1.5rem">Knockout Predictions</div><div class="adv-stages">';
+    html+='<div class="picks-section-label" style="margin-top:0">Knockout Predictions</div><div class="adv-stages">';
     koStages.forEach(({key,label,pts,multi})=>{
       const predicted=multi?(bracket[key]||[]):(bracket[key]?[bracket[key]]:[]);
       if(!predicted.length)return;
@@ -1731,40 +1723,132 @@ function showPlayerPicks(name){
         if(actual.length)cls=actual.some(a=>a.toLowerCase().trim()===team.toLowerCase().trim())?'correct':'wrong';
         html+=`<div class="adv-team ${cls}">${withFlag(team)}</div>`;
       });
-      if(actual.length){
-        const earned=bp[key]||0;
-        html+=`<div style="font-size:0.68rem;color:var(--muted);margin-top:0.4rem;text-align:right">+${earned} pts</div>`;
-      }
+      if(actual.length){html+=`<div style="font-size:0.68rem;color:var(--muted);margin-top:0.4rem;text-align:right">+${bp[key]||0} pts</div>`;}
       html+='</div>';
     });
     html+='</div>';
   }
-
-  // Individual match picks (scrollable)
+  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostAssists','mostCards','firstScorer'];
+  const SP_LABELS={boot:'Golden Boot',bestPlayer:'Golden Ball',bestGoalkeeper:'Golden Glove',
+    topScoringTeam:'Top Scoring Team',mostAssists:'Most Assists',mostCards:'Most Cards',firstScorer:'First Scorer'};
+  const filledSP=SP_KEYS.filter(k=>p.special?.[k]);
+  if(filledSP.length){
+    html+='<div class="picks-section-label" style="margin-top:1.2rem">Special Bets</div><div class="stake-specials">';
+    filledSP.forEach(k=>{
+      html+=`<div class="stake-special-row"><span class="stake-special-label">${SP_LABELS[k]}</span><span class="stake-special-val">${withFlag(p.special[k])}</span><span class="stake-special-pts">+${SPECIAL_PTS[k]}p</span></div>`;
+    });
+    html+='</div>';
+  }
   const sorted=[...STATE.matches].sort((a,b)=>(a.result?0:1)-(b.result?0:1));
   const rows=sorted.map(m=>{
     const hn=shortName(m.home),an=shortName(m.away);
     const pick=p.picks[m.id]||'?';
     const pickLabel=pick==='home'?hn+' Win':pick==='away'?an+' Win':pick==='draw'?'Draw':'—';
-    let resultLabel='—',cls='',pts='—';
+    let resultLabel='—',cls='',ptsStr='—';
     if(m.result){
       const ok=pick===m.result;
       resultLabel=m.result==='home'?hn+' Win':m.result==='away'?an+' Win':'Draw';
-      cls=ok?'pick-correct':'pick-wrong';pts=ok?'+1':'0';
+      cls=ok?'pick-correct':'pick-wrong';ptsStr=ok?'+1':'0';
     }
-    return`<tr class="${cls}"><td>${withFlag(hn)} vs ${withFlag(an)}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${pts}</td></tr>`;
+    return`<tr class="${cls}"><td>${withFlag(hn)} vs ${withFlag(an)}</td><td>${pickLabel}</td><td style="color:var(--muted)">${resultLabel}</td><td>${ptsStr}</td></tr>`;
   }).join('');
-  html+=`<div class="picks-section-label" style="margin-top:1.5rem">Individual Matches</div>
-    <div class="picks-scroll">
-      <table class="picks-table">
-        <thead><tr><th>Match</th><th>Pick</th><th>Result</th><th>Pts</th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>`;
+  html+=`<div class="picks-section-label" style="margin-top:1.2rem">All Matches</div>
+    <div class="picks-scroll"><table class="picks-table">
+      <thead><tr><th>Match</th><th>Pick</th><th>Result</th><th>Pts</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+  return html;
+}
 
-  document.getElementById('picks-detail-body').innerHTML=html;
-  document.getElementById('picks-detail').classList.add('open');
-  applyFlags('picks-detail-body');
+function renderPlayerGrid(){
+  if(!isPreviewMode()&&new Date()<PICK_DEADLINE){document.getElementById('player-grid').innerHTML=PICKS_LOCKED_MSG;return;}
+  const KO_STAGES=['winner','final','sf','qf','r16','bronze'];
+  const KO_LABELS={r16:'R16',qf:'QF',sf:'SF',final:'Final',winner:'Winner',bronze:'Bronze'};
+  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostAssists','mostCards','firstScorer'];
+  const SP_LABELS={boot:'Golden Boot',bestPlayer:'Golden Ball',bestGoalkeeper:'Golden Glove',
+    topScoringTeam:'Top Scoring Team',mostAssists:'Most Assists',mostCards:'Most Cards',firstScorer:'First Scorer'};
+  const koMap={};
+  KO_STAGES.forEach(s=>{
+    koMap[s]={};
+    STATE.players.forEach(p=>{
+      const br=p.bracket||{};
+      const picks=(s==='winner'||s==='bronze')?(br[s]?[br[s]]:[]):(br[s]||[]);
+      picks.forEach(t=>{ if(!koMap[s][t])koMap[s][t]=[]; koMap[s][t].push(p.name); });
+    });
+  });
+  const spMap={};
+  SP_KEYS.forEach(k=>{
+    spMap[k]={};
+    STATE.players.forEach(p=>{
+      const v=p.special?.[k]; if(!v)return;
+      if(!spMap[k][v])spMap[k][v]=[];
+      spMap[k][v].push(p.name);
+    });
+  });
+  let html='';
+  STATE.players.forEach(p=>{
+    const{pts}=calcPoints(p);
+    const bp=calcBracketPoints(p);
+    const totalPts=pts+bp.total;
+    const br=p.bracket||{};
+    const isOpen=selectedPlayer===p.name;
+    const cellId='stake-cell-'+p.name.replace(/\W/g,'_');
+    const safeName=p.name.replace(/'/g,"\\'");
+    const exclusives=[],threats=[];
+    KO_STAGES.forEach(s=>{
+      const mine=(s==='winner'||s==='bronze')?(br[s]?[br[s]]:[]):(br[s]||[]);
+      mine.forEach(t=>{
+        const others=(koMap[s][t]||[]).filter(n=>n!==p.name);
+        if(others.length<=1) exclusives.push({label:t,sub:KO_LABELS[s],pts:BRACKET_PTS[s],others});
+      });
+      if(s==='winner'||s==='final'||s==='sf'){
+        Object.entries(koMap[s]).forEach(([t,players])=>{
+          if(!mine.includes(t)&&players.length>=2)
+            threats.push({label:t,sub:KO_LABELS[s],pts:BRACKET_PTS[s],rivals:players.filter(n=>n!==p.name)});
+        });
+      }
+    });
+    SP_KEYS.forEach(k=>{
+      const v=p.special?.[k]; if(!v)return;
+      const others=(spMap[k][v]||[]).filter(n=>n!==p.name);
+      if(others.length<=1) exclusives.push({label:v,sub:SP_LABELS[k],pts:SPECIAL_PTS[k],others});
+    });
+    exclusives.sort((a,b)=>b.pts-a.pts);
+    threats.sort((a,b)=>b.pts-a.pts);
+    html+=`<div class="stake-cell${isOpen?' open':''}" id="${cellId}">`;
+    html+=`<div class="stake-card" onclick="showPlayerPicks('${safeName}')">`;
+    html+=`<div class="stake-header"><span class="path-avatar" style="background:${p.color}">${p.initials||p.name[0]}</span><span class="stake-player-name">${p.name}</span><span class="stake-score">${totalPts}<span class="stake-pts-label"> pts</span></span></div>`;
+    if(exclusives.length){
+      exclusives.slice(0,4).forEach(e=>{
+        const tag=e.others.length===0?'Only you':e.others[0];
+        html+=`<div class="path-row path-good"><span class="path-item">${withFlag(e.label)}<span class="path-sub"> → ${e.sub}</span></span><span class="path-tag">${tag}</span><span class="path-pts">+${e.pts}p</span></div>`;
+      });
+      if(threats.length){
+        html+=`<div class="stake-divider"></div>`;
+        threats.slice(0,2).forEach(t=>{
+          html+=`<div class="path-row path-threat"><span class="path-item">${withFlag(t.label)}<span class="path-sub"> → ${t.sub}</span></span><span class="path-tag">${t.rivals.slice(0,2).join(', ')}</span><span class="path-pts">+${t.pts}p</span></div>`;
+        });
+      }
+    } else {
+      html+=`<div class="path-empty">No exclusive picks yet</div>`;
+    }
+    html+=`</div><div class="stake-detail">`;
+    if(isOpen) html+=buildPicksDetailHtml(p);
+    html+=`</div></div>`;
+  });
+  document.getElementById('player-grid').innerHTML=html||'<div class="loading">No players yet.</div>';
+  applyFlags('player-grid');
+}
+
+function showPlayerPicks(name){
+  selectedPlayer=(selectedPlayer===name)?null:name;
+  renderPlayerGrid();
+  if(selectedPlayer){
+    setTimeout(()=>{
+      const el=document.getElementById('stake-cell-'+name.replace(/\W/g,'_'));
+      if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+    },60);
+  }
 }
 
 // ── RENDER SPECIAL BETS ───────────────────────────────────────────────────────
@@ -1946,6 +2030,92 @@ function renderSpecial(){
     </div>`;
   }).join('');
   applyFlags('special-grid');
+}
+
+// ── (renderPathsTab removed — merged into Stakes tab) ─────────────────────────
+function renderPathsTab(){  // kept as no-op for safety
+  return;
+
+  const KO_STAGES=['winner','final','sf','qf','r16','bronze'];
+  const KO_LABELS={r16:'R16',qf:'QF',sf:'SF',final:'Final',winner:'Winner',bronze:'Bronze'};
+  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostAssists','mostCards','firstScorer'];
+  const SP_LABELS={boot:'Golden Boot',bestPlayer:'Golden Ball',bestGoalkeeper:'Golden Glove',
+    topScoringTeam:'Top Scoring Team',mostAssists:'Most Assists',mostCards:'Most Cards',firstScorer:'First Scorer'};
+
+  // Build pick maps: stage → team → [playerNames]
+  const koMap={};
+  KO_STAGES.forEach(s=>{
+    koMap[s]={};
+    STATE.players.forEach(p=>{
+      const br=p.bracket||{};
+      const picks=(s==='winner'||s==='bronze')?(br[s]?[br[s]]:[]):(br[s]||[]);
+      picks.forEach(t=>{ if(!koMap[s][t])koMap[s][t]=[]; koMap[s][t].push(p.name); });
+    });
+  });
+  const spMap={};
+  SP_KEYS.forEach(k=>{
+    spMap[k]={};
+    STATE.players.forEach(p=>{
+      const v=p.special?.[k]; if(!v)return;
+      if(!spMap[k][v])spMap[k][v]=[];
+      spMap[k][v].push(p.name);
+    });
+  });
+
+  let html='<div class="paths-grid">';
+  STATE.players.forEach(p=>{
+    const br=p.bracket||{};
+    const exclusives=[],threats=[];
+
+    KO_STAGES.forEach(s=>{
+      const mine=(s==='winner'||s==='bronze')?(br[s]?[br[s]]:[]):(br[s]||[]);
+      mine.forEach(t=>{
+        const others=(koMap[s][t]||[]).filter(n=>n!==p.name);
+        if(others.length<=1) exclusives.push({label:t,sub:KO_LABELS[s],pts:BRACKET_PTS[s],others,isSpecial:false});
+      });
+      // Threats: high-value picks ≥2 rivals have that I don't
+      if(s==='winner'||s==='final'||s==='sf'){
+        Object.entries(koMap[s]).forEach(([t,players])=>{
+          if(!mine.includes(t)&&players.length>=2)
+            threats.push({label:t,sub:KO_LABELS[s],pts:BRACKET_PTS[s],rivals:players.filter(n=>n!==p.name)});
+        });
+      }
+    });
+
+    SP_KEYS.forEach(k=>{
+      const v=p.special?.[k]; if(!v)return;
+      const others=(spMap[k][v]||[]).filter(n=>n!==p.name);
+      if(others.length<=1) exclusives.push({label:v,sub:SP_LABELS[k],pts:SPECIAL_PTS[k],others,isSpecial:true});
+    });
+
+    exclusives.sort((a,b)=>b.pts-a.pts);
+    threats.sort((a,b)=>b.pts-a.pts);
+
+    html+=`<div class="path-card">`;
+    html+=`<div class="path-header"><span class="path-avatar" style="background:${p.color}">${p.initials||p.name[0]}</span><span class="path-name">${p.name}</span></div>`;
+
+    if(exclusives.length){
+      html+=`<div class="path-section-label">Exclusive &amp; rare picks</div>`;
+      exclusives.slice(0,6).forEach(e=>{
+        const tag=e.others.length===0?'Only you':e.others[0];
+        html+=`<div class="path-row path-good"><span class="path-item">${withFlag(e.label)} <span style="color:var(--muted);font-size:0.68rem">→ ${e.sub}</span></span><span class="path-tag">${tag}</span><span class="path-pts">+${e.pts}p</span></div>`;
+      });
+    } else {
+      html+=`<div class="path-empty">No exclusive picks</div>`;
+    }
+
+    if(threats.length){
+      html+=`<div class="path-section-label">Rivals have</div>`;
+      threats.slice(0,3).forEach(t=>{
+        html+=`<div class="path-row path-threat"><span class="path-item">${withFlag(t.label)} <span style="font-size:0.68rem">→ ${t.sub}</span></span><span class="path-tag">${t.rivals.slice(0,2).join(', ')}</span><span class="path-pts">+${t.pts}p</span></div>`;
+      });
+    }
+
+    html+=`</div>`;
+  });
+  html+='</div>';
+  cont.innerHTML=html;
+  applyFlags('paths-grid');
 }
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
