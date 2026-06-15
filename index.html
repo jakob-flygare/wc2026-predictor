@@ -230,6 +230,7 @@
   .standings-table .gd-neg { color:#a05050; }
   .picks-scroll { max-height:440px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; }
   .match-stars { display:block; font-size:0.7rem; letter-spacing:1px; margin-top:3px; }
+  .group-stars { font-size:0.65rem; letter-spacing:1px; margin-left:8px; vertical-align:middle; opacity:0.85; }
   .star.filled { color:var(--gold); }
   .star.empty  { color:var(--border); }
   .match-stakes { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
@@ -248,6 +249,13 @@
   .gs-row.r1 .gs-pos,.gs-row.r2 .gs-pos { color:var(--gold); }
   .gs-row.r1 .gs-name,.gs-row.r2 .gs-name { color:var(--text); font-weight:500; }
   .gs-row.r3 .gs-name,.gs-row.r4 .gs-name { color:var(--muted); }
+  .gs-card-clickable { cursor:pointer; transition:border-color .15s; }
+  .gs-card-clickable:hover { border-color:rgba(201,168,76,0.35); }
+  .gs-picks { display:none; margin-top:0.55rem; padding-top:0.5rem; border-top:1px solid var(--border); }
+  .gs-picks.open { display:block; }
+  .gs-pick-row { display:flex; align-items:baseline; gap:0.4rem; padding:0.18rem 0; font-size:0.73rem; }
+  .gs-pick-player { color:var(--gold); font-weight:500; font-size:0.63rem; text-transform:uppercase; letter-spacing:0.06em; min-width:48px; }
+  .gs-pick-teams { color:var(--text-muted); }
   .adv-stages { display:grid; grid-template-columns:repeat(auto-fit,minmax(155px,1fr)); gap:0.75rem; }
   .adv-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1rem 1.1rem; }
   .adv-title { font-size:0.68rem; font-weight:600; color:var(--gold); text-transform:uppercase; letter-spacing:0.12em; margin-bottom:0.6rem; display:flex; justify-content:space-between; }
@@ -1447,6 +1455,36 @@ function renderLeaderboard(){
   applyFlags('lb-grid');
 }
 
+// ── GROUP INTEREST SCORE ──────────────────────────────────────────────────────
+function groupInterestScore(groupMatches){
+  if(!STATE.players.length) return 0;
+  let totalDiv=0,count=0;
+  groupMatches.forEach(m=>{
+    const picks=STATE.players.map(p=>p.picks[m.id]).filter(Boolean);
+    if(!picks.length) return;
+    const h=picks.filter(p=>p==='home').length;
+    const d=picks.filter(p=>p==='draw').length;
+    const a=picks.filter(p=>p==='away').length;
+    totalDiv+=1-Math.max(h,d,a)/picks.length;
+    count++;
+  });
+  const avgDiv=count>0?totalDiv/count:0;
+  const groupTeams=new Set();
+  groupMatches.forEach(m=>{
+    groupTeams.add(shortName(m.home).toLowerCase());
+    groupTeams.add(shortName(m.away).toLowerCase());
+  });
+  const GSTAKE_KEYS=['topScoringTeam','mostCards','firstScorer'];
+  const hasStakes=STATE.players.some(p=>
+    GSTAKE_KEYS.some(k=>groupTeams.has((p.special?.[k]||'').toLowerCase()))
+  );
+  let score=0;
+  if(avgDiv>=0.15) score++;
+  if(avgDiv>=0.30) score++;
+  if(hasStakes)    score++;
+  return Math.min(3,score);
+}
+
 // ── RENDER MATCHES ────────────────────────────────────────────────────────────
 function renderMatches(){
   // Sort toggle bar
@@ -1594,7 +1632,12 @@ function renderMatches(){
     // By group (default)
     const groups=[...new Set(STATE.matches.map(m=>m.group))];
     groups.forEach(g=>{
-      html+=`<div class="group-label">${g}</div>`;
+      const gMatches=STATE.matches.filter(m=>m.group===g);
+      const gScore=groupInterestScore(gMatches);
+      const gf='<span class="star filled">★</span>';
+      const ge='<span class="star empty">★</span>';
+      const gStarsHtml=`<span class="group-stars">${[1,2,3].map(i=>i<=gScore?gf:ge).join('')}</span>`;
+      html+=`<div class="group-label">${g}${gStarsHtml}</div>`;
       const gLetter=g.replace('Group ','');
       if(consensus[gLetter]&&STATE.players.length&&picksLockedOrPreview){
         const top2=consensus[gLetter].slice(0,2);
@@ -1910,20 +1953,24 @@ function renderBracketTab(){
   const cont=document.getElementById('bracket-content');
   if(!cont)return;
 
-  // Use official ESPN standings (correct FIFA tiebreakers) when available,
-  // fall back to locally computed standings before first import runs.
   const official=STATE.standings&&Object.keys(STATE.standings).length>0;
   const standings=official?STATE.standings:computeActualStandings();
   const anyResults=STATE.matches.some(m=>m.result);
+  const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
 
   let html='<div class="group-standings-grid">';
   Object.keys(standings).sort().forEach(g=>{
     const rows=standings[g];
-    html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>`;
+    const gMatches=STATE.matches.filter(m=>m.group==='Group '+g);
+    const gScore=groupInterestScore(gMatches);
+    const sf='<span class="star filled">★</span>';
+    const se='<span class="star empty">★</span>';
+    const starsHtml=`<span class="group-stars">${[1,2,3].map(i=>i<=gScore?sf:se).join('')}</span>`;
+
+    html+=`<div class="gs-card gs-card-clickable" onclick="toggleBracketGroup('${g}')">`;
+    html+=`<div class="gs-title">Group ${g}${starsHtml}</div>`;
     rows.forEach((t,i)=>{
       const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
-      // Official: use note field to determine qualifier badge
-      // Computed: top 2 always get Q
       let adv='';
       if(official){
         const n=(t.note||'').toLowerCase();
@@ -1934,12 +1981,29 @@ function renderBracketTab(){
       }
       html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
     });
+
+    if(picksVisible&&STATE.players.length){
+      html+=`<div class="gs-picks" id="gsp-${g}">`;
+      STATE.players.forEach(p=>{
+        const ps=computeGroupStandings(p.picks);
+        const pg=ps[g]||[];
+        const t1=pg[0]?.team,t2=pg[1]?.team;
+        html+=`<div class="gs-pick-row"><span class="gs-pick-player">${p.name}</span><span class="gs-pick-teams">${t1?withFlag(t1):'?'} · ${t2?withFlag(t2):'?'}</span></div>`;
+      });
+      html+=`</div>`;
+    }
+
     html+=`</div>`;
   });
   html+='</div>';
   if(!anyResults) html+='<div class="no-bracket-msg" style="margin-top:1rem">No results yet — standings update after each match</div>';
   cont.innerHTML=html;
   applyFlags('bracket-content');
+}
+
+function toggleBracketGroup(g){
+  const el=document.getElementById('gsp-'+g);
+  if(el) el.classList.toggle('open');
 }
 
 // ── SUBMIT PICKS TAB ──────────────────────────────────────────────────────────
