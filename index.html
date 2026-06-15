@@ -530,6 +530,7 @@ function applyDataSnapshot(data) {
 
   STATE = {
     matches, players, source:'live', knockout,
+    standings: data.standings || {},
     prevRanks: data.config?.prevRanks || {},
     special: {
       'Tournament Winner': results.tournament_winner || results.winner || null,
@@ -1844,15 +1845,29 @@ function renderSpecial(){
 function renderBracketTab(){
   const cont=document.getElementById('bracket-content');
   if(!cont)return;
-  const standings=computeActualStandings();
+
+  // Use official ESPN standings (correct FIFA tiebreakers) when available,
+  // fall back to locally computed standings before first import runs.
+  const official=STATE.standings&&Object.keys(STATE.standings).length>0;
+  const standings=official?STATE.standings:computeActualStandings();
   const anyResults=STATE.matches.some(m=>m.result);
+
   let html='<div class="group-standings-grid">';
   Object.keys(standings).sort().forEach(g=>{
     const rows=standings[g];
     html+=`<div class="gs-card"><div class="gs-title">Group ${g}</div>`;
     rows.forEach((t,i)=>{
       const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
-      const adv=i<2?'<span style="font-size:0.6rem;color:var(--gold)"> Q</span>':'';
+      // Official: use note field to determine qualifier badge
+      // Computed: top 2 always get Q
+      let adv='';
+      if(official){
+        const n=(t.note||'').toLowerCase();
+        if(n.includes('advance')||n.includes('round of 32')) adv='<span style="font-size:0.6rem;color:var(--gold)"> Q</span>';
+        else if(n.includes('best')) adv='<span style="font-size:0.6rem;color:var(--text-muted)"> B3</span>';
+      } else {
+        if(i<2&&anyResults) adv='<span style="font-size:0.6rem;color:var(--gold)"> Q</span>';
+      }
       html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
     });
     html+=`</div>`;

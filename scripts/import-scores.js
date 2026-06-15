@@ -163,6 +163,7 @@ async function fetchESPNData(alreadyImported) {
     scorers: {},
     cards:   {},
     odds:    {},
+    standings: {},
     knockoutWinners: { r16: [], qf: [], sf: [], final: [], winner: [], bronze: [] },
     processed: new Set(),
   };
@@ -176,6 +177,42 @@ async function fetchESPNData(alreadyImported) {
     return result;
   }
   if (!sbRes.ok) { console.warn(`ESPN scoreboard HTTP ${sbRes.status}`); return result; }
+
+  // Official group standings (rank respects FIFA tiebreakers)
+  try {
+    const stRes = await fetch(
+      'https://site.web.api.espn.com/apis/v2/sports/soccer/fifa.world/standings?season=2026'
+    );
+    if (stRes.ok) {
+      const stData = await stRes.json();
+      for (const group of (stData.children || [])) {
+        const letter = (group.abbreviation || group.name || '').replace('Group ', '').trim();
+        if (!letter) continue;
+        const entries = group.standings?.entries || [];
+        result.standings[letter] = entries.map(entry => {
+          const stat = n => entry.stats?.find(s => s.name === n)?.value ?? 0;
+          return {
+            team: norm(entry.team?.displayName || ''),
+            rank: stat('rank'),
+            pts:  stat('points'),
+            pld:  stat('gamesPlayed'),
+            w:    stat('wins'),
+            d:    stat('ties'),
+            l:    stat('losses'),
+            gf:   stat('pointsFor'),
+            ga:   stat('pointsAgainst'),
+            gd:   stat('pointDifferential'),
+            note: entry.note?.description || '',
+          };
+        }).sort((a, b) => a.rank - b.rank);
+      }
+      console.log(`ESPN standings: ${Object.keys(result.standings).length} groups`);
+    } else {
+      console.warn(`ESPN standings HTTP ${stRes.status}`);
+    }
+  } catch (e) {
+    console.warn(`ESPN standings fetch error: ${e.message}`);
+  }
 
   const sbData = await sbRes.json();
   const events = sbData.events || [];
@@ -361,7 +398,7 @@ async function run() {
   const ranksBefore     = await snapshotRanks(existingResults);
 
   // ── ESPN: all data in one request ──────────────────────────────────────────
-  const { results, scores, scorers, cards, odds, knockoutWinners, processed } =
+  const { results, scores, scorers, cards, odds, standings, knockoutWinners, processed } =
     await fetchESPNData(alreadyImported);
 
   const updates = {};
@@ -388,6 +425,11 @@ async function run() {
     updates['results/tournament_winner']  = knockoutWinners.winner[0];
   }
   if (knockoutWinners.bronze.length) updates['results/bronze'] = knockoutWinners.bronze[0];
+
+  // Official group standings
+  for (const [group, rows] of Object.entries(standings)) {
+    updates[`standings/${group}`] = rows;
+  }
 
   // Scorers, cards, odds
   for (const [id, scorerList] of Object.entries(scorers)) {
