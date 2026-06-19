@@ -29,7 +29,7 @@
   <button class="tab" onclick="showTab('matches',this)">Matches</button>
   <button class="tab" onclick="showTab('picks',this)">All Picks</button>
   <button class="tab" onclick="showTab('special',this)">Special Bets</button>
-  <button class="tab" onclick="showTab('bracket',this)">Bracket</button>
+  <button class="tab" onclick="showTab('bracket',this)">Standings</button>
   <button class="tab" onclick="showTab('scoring',this)">How it works</button>
   <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
 </nav>
@@ -37,8 +37,6 @@
 <!-- LEADERBOARD -->
 <div id="leaderboard" class="section active">
   <div class="container">
-    <div class="stats-row" id="stats-row"></div>
-    <div id="lb-countdown"></div>
     <div class="section-header">
       <div class="section-title">Standings</div>
       <span class="data-source-badge" id="data-badge"></span>
@@ -1091,12 +1089,6 @@ function renderLeaderboard(){
   const badge=document.getElementById('data-badge');
   if(STATE.source==='live'){badge.className='data-source-badge badge-live';badge.textContent='● Live';}
   else{badge.className='data-source-badge badge-demo';badge.textContent='○ Demo';}
-  const maxPts=scored.length?scored[0].pts:0;
-  document.getElementById('stats-row').innerHTML=`
-    <div class="stat-card"><div class="stat-val">104</div><div class="stat-lbl">Matches</div></div>
-    <div class="stat-card"><div class="stat-val">${gamesPlayed}</div><div class="stat-lbl">Played</div></div>
-    <div class="stat-card"><div class="stat-val">${STATE.players.length}</div><div class="stat-lbl">Players</div></div>
-    <div class="stat-card"><div class="stat-val">${maxPts}</div><div class="stat-lbl">Top Score</div></div>`;
   // locked must be declared before anything that uses it
   const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
 
@@ -1109,14 +1101,6 @@ function renderLeaderboard(){
     if(rs.bestName&&rs.bestGain>0)txt+=` · Best pick: <b>${rs.bestName}</b> (${rs.bestGain}/${rs.count} correct)`;
     if(rs.upsetHome&&rs.upsetCorrect<rs.total)txt+=` · Upset: <b>${rs.upsetHome} vs ${rs.upsetAway}</b> (only ${rs.upsetCorrect}/${rs.total} got it)`;
     lbErr.innerHTML=`<div class="round-banner">${txt}<button class="round-banner-close" onclick="ROUND_SUMMARY=null;document.getElementById('lb-error').innerHTML=''">×</button></div>`;
-  }
-
-  // Countdown to next match
-  const countdown=getCountdownText();
-  const countdownEl=document.getElementById('lb-countdown');
-  if(countdownEl){
-    if(countdown)countdownEl.innerHTML=`<div class="lb-countdown">${countdown}</div>`;
-    else countdownEl.innerHTML='';
   }
 
   // Share button (only when unlocked and players exist)
@@ -1315,7 +1299,12 @@ function renderMatches(){
         if(score>0){
           const filled='<span class="star filled">★</span>';
           const empty='<span class="star empty">★</span>';
-          starsHtml=`<span class="match-stars">${[1,2,3].map(i=>i<=score?filled:empty).join('')}</span>`;
+          const reasons=[];
+          if(divergence>=0.4) reasons.push('Picks heavily split');
+          else if(divergence>=0.2) reasons.push('Picks divided');
+          if(hasStakes) reasons.push('Special bets riding on it');
+          const reason=`${score}★ interest — ${reasons.join(' · ')}`;
+          starsHtml=`<span class="match-stars" title="${reason}">${[1,2,3].map(i=>i<=score?filled:empty).join('')}</span>`;
         }
       }
     }
