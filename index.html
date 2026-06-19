@@ -1188,6 +1188,22 @@ function groupInterestScore(groupMatches){
 }
 
 // ── RENDER MATCHES ────────────────────────────────────────────────────────────
+const CONFETTI_COLORS=['#C9A84C','#E8C96A','#2ECC71','#E74C3C','#E8B84B','#4DA6FF','#FFFFFF'];
+// Builds a small burst of confetti pieces shown behind the winning team.
+function confettiHtml(){
+  let pieces='';
+  for(let i=0;i<14;i++){
+    const left=Math.round(Math.random()*100);
+    const delay=(Math.random()*1.4).toFixed(2);
+    const dur=(1.6+Math.random()*1.4).toFixed(2);
+    const col=CONFETTI_COLORS[i%CONFETTI_COLORS.length];
+    const w=4+Math.round(Math.random()*4);
+    const h=6+Math.round(Math.random()*6);
+    pieces+=`<span class="mc-confetti-piece" style="left:${left}%;width:${w}px;height:${h}px;background:${col};animation-delay:${delay}s;animation-duration:${dur}s"></span>`;
+  }
+  return `<span class="mc-confetti" aria-hidden="true">${pieces}</span>`;
+}
+
 function renderMatches(){
   // Sort toggle bar
   const sortBar=document.getElementById('matches-sort-bar');
@@ -1296,13 +1312,11 @@ function renderMatches(){
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
-      let rp;
-      if(m.result==='home')rp=`<span class="mc-pill mc-pill-win">${hn} win</span>`;
-      else if(m.result==='away')rp=`<span class="mc-pill mc-pill-win">${an} win</span>`;
-      else rp=`<span class="mc-pill mc-pill-draw">Draw</span>`;
+      // Winner is shown on the team itself (gold ring + confetti); only draws get a center tag.
+      const drawTag=(m.result==='draw'&&!spoilerMode)?`<div class="mc-statusrow"><span class="mc-pill mc-pill-draw">Draw</span></div>`:'';
       mcCenter=`<div class="mc-when">${whenStr}</div>
         <div class="mc-score">${showScore?scoreStr:`<span class="mc-score-sep">–</span>`}</div>
-        <div class="mc-statusrow">${spoilerMode?'':rp}</div>`;
+        ${drawTag}`;
     }else{
       mcStateCls='mc-upcoming';
       mcCenter=`<div class="mc-when mc-when-lg">${whenStr}</div>
@@ -1310,6 +1324,12 @@ function renderMatches(){
         ${mStatus==='today'?`<div class="mc-statusrow"><span class="mc-pill mc-pill-today">Today</span></div>`:''}`;
     }
     const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
+    // Winner highlight: gold ring + confetti on the winning team, grey out the loser.
+    let homeCls='',awayCls='',homeConfetti='',awayConfetti='';
+    if(m.result&&m.result!=='draw'&&!spoilerMode){
+      if(m.result==='home'){homeCls=' mc-win';awayCls=' mc-lose';homeConfetti=confettiHtml();}
+      else{awayCls=' mc-win';homeCls=' mc-lose';awayConfetti=confettiHtml();}
+    }
     let out=`<div class="match-wrap" id="mw-${m.id}">
       <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}" ${clickAttr}>
         <div class="mc-header">
@@ -1317,12 +1337,14 @@ function renderMatches(){
           <span class="mc-meta">${metaRight}</span>
         </div>
         <div class="mc-body">
-          <div class="mc-team">
+          <div class="mc-team${homeCls}">
+            ${homeConfetti}
             <span class="mc-flag">${fh}</span>
             <span class="mc-team-name">${hn}</span>
           </div>
           <div class="mc-center">${mcCenter}</div>
-          <div class="mc-team mc-team-away">
+          <div class="mc-team mc-team-away${awayCls}">
+            ${awayConfetti}
             <span class="mc-flag">${fa}</span>
             <span class="mc-team-name">${an}</span>
           </div>
