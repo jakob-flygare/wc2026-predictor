@@ -19,6 +19,21 @@ live match.
 - `odds/{id}`, `standings/{group}`, knockout winners, `results/golden_boot_leader`,
   `config/prevRanks` — standings + rank snapshot only refresh when a match just
   finished
+- `highlights/{id}` — `{videoId, title, channel, thumb}`, if a YouTube key is set (below)
+
+## Highlights (optional)
+
+If a `YOUTUBE_API_KEY` secret is set, the function searches YouTube for a
+highlight clip per finished match and caches it to `highlights/{id}`; the UI
+shows a thumbnail. Without the key, highlights are skipped and the UI falls back
+to a YouTube search link.
+
+```bash
+firebase functions:secrets:set YOUTUBE_API_KEY   # paste a YouTube Data API v3 key
+```
+
+`search.list` costs 100 quota units (default 10k/day). Each match is searched
+once (cached) and capped at 6 per run, so it stays well within quota.
 
 ## Deploy
 

@@ -195,6 +195,7 @@ function applyDataSnapshot(data) {
   const scorers = data.scorers || {};
   const cardsDb = data.cards   || {};
   const oddsDb  = data.odds    || {};
+  const hlDb    = data.highlights || {};
   const matches = DEMO_MATCHES.map(m => ({
     ...m,
     result:  results[String(m.id)] || null,
@@ -202,6 +203,7 @@ function applyDataSnapshot(data) {
     scorers: scorers[String(m.id)] ? Object.values(scorers[String(m.id)]) : null,
     cards:   cardsDb[String(m.id)] ? Object.values(cardsDb[String(m.id)]) : null,
     odds:    oddsDb[String(m.id)]  || null,
+    highlights: hlDb[String(m.id)] || null,
   }));
   const knockout = {
     r16:    parseList(results.r16),
@@ -1272,10 +1274,12 @@ function renderMatches(){
       const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
       const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
       const av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
-      picksHtml=`<div class="match-picks-row">
-        <span><span class="mp-label">${hn}:</span> <span class="mp-home">${hv.length?hv.join(', '):'—'}</span></span>
-        <span><span class="mp-label">Draw:</span> <span class="mp-draw">${dv.length?dv.join(', '):'—'}</span></span>
-        <span><span class="mp-label">${an}:</span> <span class="mp-away">${av.length?av.join(', '):'—'}</span></span>
+      const pkCol=names=>names.length?names.map(n=>`<div class="md-pk-name">${n}</div>`).join(''):`<div class="md-pk-empty">—</div>`;
+      picksHtml=`<div class="md-section-title">Predictions</div>
+      <div class="md-picks">
+        <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn}</div>${pkCol(hv)}</div>
+        <div class="md-pk-col md-pk-draw"><div class="md-pk-head">Draw</div>${pkCol(dv)}</div>
+        <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an}</div>${pkCol(av)}</div>
       </div>`;
       // Special stakes — team-based specials linking to this match
       const homeTeam=shortName(m.home).toLowerCase(),awayTeam=shortName(m.away).toLowerCase();
@@ -1386,16 +1390,21 @@ function renderMatches(){
         ...sortedScorers.map(s=>({...s,_evt:'goal'})),
         ...sortedCards.map(c=>({...c,_evt:'card'})),
       ].sort((a,b)=>a.minute-b.minute);
+      // Two-column timeline: each event sits under its own team's column.
       const timelineRows=spoilerMode?'':timeline.map(e=>{
+        const side=cardSide(e.team,m)||'home';
+        let icon,body;
         if(e._evt==='goal'){
           const isOG=e.type==='OWN_GOAL',isPen=e.type==='PENALTY';
-          const suffix=isOG?' <span class="scorer-og">(OG)</span>':isPen?' (pen)':'';
-          const assist=e.assist?`<span class="scorer-assist">↳ ${e.assist}</span>`:'';
-          return`<div class="scorer-row"><span class="evt-icon">⚽</span><span>${e.minute}'</span> <b>${e.player}</b>${suffix} <span class="scorer-team">${e.team}</span>${assist}</div>`;
+          const suffix=isOG?' (OG)':isPen?' (pen)':'';
+          icon='⚽'; body=`<b>${e.player}</b>${suffix}`;
         } else {
-          const icon=e.type==='Yellow Card'?'🟨':e.type==='Red Card'?'🟥':'🟥';
-          return`<div class="scorer-row"><span class="evt-icon">${icon}</span><span>${e.minute}'</span> ${e.player} <span class="scorer-team">${e.team}</span></div>`;
+          icon=e.type==='Yellow Card'?'🟨':'🟥'; body=e.player;
         }
+        const ev=side==='away'
+          ? `<span class="md-ev-icon">${icon}</span><span class="md-ev-body">${body}</span>`
+          : `<span class="md-ev-body">${body}</span><span class="md-ev-icon">${icon}</span>`;
+        return`<div class="md-tl-row"><div class="md-tl-home">${side==='home'?ev:''}</div><div class="md-tl-min">${e.minute}'</div><div class="md-tl-away">${side==='away'?ev:''}</div></div>`;
       }).join('');
       let oddsHtml='';
       if(m.odds){
@@ -1409,30 +1418,29 @@ function renderMatches(){
         </div>
         <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
       }
-      const hlLink=m.result?`<div style="margin-top:10px;text-align:center"><a href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/highlights/all-matches" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;display:inline-block">🎬 Watch Highlights on FIFA.com</a></div>`:'';
-      // ── Detail header (big score) + Match Details stats (image-2 style) ──
-      const dScore=(m.score&&!spoilerMode)?`${m.score.home} - ${m.score.away}`:'–';
-      const dStatus=mStatus==='live'?'Live':(m.result?'Full time':(t?`Kickoff ${t}`:m.date));
-      const detailHeader=`<div class="md-head">
-        <div class="md-head-team"><span class="md-head-flag">${fh}</span><span class="md-head-name">${hn}</span></div>
-        <div class="md-head-center"><div class="md-head-score">${dScore}</div><div class="md-head-min">${dStatus}</div></div>
-        <div class="md-head-team"><span class="md-head-flag">${fa}</span><span class="md-head-name">${an}</span></div>
-      </div>`;
-      let detailStats='';
-      if(!spoilerMode){
-        const statRow=(hv,label,av)=>`<div class="md-stat"><span class="md-stat-h">${hv}</span><span class="md-stat-label">${label}</span><span class="md-stat-a">${av}</span></div>`;
-        const rows=[];
-        if(m.score)rows.push(statRow(m.score.home,'Goals',m.score.away));
-        if(m.cards){
-          const cv=Object.values(m.cards);
-          const cnt=side=>{const l=cv.filter(c=>cardSide(c.team,m)===side);const y=l.filter(c=>c.type==='Yellow Card').length;const r=l.length-y;return `${y?'🟨'+y:''}${y&&r?' ':''}${r?'🟥'+r:''}`||'0';};
-          rows.push(statRow(cnt('home'),'Cards',cnt('away')));
+      // Highlights — real YouTube thumbnail once the function caches one, else a search link.
+      let hlLink='';
+      if(m.result){
+        const h=m.highlights;
+        if(h&&h.videoId){
+          const thumb=h.thumb||`https://img.youtube.com/vi/${h.videoId}/hqdefault.jpg`;
+          hlLink=`<div class="md-section-title">Highlights</div>
+            <a class="md-hl" href="https://www.youtube.com/watch?v=${h.videoId}" target="_blank" rel="noopener">
+              <span class="md-hl-thumb"><img src="${thumb}" alt="" loading="lazy"><span class="md-hl-play">▶</span></span>
+              <span class="md-hl-meta"><span class="md-hl-title">${h.title||'Match highlights'}</span><span class="md-hl-channel">${h.channel||'YouTube'}</span></span>
+            </a>`;
+        }else{
+          const q=encodeURIComponent(`${shortName(m.home)} vs ${shortName(m.away)} World Cup 2026 highlights`);
+          hlLink=`<div class="md-section-title">Highlights</div>
+            <a class="md-hl md-hl-search" href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">
+              <span class="md-hl-play">▶</span><span>Search highlights on YouTube</span>
+            </a>`;
         }
-        if(rows.length)detailStats=`<div class="md-section-title">Match Details</div><div class="md-stats">${rows.join('')}</div>`;
       }
-      const timelineBlock=timelineRows?`<div class="md-section-title">Timeline</div><div class="md-timeline">${timelineRows}</div>`:'';
+      // The collapsed card stays as the header; the detail opens directly below it.
+      const timelineBlock=timelineRows?`<div class="md-section-title">Timeline</div><div class="md-tl">${timelineRows}</div>`:'';
       const oddsBlock=oddsHtml?`<div class="md-section-title">Win probability</div>${oddsHtml}`:'';
-      out+=`<div class="match-scorers" id="md-${m.id}">${detailHeader}${detailStats}${timelineBlock}${oddsBlock}${picksHtml}${stakesHtml}${hlLink}</div>`;
+      out+=`<div class="match-scorers" id="md-${m.id}">${timelineBlock}${picksHtml}${oddsBlock}${stakesHtml}${hlLink}</div>`;
     }
     out+=`</div>`;
     return out;
