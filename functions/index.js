@@ -24,6 +24,7 @@ exports.liveScores = onSchedule(
     timeoutSeconds: 60,
     memory: '256MiB',
     retryCount: 0, // a missed minute is fixed by the next run — no point retrying
+    secrets: ['YOUTUBE_API_KEY'], // optional; highlights are skipped if unset
   },
   async () => {
     const t0 = Date.now();

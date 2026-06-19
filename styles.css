@@ -205,6 +205,17 @@
   .md-pk-head { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); font-weight:700; margin-bottom:0.25rem; }
   .md-pk-name { font-size:0.82rem; color:var(--text); }
   .md-pk-empty { font-size:0.82rem; color:var(--muted); }
+  /* Highlights */
+  .md-hl { display:flex; align-items:center; gap:0.85rem; text-decoration:none; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.6rem; transition:border-color .15s; }
+  .md-hl:hover { border-color:var(--gold); }
+  .md-hl-thumb { position:relative; flex-shrink:0; width:120px; aspect-ratio:16/9; border-radius:6px; overflow:hidden; background:var(--surface2); display:flex; align-items:center; justify-content:center; }
+  .md-hl-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+  .md-hl-play { position:absolute; width:30px; height:30px; border-radius:50%; background:rgba(0,0,0,0.55); color:#fff; display:flex; align-items:center; justify-content:center; font-size:0.7rem; padding-left:2px; }
+  .md-hl-meta { display:flex; flex-direction:column; gap:0.2rem; min-width:0; }
+  .md-hl-title { font-size:0.85rem; font-weight:600; color:var(--text); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .md-hl-channel { font-size:0.72rem; color:var(--muted); }
+  .md-hl-search { color:var(--muted); font-size:0.82rem; justify-content:center; }
+  .md-hl-search .md-hl-play { position:static; width:22px; height:22px; font-size:0.6rem; }
   .score-box { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text); text-align:center; line-height:1; letter-spacing:0.05em; min-width:72px; }
   .match-picks-row { display:flex; justify-content:space-between; gap:0.5rem; font-size:0.74rem; padding:0.5rem 0 0.1rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:0.4rem; flex-wrap:wrap; }
   .mp-home { color:var(--green); } .mp-draw { color:var(--draw); } .mp-away { color:var(--red); }

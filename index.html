@@ -195,6 +195,7 @@ function applyDataSnapshot(data) {
   const scorers = data.scorers || {};
   const cardsDb = data.cards   || {};
   const oddsDb  = data.odds    || {};
+  const hlDb    = data.highlights || {};
   const matches = DEMO_MATCHES.map(m => ({
     ...m,
     result:  results[String(m.id)] || null,
@@ -202,6 +203,7 @@ function applyDataSnapshot(data) {
     scorers: scorers[String(m.id)] ? Object.values(scorers[String(m.id)]) : null,
     cards:   cardsDb[String(m.id)] ? Object.values(cardsDb[String(m.id)]) : null,
     odds:    oddsDb[String(m.id)]  || null,
+    highlights: hlDb[String(m.id)] || null,
   }));
   const knockout = {
     r16:    parseList(results.r16),
@@ -1416,7 +1418,25 @@ function renderMatches(){
         </div>
         <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
       }
-      const hlLink=m.result?`<div style="margin-top:10px;text-align:center"><a href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/highlights/all-matches" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;display:inline-block">🎬 Watch Highlights on FIFA.com</a></div>`:'';
+      // Highlights — real YouTube thumbnail once the function caches one, else a search link.
+      let hlLink='';
+      if(m.result){
+        const h=m.highlights;
+        if(h&&h.videoId){
+          const thumb=h.thumb||`https://img.youtube.com/vi/${h.videoId}/hqdefault.jpg`;
+          hlLink=`<div class="md-section-title">Highlights</div>
+            <a class="md-hl" href="https://www.youtube.com/watch?v=${h.videoId}" target="_blank" rel="noopener">
+              <span class="md-hl-thumb"><img src="${thumb}" alt="" loading="lazy"><span class="md-hl-play">▶</span></span>
+              <span class="md-hl-meta"><span class="md-hl-title">${h.title||'Match highlights'}</span><span class="md-hl-channel">${h.channel||'YouTube'}</span></span>
+            </a>`;
+        }else{
+          const q=encodeURIComponent(`${shortName(m.home)} vs ${shortName(m.away)} World Cup 2026 highlights`);
+          hlLink=`<div class="md-section-title">Highlights</div>
+            <a class="md-hl md-hl-search" href="https://www.youtube.com/results?search_query=${q}" target="_blank" rel="noopener">
+              <span class="md-hl-play">▶</span><span>Search highlights on YouTube</span>
+            </a>`;
+        }
+      }
       // The collapsed card stays as the header; the detail opens directly below it.
       const timelineBlock=timelineRows?`<div class="md-section-title">Timeline</div><div class="md-tl">${timelineRows}</div>`:'';
       const oddsBlock=oddsHtml?`<div class="md-section-title">Win probability</div>${oddsHtml}`:'';

@@ -120,6 +120,8 @@ function findOurMatch(apiHome, apiAway) {
   ) || null;
 }
 
+const MATCH_BY_ID = Object.fromEntries(OUR_MATCHES.map(m => [String(m.id), m]));
+
 // ── Knockout stage detection by date ─────────────────────────────────────────
 const KNOCKOUT_DATE_RANGES = [
   { stage: 'r16',    from: '2026-07-01', to: '2026-07-04' },
@@ -301,6 +303,34 @@ async function fetchStandings() {
   return standings;
 }
 
+// ── YouTube highlights (server-side; key kept in a Functions secret) ──────────
+// Searches for a ~medium-length highlight clip for one match. Returns null when
+// no key is set or nothing is found, so it never blocks the score import.
+async function fetchHighlight(home, away) {
+  const key = process.env.YOUTUBE_API_KEY;
+  if (!key) return null;
+  const q = encodeURIComponent(`${home} vs ${away} 2026 World Cup highlights`);
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video` +
+    `&maxResults=1&videoDuration=medium&order=relevance&q=${q}&key=${key}`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) { console.warn(`YouTube HTTP ${res.status}`); return null; }
+    const data = await res.json();
+    const item = (data.items || [])[0];
+    if (!item || !item.id || !item.id.videoId) return null;
+    const sn = item.snippet || {};
+    return {
+      videoId: item.id.videoId,
+      title:   sn.title || '',
+      channel: sn.channelTitle || '',
+      thumb:   sn.thumbnails?.high?.url || sn.thumbnails?.medium?.url || '',
+    };
+  } catch (e) {
+    console.warn(`YouTube fetch error: ${e.message}`);
+    return null;
+  }
+}
+
 // ── Rank snapshot (for the leaderboard form arrows) ───────────────────────────
 async function snapshotRanks(db, existingResults) {
   const snap = await db.ref('wc2026/picks').once('value');
@@ -344,12 +374,14 @@ async function importLiveScores(db) {
     return { skipped: `scoreboard-error:${e.message}` };
   }
 
-  const [eventsImportedSnap, existingSnap] = await Promise.all([
+  const [eventsImportedSnap, existingSnap, highlightsSnap] = await Promise.all([
     db.ref('wc2026/eventsImported').once('value'),
     db.ref('wc2026/results').once('value'),
+    db.ref('wc2026/highlights').once('value'),
   ]);
-  const alreadyImported = eventsImportedSnap.val() || {};
-  const existingResults = existingSnap.val() || {};
+  const alreadyImported   = eventsImportedSnap.val() || {};
+  const existingResults   = existingSnap.val() || {};
+  const existingHighlights = highlightsSnap.val() || {};
 
   const p = parseScoreboard(sbData, alreadyImported, existingResults);
 
@@ -409,8 +441,21 @@ async function importLiveScores(db) {
     updates['config/prevRanks'] = ranksBefore;
   }
 
+  // YouTube highlights — fetch once per finished match that doesn't have one yet.
+  // Capped per run to bound API quota; backfills steadily as matches finish / during live windows.
+  let highlightsFetched = 0;
+  if (process.env.YOUTUBE_API_KEY && (p.newlyFinishedCount > 0 || p.liveCount > 0)) {
+    const missing = Object.keys(p.results)
+      .filter(id => !existingHighlights[id] && MATCH_BY_ID[id])
+      .slice(0, 6);
+    for (const id of missing) {
+      const hl = await fetchHighlight(MATCH_BY_ID[id].home, MATCH_BY_ID[id].away);
+      if (hl) { updates[`highlights/${id}`] = hl; highlightsFetched++; }
+    }
+  }
+
   await db.ref('wc2026').update(updates);
-  return { wrote: Object.keys(updates).length, live: p.liveCount, finished: p.newlyFinishedCount };
+  return { wrote: Object.keys(updates).length, live: p.liveCount, finished: p.newlyFinishedCount, highlights: highlightsFetched };
 }
 
 module.exports = { importLiveScores, parseScoreboard, findOurMatch, ESPN_BASE };
