@@ -1276,12 +1276,58 @@ function renderMatches(){
     const dateArea=inDateMode
       ?`${m.group.replace('Group ','')}${t?' · '+t:''}`
       :`${m.date}${t?' · '+t:''}`;
+    // ── Light card (visual redesign): header strip + round flags + 3 states ──
+    const isGroupStage=/^Group /.test(m.group||'');
+    const stageLabel=isGroupStage?'Group Stage':(m.group||'');
+    let metaRight=m.group||'';
+    if(isGroupStage){
+      const gm=STATE.matches.filter(x=>x.group===m.group).sort((a,b)=>matchSortKey(a)-matchSortKey(b));
+      const pos=gm.findIndex(x=>x.id===m.id);
+      if(pos>=0)metaRight=`${m.group} · Matchday ${Math.floor(pos/2)+1} of 3`;
+    }
+    const whenStr=inDateMode?(t||m.date):`${m.date}${t?' · '+t:''}`;
+    const showScore=m.score&&!spoilerMode;
+    const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
+    let mcCenter,mcStateCls;
+    if(mStatus==='live'){
+      mcStateCls='mc-live';
+      mcCenter=`<div class="mc-when">${whenStr}</div>
+        <div class="mc-score">${showScore?scoreStr:`0<span class="mc-score-sep">:</span>0`}</div>
+        <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live</span></div>`;
+    }else if(m.result){
+      mcStateCls='mc-finished';
+      let rp;
+      if(m.result==='home')rp=`<span class="mc-pill mc-pill-win">${hn} win</span>`;
+      else if(m.result==='away')rp=`<span class="mc-pill mc-pill-win">${an} win</span>`;
+      else rp=`<span class="mc-pill mc-pill-draw">Draw</span>`;
+      mcCenter=`<div class="mc-when">${whenStr}</div>
+        <div class="mc-score">${showScore?scoreStr:`<span class="mc-score-sep">–</span>`}</div>
+        <div class="mc-statusrow">${spoilerMode?'':rp}</div>`;
+    }else{
+      mcStateCls='mc-upcoming';
+      mcCenter=`<div class="mc-when mc-when-lg">${whenStr}</div>
+        <div class="mc-vs">VS</div>
+        ${mStatus==='today'?`<div class="mc-statusrow"><span class="mc-pill mc-pill-today">Today</span></div>`:''}`;
+    }
+    const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
     let out=`<div class="match-wrap" id="mw-${m.id}">
-      <div class="match-card${hasDetail?' has-scorers':''}" ${clickAttr}>
-        <div class="team">${fh}${hn}</div>
-        ${scoreBox}
-        <div class="team away">${fa}${an}</div>
-        <div>${pill}<div class="match-date" style="margin-top:4px">${dateArea}</div>${starsHtml}</div>
+      <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}" ${clickAttr}>
+        <div class="mc-header">
+          <span class="mc-stage">${stageLabel}</span>
+          <span class="mc-meta">${metaRight}</span>
+        </div>
+        <div class="mc-body">
+          <div class="mc-team">
+            <span class="mc-flag">${fh}</span>
+            <span class="mc-team-name">${hn}</span>
+          </div>
+          <div class="mc-center">${mcCenter}</div>
+          <div class="mc-team mc-team-away">
+            <span class="mc-flag">${fa}</span>
+            <span class="mc-team-name">${an}</span>
+          </div>
+        </div>
+        ${starsRow}
       </div>`;
     if(hasDetail){
       const timeline=[
