@@ -1,0 +1,17 @@
+{
+  "name": "wc2026-functions",
+  "description": "1-minute live score updater for WC2026 predictor",
+  "main": "index.js",
+  "private": true,
+  "engines": {
+    "node": "20"
+  },
+  "scripts": {
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log --only liveScores"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0",
+    "firebase-functions": "^6.1.0"
+  }
+}
