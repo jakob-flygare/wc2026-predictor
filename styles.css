@@ -10,6 +10,9 @@
     --green: #2ECC71;
     --red: #E74C3C;
     --draw: #E8B84B;
+    /* Aliases — several rules referenced these undefined vars; map to existing tokens */
+    --card: var(--surface2);
+    --text-muted: var(--muted);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; } /* prevents horizontal shift when scrollbar appears/disappears */
