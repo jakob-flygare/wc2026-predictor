@@ -1213,6 +1213,10 @@ function cardSide(team,m){
   if(t===a||a.includes(t)||t.includes(a))return 'away';
   return null;
 }
+// Dev-only: toggle a demo Live rail without waiting for a real match.
+// Run demoLive() in the console to enable, demoLive(false) to disable.
+window.demoLive=(on=true)=>{localStorage.setItem('wc2026_demo_live',on?'1':'0');if(typeof renderMatches==='function')renderMatches();};
+
 // Compact card for the Live rail at the top of the Matches tab.
 function lvCardHtml(m){
   const sh=m.score?m.score.home:0,sa=m.score?m.score.away:0;
@@ -1477,7 +1481,13 @@ function renderMatches(){
 
   // Live rail — ongoing matches shown as a horizontal strip at the top.
   let liveSection='';
-  const liveMatches=spoilerMode?[]:STATE.matches.filter(m=>getMatchStatus(m)==='live');
+  let liveMatches=spoilerMode?[]:STATE.matches.filter(m=>getMatchStatus(m)==='live');
+  // Demo live mode (dev only): fake a few live matches in the rail so the Live
+  // section can be designed without a real match. Clones data — never mutates STATE.
+  if(!liveMatches.length&&!spoilerMode&&localStorage.getItem('wc2026_demo_live')==='1'){
+    const demoScores=[{home:1,away:2},{home:0,away:0},{home:3,away:1}];
+    liveMatches=STATE.matches.filter(m=>!m.result).slice(0,3).map((m,i)=>({...m,score:demoScores[i%demoScores.length]}));
+  }
   if(liveMatches.length){
     liveSection=`<div class="lv-section">
       <div class="lv-head"><span class="lv-title"><span class="lv-dot lv-dot-lg"></span>Live</span><span class="lv-count">${liveMatches.length} ongoing</span></div>
