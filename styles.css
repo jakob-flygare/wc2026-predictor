@@ -113,7 +113,7 @@
   .odds-meta { font-size:10px; color:var(--text-muted); margin-top:3px; display:flex; justify-content:space-between; opacity:0.75; }
   /* ── MATCH CARDS (dark, redesign) ─────────────────────────────────────────── */
   .match-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:0; margin-bottom:0; overflow:hidden; display:block; color:var(--text); transition:border-color .15s, box-shadow .15s; }
-  .match-card.has-scorers { cursor: pointer; }
+  .match-card.has-scorers .mc-clickable { cursor: pointer; }
   .match-card.has-scorers:hover { border-color:rgba(201,168,76,0.35); }
   /* Header strip */
   .mc-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 1.1rem; background:var(--surface2); border-bottom:1px solid var(--border); }
@@ -155,8 +155,10 @@
   /* Live state accent */
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
   .match-wrap { margin-bottom: 0.4rem; }
-  .match-scorers { display:none; background:var(--surface2); border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:0.5rem 1.2rem 0.6rem; }
+  /* Detail lives inside the card now — no own border; a top line separates it from the head. */
+  .match-scorers { display:none; border-top:1px solid var(--border); padding:0.2rem 1.2rem 0.7rem; }
   .match-scorers.open { display:block; }
+  .match-scorers .md-section-title:first-child { border-top:none; padding-top:0.6rem; }
   .scorer-row { font-size:0.78rem; color:var(--muted); padding:0.18rem 0; display:flex; align-items:baseline; gap:0.35rem; }
   .scorer-row b { color:var(--text); font-weight:500; }
   .scorer-row .scorer-og { color:var(--red); }
