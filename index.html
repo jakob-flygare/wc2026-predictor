@@ -1204,6 +1204,31 @@ function confettiHtml(){
   return `<span class="mc-confetti" aria-hidden="true">${pieces}</span>`;
 }
 
+// Which side (home/away) a scorer/card team string belongs to.
+function cardSide(team,m){
+  const t=(team||'').toLowerCase().trim();
+  if(!t)return null;
+  const h=shortName(m.home).toLowerCase(),a=shortName(m.away).toLowerCase();
+  if(t===h||h.includes(t)||t.includes(h))return 'home';
+  if(t===a||a.includes(t)||t.includes(a))return 'away';
+  return null;
+}
+// Compact card for the Live rail at the top of the Matches tab.
+function lvCardHtml(m){
+  const sh=m.score?m.score.home:0,sa=m.score?m.score.away:0;
+  return `<div class="lv-card" onclick="goToMatch(${m.id})">
+    <div class="lv-top">
+      <span class="lv-pill"><span class="lv-dot"></span>Live</span>
+      <span class="lv-comp">${m.group||''}</span>
+    </div>
+    <div class="lv-crests"><span class="lv-crest">${flagOf(m.home)}</span><span class="lv-crest">${flagOf(m.away)}</span></div>
+    <div class="lv-rows">
+      <div class="lv-row"><span class="lv-team">${shortName(m.home)}</span><span class="lv-num">${sh}</span></div>
+      <div class="lv-row"><span class="lv-team">${shortName(m.away)}</span><span class="lv-num">${sa}</span></div>
+    </div>
+  </div>`;
+}
+
 function renderMatches(){
   // Sort toggle bar
   const sortBar=document.getElementById('matches-sort-bar');
@@ -1380,7 +1405,29 @@ function renderMatches(){
         <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
       }
       const hlLink=m.result?`<div style="margin-top:10px;text-align:center"><a href="https://www.fifa.com/en/tournaments/mens/worldcup/canadamexicousa2026/highlights/all-matches" target="_blank" rel="noopener" style="font-size:0.75rem;color:var(--text-muted);text-decoration:none;border:1px solid var(--border);border-radius:6px;padding:4px 10px;display:inline-block">🎬 Watch Highlights on FIFA.com</a></div>`:'';
-      out+=`<div class="match-scorers" id="md-${m.id}">${timelineRows}${oddsHtml}${picksHtml}${stakesHtml}${hlLink}</div>`;
+      // ── Detail header (big score) + Match Details stats (image-2 style) ──
+      const dScore=(m.score&&!spoilerMode)?`${m.score.home} - ${m.score.away}`:'–';
+      const dStatus=mStatus==='live'?'Live':(m.result?'Full time':(t?`Kickoff ${t}`:m.date));
+      const detailHeader=`<div class="md-head">
+        <div class="md-head-team"><span class="md-head-flag">${fh}</span><span class="md-head-name">${hn}</span></div>
+        <div class="md-head-center"><div class="md-head-score">${dScore}</div><div class="md-head-min">${dStatus}</div></div>
+        <div class="md-head-team"><span class="md-head-flag">${fa}</span><span class="md-head-name">${an}</span></div>
+      </div>`;
+      let detailStats='';
+      if(!spoilerMode){
+        const statRow=(hv,label,av)=>`<div class="md-stat"><span class="md-stat-h">${hv}</span><span class="md-stat-label">${label}</span><span class="md-stat-a">${av}</span></div>`;
+        const rows=[];
+        if(m.score)rows.push(statRow(m.score.home,'Goals',m.score.away));
+        if(m.cards){
+          const cv=Object.values(m.cards);
+          const cnt=side=>{const l=cv.filter(c=>cardSide(c.team,m)===side);const y=l.filter(c=>c.type==='Yellow Card').length;const r=l.length-y;return `${y?'🟨'+y:''}${y&&r?' ':''}${r?'🟥'+r:''}`||'0';};
+          rows.push(statRow(cnt('home'),'Cards',cnt('away')));
+        }
+        if(rows.length)detailStats=`<div class="md-section-title">Match Details</div><div class="md-stats">${rows.join('')}</div>`;
+      }
+      const timelineBlock=timelineRows?`<div class="md-section-title">Timeline</div><div class="md-timeline">${timelineRows}</div>`:'';
+      const oddsBlock=oddsHtml?`<div class="md-section-title">Win probability</div>${oddsHtml}`:'';
+      out+=`<div class="match-scorers" id="md-${m.id}">${detailHeader}${detailStats}${timelineBlock}${oddsBlock}${picksHtml}${stakesHtml}${hlLink}</div>`;
     }
     out+=`</div>`;
     return out;
@@ -1428,7 +1475,16 @@ function renderMatches(){
     });
   }
 
-  document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
+  // Live rail — ongoing matches shown as a horizontal strip at the top.
+  let liveSection='';
+  const liveMatches=spoilerMode?[]:STATE.matches.filter(m=>getMatchStatus(m)==='live');
+  if(liveMatches.length){
+    liveSection=`<div class="lv-section">
+      <div class="lv-head"><span class="lv-title"><span class="lv-dot lv-dot-lg"></span>Live</span><span class="lv-count">${liveMatches.length} ongoing</span></div>
+      <div class="lv-rail">${liveMatches.map(lvCardHtml).join('')}</div>
+    </div>`;
+  }
+  document.getElementById('matches-list').innerHTML=(liveSection+html)||'<div class="loading">No match data.</div>';
   applyFlags('matches-list');
   if(!window._cdTimer)window._cdTimer=setInterval(()=>{
     const c=getCountdownText();

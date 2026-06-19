@@ -160,6 +160,43 @@
   .scorer-team { font-size:0.7rem; margin-left:2px; }
   .scorer-assist { font-size:0.7rem; color:var(--muted); opacity:0.7; margin-left:2px; }
   .evt-icon { font-size:0.72rem; flex-shrink:0; }
+  /* ── LIVE RAIL (ongoing matches) ───────────────────────────────────────────── */
+  .lv-section { margin-bottom:1.75rem; }
+  .lv-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:0.75rem; }
+  .lv-title { font-family:'Bebas Neue',sans-serif; font-size:1.7rem; letter-spacing:0.04em; color:var(--text); display:flex; align-items:center; gap:0.55rem; }
+  .lv-count { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; }
+  .lv-dot { width:7px; height:7px; border-radius:50%; background:#fff; animation:pulse-badge 1.2s ease-in-out infinite; }
+  .lv-dot-lg { width:11px; height:11px; background:var(--red); }
+  .lv-rail { display:flex; gap:0.75rem; overflow-x:auto; padding-bottom:0.4rem; scrollbar-width:none; }
+  .lv-rail::-webkit-scrollbar { display:none; }
+  .lv-card { flex:0 0 200px; background:linear-gradient(160deg,#2a1015 0%,var(--surface) 62%); border:1px solid rgba(231,76,60,0.4); border-radius:14px; padding:0.9rem 1rem; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; box-shadow:0 0 18px rgba(231,76,60,0.1); }
+  .lv-card:hover { border-color:var(--red); transform:translateY(-2px); box-shadow:0 0 22px rgba(231,76,60,0.22); }
+  .lv-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.7rem; }
+  .lv-pill { display:inline-flex; align-items:center; gap:5px; background:var(--red); color:#fff; font-size:0.6rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:0.2rem 0.55rem; border-radius:999px; }
+  .lv-pill .lv-dot { background:#fff; }
+  .lv-comp { font-size:0.6rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; max-width:90px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lv-crests { display:flex; gap:0.5rem; margin-bottom:0.55rem; }
+  .lv-crest { width:34px; height:34px; border-radius:50%; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .lv-crest img.emoji { width:34px; height:34px; max-width:none; margin:0; border-radius:0; object-fit:cover; transform:scale(1.45); }
+  .lv-row { display:flex; justify-content:space-between; align-items:center; padding:0.12rem 0; }
+  .lv-team { font-size:0.85rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lv-num { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:var(--gold); margin-left:0.75rem; line-height:1; }
+  /* ── EXPANDED MATCH DETAIL (clarity-focused) ──────────────────────────────── */
+  .md-head { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:0.75rem; padding:0.5rem 0 0.9rem; }
+  .md-head-team { display:flex; flex-direction:column; align-items:center; gap:0.4rem; }
+  .md-head-flag { width:44px; height:44px; border-radius:50%; background:var(--bg); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .md-head-flag img.emoji { width:44px; height:44px; max-width:none; margin:0; border-radius:0; object-fit:cover; transform:scale(1.45); }
+  .md-head-name { font-size:0.78rem; font-weight:600; color:var(--text); text-align:center; }
+  .md-head-center { text-align:center; }
+  .md-head-score { font-family:'Bebas Neue',sans-serif; font-size:2.6rem; line-height:1; color:var(--text); letter-spacing:0.05em; }
+  .md-head-min { font-size:0.66rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.08em; margin-top:0.25rem; }
+  .md-section-title { text-align:center; font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.05em; color:var(--text); margin:0.9rem 0 0.5rem; padding-top:0.8rem; border-top:1px solid var(--border); }
+  .md-stats { display:flex; flex-direction:column; }
+  .md-stat { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:0.45rem 0.25rem; }
+  .md-stat + .md-stat { border-top:1px solid rgba(255,255,255,0.04); }
+  .md-stat-h { text-align:right; font-weight:600; color:var(--text); font-size:0.95rem; }
+  .md-stat-a { text-align:left; font-weight:600; color:var(--text); font-size:0.95rem; }
+  .md-stat-label { color:var(--muted); font-size:0.78rem; padding:0 1.2rem; text-align:center; text-transform:uppercase; letter-spacing:0.05em; }
   .score-box { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; color:var(--text); text-align:center; line-height:1; letter-spacing:0.05em; min-width:72px; }
   .match-picks-row { display:flex; justify-content:space-between; gap:0.5rem; font-size:0.74rem; padding:0.5rem 0 0.1rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:0.4rem; flex-wrap:wrap; }
   .mp-home { color:var(--green); } .mp-draw { color:var(--draw); } .mp-away { color:var(--red); }
