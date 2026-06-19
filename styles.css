@@ -167,7 +167,8 @@
   .lv-count { font-size:0.72rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.1em; }
   .lv-dot { width:7px; height:7px; border-radius:50%; background:#fff; animation:pulse-badge 1.2s ease-in-out infinite; }
   .lv-dot-lg { width:11px; height:11px; background:var(--red); }
-  .lv-rail { display:flex; gap:0.75rem; overflow-x:auto; padding-bottom:0.4rem; scrollbar-width:none; }
+  /* overflow-x:auto forces overflow-y to clip — pad top/sides so the hover lift + glow aren't cut off */
+  .lv-rail { display:flex; gap:0.75rem; overflow-x:auto; padding:0.6rem 0.25rem 0.5rem; scrollbar-width:none; }
   .lv-rail::-webkit-scrollbar { display:none; }
   .lv-card { flex:0 0 200px; background:linear-gradient(160deg,#2a1015 0%,var(--surface) 62%); border:1px solid rgba(231,76,60,0.4); border-radius:14px; padding:0.9rem 1rem; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; box-shadow:0 0 18px rgba(231,76,60,0.1); }
   .lv-card:hover { border-color:var(--red); transform:translateY(-2px); box-shadow:0 0 22px rgba(231,76,60,0.22); }
