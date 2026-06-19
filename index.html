@@ -64,6 +64,7 @@
 <!-- MATCHES -->
 <div id="matches" class="section">
   <div class="container">
+    <div id="matches-live"></div>
     <div id="matches-sort-bar"></div>
     <div id="matches-list"></div>
   </div>
@@ -1494,7 +1495,9 @@ function renderMatches(){
       <div class="lv-rail">${liveMatches.map(lvCardHtml).join('')}</div>
     </div>`;
   }
-  document.getElementById('matches-list').innerHTML=(liveSection+html)||'<div class="loading">No match data.</div>';
+  document.getElementById('matches-live').innerHTML=liveSection;
+  document.getElementById('matches-list').innerHTML=html||'<div class="loading">No match data.</div>';
+  applyFlags('matches-live');
   applyFlags('matches-list');
   if(!window._cdTimer)window._cdTimer=setInterval(()=>{
     const c=getCountdownText();
