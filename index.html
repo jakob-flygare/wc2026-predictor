@@ -244,7 +244,6 @@ function applyDataSnapshot(data) {
       'Golden Ball':       results.golden_ball        || null,
       'Golden Glove':      results.golden_glove       || null,
       'Top Scoring Team':  results.top_scoring_team   || null,
-      'Most Assists':      results.most_assists       || null,
       'Most Cards Team':   results.most_cards_team    || null,
       'Total Goals':       results.total_goals        || null,
       'First Scorer':      results.first_scorer       || null,
@@ -704,7 +703,7 @@ function resolveSlot(slot,standings,best3rd){
 
 // ── BRACKET SCORING ───────────────────────────────────────────────────────────
 const BRACKET_PTS={r16:1,qf:2,sf:3,final:5,winner:8,bronze:3};
-const SPECIAL_PTS={boot:5,bestPlayer:5,bestGoalkeeper:4,topScoringTeam:3,mostAssists:3,mostCards:2,totalGoals:4,firstScorer:3};
+const SPECIAL_PTS={boot:5,bestPlayer:5,bestGoalkeeper:4,topScoringTeam:3,mostCards:2,totalGoals:4,firstScorer:3};
 
 function calcBracketPoints(player){
   const ko=STATE.knockout||{},bracket=player.bracket||{};
@@ -750,7 +749,6 @@ function calcSpecialPoints(player, goalsWinners=new Set()){
   check('bestPlayer','Golden Ball');
   check('bestGoalkeeper','Golden Glove');
   check('topScoringTeam','Top Scoring Team');
-  check('mostAssists','Most Assists');
   check('mostCards','Most Cards Team');
   check('firstScorer','First Scorer');
   if(goalsWinners.has(player.name)) total+=SPECIAL_PTS.totalGoals;
@@ -897,7 +895,6 @@ function renderPlayerBreakdown(player, goalsWinners){
     {key:'bestPlayer',     label:'Golden Ball',         stateKey:'Golden Ball',       pts:SPECIAL_PTS.bestPlayer},
     {key:'bestGoalkeeper', label:'Golden Glove',        stateKey:'Golden Glove',      pts:SPECIAL_PTS.bestGoalkeeper},
     {key:'topScoringTeam', label:'Top Scoring Team',    stateKey:'Top Scoring Team',  pts:SPECIAL_PTS.topScoringTeam},
-    {key:'mostAssists',    label:'Most Assists',        stateKey:'Most Assists',       pts:SPECIAL_PTS.mostAssists},
     {key:'mostCards',      label:'Most Cards Team',     stateKey:'Most Cards Team',    pts:SPECIAL_PTS.mostCards},
     {key:'totalGoals',     label:'Total Goals',         stateKey:'Total Goals',        pts:SPECIAL_PTS.totalGoals, closest:true},
     {key:'firstScorer',    label:'First Team to Score', stateKey:'First Scorer',       pts:SPECIAL_PTS.firstScorer},
@@ -1545,9 +1542,9 @@ function buildPicksDetailHtml(p){
     });
     html+='</div>';
   }
-  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostAssists','mostCards','firstScorer'];
+  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostCards','firstScorer'];
   const SP_LABELS={boot:'Golden Boot',bestPlayer:'Golden Ball',bestGoalkeeper:'Golden Glove',
-    topScoringTeam:'Top Scoring Team',mostAssists:'Most Assists',mostCards:'Most Cards',firstScorer:'First Scorer'};
+    topScoringTeam:'Top Scoring Team',mostCards:'Most Cards',firstScorer:'First Scorer'};
   const filledSP=SP_KEYS.filter(k=>p.special?.[k]);
   if(filledSP.length){
     html+='<div class="picks-section-label" style="margin-top:1.2rem">Special Bets</div><div class="stake-specials">';
@@ -1581,9 +1578,9 @@ function renderPlayerGrid(){
   if(!isPreviewMode()&&new Date()<PICK_DEADLINE){document.getElementById('player-grid').innerHTML=PICKS_LOCKED_MSG;return;}
   const KO_STAGES=['winner','final','sf','qf','r16','bronze'];
   const KO_LABELS={r16:'R16',qf:'QF',sf:'SF',final:'Final',winner:'Winner',bronze:'Bronze'};
-  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostAssists','mostCards','firstScorer'];
+  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostCards','firstScorer'];
   const SP_LABELS={boot:'Golden Boot',bestPlayer:'Golden Ball',bestGoalkeeper:'Golden Glove',
-    topScoringTeam:'Top Scoring Team',mostAssists:'Most Assists',mostCards:'Most Cards',firstScorer:'First Scorer'};
+    topScoringTeam:'Top Scoring Team',mostCards:'Most Cards',firstScorer:'First Scorer'};
   const koMap={};
   KO_STAGES.forEach(s=>{
     koMap[s]={};
@@ -1678,7 +1675,6 @@ function renderSpecial(){
     {key:'topScoringTeam',label:'Top Scoring Team',     stateKey:'Top Scoring Team',pts:3, teamPick:true},
     {key:'mostCards',     label:'Most Cards',           stateKey:'Most Cards Team', pts:2, teamPick:true},
     {key:'firstScorer',   label:'First to Score',       stateKey:'First Scorer',    pts:3, teamPick:true},
-    {key:'mostAssists',   label:'Most Assists',         stateKey:'Most Assists',    pts:3},
     {key:'totalGoals',    label:'Total Goals',          stateKey:'Total Goals',     pts:4, closest:true, wide:true},
   ];
   const gw=calcGoalsWinners();
@@ -1855,9 +1851,9 @@ function renderPathsTab(){  // kept as no-op for safety
 
   const KO_STAGES=['winner','final','sf','qf','r16','bronze'];
   const KO_LABELS={r16:'R16',qf:'QF',sf:'SF',final:'Final',winner:'Winner',bronze:'Bronze'};
-  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostAssists','mostCards','firstScorer'];
+  const SP_KEYS=['boot','bestPlayer','bestGoalkeeper','topScoringTeam','mostCards','firstScorer'];
   const SP_LABELS={boot:'Golden Boot',bestPlayer:'Golden Ball',bestGoalkeeper:'Golden Glove',
-    topScoringTeam:'Top Scoring Team',mostAssists:'Most Assists',mostCards:'Most Cards',firstScorer:'First Scorer'};
+    topScoringTeam:'Top Scoring Team',mostCards:'Most Cards',firstScorer:'First Scorer'};
 
   // Build pick maps: stage → team → [playerNames]
   const koMap={};
@@ -1997,7 +1993,7 @@ function toggleBracketGroup(g){
 const FS_KEY='wc2026_form_state';
 let FORM_STATE=loadFormState();
 function loadFormState(){
-  const def={name:'',color:'#3B82F6',picks:{},special:{boot:'',bestPlayer:'',bestGoalkeeper:'',topScoringTeam:'',mostAssists:'',mostCards:'',totalGoals:'',firstScorer:''},stagePicks:{r32extra:[],r16:[],qf:[],sf:[],final:[],winner:'',bronze:''}};
+  const def={name:'',color:'#3B82F6',picks:{},special:{boot:'',bestPlayer:'',bestGoalkeeper:'',topScoringTeam:'',mostCards:'',totalGoals:'',firstScorer:''},stagePicks:{r32extra:[],r16:[],qf:[],sf:[],final:[],winner:'',bronze:''}};
   try{const s=JSON.parse(localStorage.getItem(FS_KEY))||{};s.special={...def.special,...(s.special||{})};return{...def,...s};}
   catch(e){return def;}
 }
@@ -2293,10 +2289,6 @@ function renderSubmitTab(){
         <input class="ko-input" type="text" placeholder="e.g. France" value="${FORM_STATE.special.topScoringTeam}" list="teams-dl" oninput="FORM_STATE.special.topScoringTeam=this.value;saveFormState();">
       </div>
       <div>
-        <div class="ko-label">Most Assists (+3pts)</div>
-        <input class="ko-input" type="text" placeholder="Player name" value="${FORM_STATE.special.mostAssists}" list="players-dl" oninput="FORM_STATE.special.mostAssists=this.value;saveFormState();">
-      </div>
-      <div>
         <div class="ko-label">Most Yellow+Red Cards — Team (+2pts)</div>
         <input class="ko-input" type="text" placeholder="e.g. Argentina" value="${FORM_STATE.special.mostCards}" list="teams-dl" oninput="FORM_STATE.special.mostCards=this.value;saveFormState();">
       </div>
@@ -2527,7 +2519,6 @@ function renderAdminContent(cont){
       <div class="ko-row"><div class="ko-label">Golden Boot — confirm at end of tournament</div><input class="ko-input" id="ar-gb" value="${sp['Golden Boot']||''}" list="players-dl-admin" placeholder="Live leader auto-shows in Special Bets tab"></div>
       <div class="ko-row"><div class="ko-label">Golden Ball — Best Player</div><input class="ko-input" id="ar-gball" value="${sp['Golden Ball']||''}" list="players-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">Golden Glove — Best Goalkeeper</div><input class="ko-input" id="ar-gglove" value="${sp['Golden Glove']||''}" list="players-dl-admin"></div>
-      <div class="ko-row"><div class="ko-label">Most Assists</div><input class="ko-input" id="ar-assist" value="${sp['Most Assists']||''}" list="players-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">Most Cards Team</div><input class="ko-input" id="ar-cards" value="${sp['Most Cards Team']||''}" list="teams-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">First Team to Score</div><input class="ko-input" id="ar-first" value="${sp['First Scorer']||''}" list="teams-dl-admin"></div>
     </div>
@@ -2564,7 +2555,6 @@ function saveAdminData(){
     'results/golden_boot':      document.getElementById('ar-gb')?.value.trim()||null,
     'results/golden_ball':      document.getElementById('ar-gball')?.value.trim()||null,
     'results/golden_glove':     document.getElementById('ar-gglove')?.value.trim()||null,
-    'results/most_assists':     document.getElementById('ar-assist')?.value.trim()||null,
     'results/most_cards_team':  document.getElementById('ar-cards')?.value.trim()||null,
     'results/first_scorer':     document.getElementById('ar-first')?.value.trim()||null,
   };
@@ -2626,7 +2616,6 @@ function renderScoringTab(){
       row('Golden Ball — Best Player','+ 5 pts','')+
       row('Golden Glove — Best Goalkeeper','+ 4 pts','')+
       row('Top Scoring Team','+ 3 pts','')+
-      row('Most Assists','+ 3 pts','')+
       row('Most Yellow+Red Cards — Team','+ 2 pts','')+
       row('Total Goals in Tournament','+ 4 pts','closest guess wins')+
       row('First Team to Score','+ 3 pts',''))}
@@ -2666,7 +2655,7 @@ function loadDemoWithScores(){
   }));
   const special={
     'Tournament Winner':null,'Golden Boot':null,'Golden Ball':null,
-    'Golden Glove':null,'Top Scoring Team':null,'Most Assists':null,
+    'Golden Glove':null,'Top Scoring Team':null,
     'Most Cards Team':null,'Total Goals':null,'First Scorer':null,
   };
   // Fake prevRanks for demo — reversed so arrows show movement
