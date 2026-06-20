@@ -164,10 +164,52 @@ function initData() {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
     db.ref('wc2026').on('value', snap => applyDataSnapshot(snap.val() || {}));
+    if(!window._liveTimer){ pollLiveScores(); window._liveTimer = setInterval(pollLiveScores, 45000); }
   } catch(e) {
     console.error('Firebase init failed:', e);
     loadDemo();
   }
+}
+
+// ── Client-side live score polling (no backend needed) ───────────────────────
+// Polls ESPN directly from the browser while a match is in its live window and
+// overlays the score onto STATE so the Live rail + match cards update in ~real time.
+const LIVE_SCORES = {};
+const ESPN_TEAM_MAP = {'United States':'USA','Korea Republic':'South Korea','Czech Republic':'Czechia','Turkey':'Türkiye','Bosnia and Herzegovina':'Bosnia-Herzegovina','Congo DR':'DR Congo','Democratic Republic of Congo':'DR Congo',"Cote d'Ivoire":'Ivory Coast',"Côte d'Ivoire":'Ivory Coast','Curacao':'Curaçao'};
+const espnNorm = n => ESPN_TEAM_MAP[n] || n;
+const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=500';
+
+function inLiveWindow(){
+  const now = Date.now();
+  return STATE.matches.some(m => !m.result && m.kickoff &&
+    now >= new Date(m.kickoff).getTime() && now <= new Date(m.kickoff).getTime() + 3*3600*1000);
+}
+
+async function pollLiveScores(){
+  if (spoilerMode || !STATE.matches.length || !inLiveWindow()) return;
+  let data;
+  try { const r = await fetch(ESPN_SCOREBOARD); if(!r.ok) return; data = await r.json(); }
+  catch(e){ return; }
+  let changed = false;
+  for (const ev of (data.events || [])){
+    const comp = ev.competitions?.[0];
+    if (comp?.status?.type?.state !== 'in') continue;   // only in-progress matches
+    const hc = comp.competitors?.find(c=>c.homeAway==='home');
+    const ac = comp.competitors?.find(c=>c.homeAway==='away');
+    if (!hc || !ac) continue;
+    const apiHome = espnNorm(hc.team?.displayName||''), apiAway = espnNorm(ac.team?.displayName||'');
+    const hs = parseInt(hc.score)||0, as = parseInt(ac.score)||0;
+    const m = STATE.matches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
+      return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome); });
+    if (!m || m.result) continue;
+    const flipped = shortName(m.home) !== apiHome;
+    const score = { home: flipped?as:hs, away: flipped?hs:as };
+    const prev = LIVE_SCORES[m.id];
+    if (!prev || prev.home!==score.home || prev.away!==score.away){
+      LIVE_SCORES[m.id] = score; m.score = score; changed = true;
+    }
+  }
+  if (changed && document.getElementById('matches')?.classList.contains('active')) renderMatches();
 }
 
 function applyDataSnapshot(data) {
@@ -203,6 +245,8 @@ function applyDataSnapshot(data) {
     odds:    oddsDb[String(m.id)]  || null,
     highlights: hlDb[String(m.id)] || null,
   }));
+  // Keep client-side live scores (polled from ESPN) through Firebase rebuilds.
+  matches.forEach(m => { if (!m.result && LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id]; });
   const knockout = {
     r16:    parseList(results.r16),
     qf:     parseList(results.qf),
