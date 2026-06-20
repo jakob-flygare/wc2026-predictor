@@ -21,7 +21,10 @@
   <h1>World Cup 2026</h1>
   <div class="subtitle">Lehman Brothers</div>
   <div class="deadline-badge" id="header-badge">Loading...</div>
-  <button id="spoiler-btn" class="spoiler-btn" onclick="toggleSpoiler()">👁 Show scores</button>
+  <button id="spoiler-btn" class="spoiler-toggle" onclick="toggleSpoiler()" aria-pressed="false">
+    <span class="spoiler-toggle-label">No Spoilers</span>
+    <span class="spoiler-switch"><span class="spoiler-knob"></span></span>
+  </button>
 </header>
 
 <nav>
@@ -149,10 +152,8 @@ function toggleSpoiler(){
 function updateSpoilerBtn(){
   const btn=document.getElementById('spoiler-btn');
   if(!btn)return;
-  btn.textContent=spoilerMode?'👁 Spoilers hidden':'👁 Show scores';
-  btn.style.opacity=spoilerMode?'1':'0.55';
-  btn.style.borderColor=spoilerMode?'rgba(201,168,76,0.5)':'';
-  btn.style.color=spoilerMode?'var(--gold)':'';
+  btn.classList.toggle('on', spoilerMode);
+  btn.setAttribute('aria-pressed', spoilerMode?'true':'false');
 }
 
 function sanitizeName(n) {
@@ -622,7 +623,7 @@ const R32_BRACKET=[
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
 let selectedPlayer=null;
-let matchSortMode='group';
+let matchSortMode='date';
 let hideFinished=localStorage.getItem('wc2026_hide_finished')==='1';
 
 // Sortable timestamp for a match — uses kickoff ISO string if available,
@@ -1841,7 +1842,7 @@ function renderSpecial(){
             ${withFlag(t.team)}${pickerStr}
             <div class="team-mini-bar"><div class="team-mini-fill" style="width:${barPct}%"></div></div>
           </span>
-          <span class="live-lb-pts" style="font-size:0.75rem;color:var(--muted)"><span style="color:#facc15">${t.yellow}🟨</span> <span style="color:var(--red)">${t.red}🟥</span></span>
+          <span class="live-lb-pts live-cards"><span class="lc-tag">🟨 <b>${t.yellow}</b></span><span class="lc-tag">🟥 <b>${t.red}</b></span></span>
         </div>`;
       }).join('');
       const outside=STATE.players.filter(p=>{
