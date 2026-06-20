@@ -1276,8 +1276,8 @@ function renderMatches(){
   // Sort toggle bar
   const sortBar=document.getElementById('matches-sort-bar');
   if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
-    <button class="sort-btn${matchSortMode==='group'?' active':''}" onclick="setMatchSort('group')">By Group</button>
     <button class="sort-btn${matchSortMode==='date'?' active':''}" onclick="setMatchSort('date')">By Date</button>
+    <button class="sort-btn${matchSortMode==='group'?' active':''}" onclick="setMatchSort('group')">By Group</button>
     ${matchSortMode==='date'?`<button class="sort-btn${hideFinished?' active':''}" onclick="toggleHideFinished()" style="margin-left:auto">Hide finished</button>`:''}
   </div>`;
 
