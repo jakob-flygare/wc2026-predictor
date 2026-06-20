@@ -1353,27 +1353,29 @@ function renderMatches(){
       if(m.result==='home'){homeCls=' mc-win';awayCls=' mc-lose';homeConfetti=confettiHtml();}
       else{awayCls=' mc-win';homeCls=' mc-lose';awayConfetti=confettiHtml();}
     }
+    // Single bordered container: the clickable head + (when open) the detail live inside one .match-card.
     let out=`<div class="match-wrap" id="mw-${m.id}">
-      <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}" ${clickAttr}>
-        <div class="mc-header">
-          <span class="mc-stage">${stageLabel}</span>
-          <span class="mc-meta">${metaRight}</span>
-        </div>
-        <div class="mc-body">
-          <div class="mc-team${homeCls}">
-            ${homeConfetti}
-            <span class="mc-flag">${fh}</span>
-            <span class="mc-team-name">${hn}</span>
+      <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}">
+        <div class="mc-clickable" ${clickAttr}>
+          <div class="mc-header">
+            <span class="mc-stage">${stageLabel}</span>
+            <span class="mc-meta">${metaRight}</span>
           </div>
-          <div class="mc-center">${mcCenter}</div>
-          <div class="mc-team mc-team-away${awayCls}">
-            ${awayConfetti}
-            <span class="mc-flag">${fa}</span>
-            <span class="mc-team-name">${an}</span>
+          <div class="mc-body">
+            <div class="mc-team${homeCls}">
+              ${homeConfetti}
+              <span class="mc-flag">${fh}</span>
+              <span class="mc-team-name">${hn}</span>
+            </div>
+            <div class="mc-center">${mcCenter}</div>
+            <div class="mc-team mc-team-away${awayCls}">
+              ${awayConfetti}
+              <span class="mc-flag">${fa}</span>
+              <span class="mc-team-name">${an}</span>
+            </div>
           </div>
-        </div>
-        ${starsRow}
-      </div>`;
+          ${starsRow}
+        </div>`;
     if(hasDetail){
       const timeline=[
         ...sortedScorers.map(s=>({...s,_evt:'goal'})),
@@ -1431,7 +1433,7 @@ function renderMatches(){
       const oddsBlock=oddsHtml?`<div class="md-section-title">Win probability</div>${oddsHtml}`:'';
       out+=`<div class="match-scorers" id="md-${m.id}">${timelineBlock}${picksHtml}${oddsBlock}${stakesHtml}${hlLink}</div>`;
     }
-    out+=`</div>`;
+    out+=`</div></div>`;
     return out;
   }
 
