@@ -326,7 +326,9 @@
   .standings-table .gd-pos { color:#4a9a6a; }
   .standings-table .gd-neg { color:#a05050; }
   .picks-scroll { max-height:440px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; }
-  .match-stars { display:block; font-size:0.7rem; letter-spacing:1px; margin-top:3px; }
+  .match-stars { display:inline-block; position:relative; font-size:0.7rem; letter-spacing:1px; margin-top:3px; cursor:pointer; }
+  .match-stars-tip { display:none; position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); width:max-content; max-width:220px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-size:0.7rem; letter-spacing:normal; line-height:1.35; text-align:center; white-space:normal; padding:0.4rem 0.6rem; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.45); z-index:6; pointer-events:none; }
+  .match-stars.open .match-stars-tip { display:block; }
   .group-stars { font-size:0.65rem; letter-spacing:1px; margin-left:8px; vertical-align:middle; opacity:0.85; }
   .star.filled { color:var(--gold); }
   .star.empty  { color:var(--border); }
