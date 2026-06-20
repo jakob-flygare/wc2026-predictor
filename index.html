@@ -2540,11 +2540,12 @@ function renderAdminContent(cont){
 
     <div class="admin-section" style="margin-top:2rem">
       <div class="admin-section-title">Late Submission</div>
-      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Use this on the player's device to temporarily unlock Submit Picks for this browser session only.</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Unlock the Submit Picks form to enter or edit picks after the deadline (this browser session). Works on your device or a player's.</div>
       ${sessionStorage.getItem('wc2026_submit_unlocked')==='1'
-        ? `<div style="color:var(--green);font-size:0.85rem;margin-bottom:0.5rem">✓ Submit Picks is currently unlocked on this device.</div>
+        ? `<div style="color:var(--green);font-size:0.85rem;margin-bottom:0.6rem">✓ Submit Picks is unlocked on this device.</div>
+           <button class="btn" onclick="showTab('submit')" style="margin-right:0.5rem">Go to Submit Picks →</button>
            <button class="btn-outline" onclick="sessionStorage.removeItem('wc2026_submit_unlocked');renderAdminTab()" style="font-size:0.8rem">Re-lock</button>`
-        : `<button class="btn" onclick="sessionStorage.setItem('wc2026_submit_unlocked','1');renderAdminTab()">Unlock Submit Picks for this session</button>`}
+        : `<button class="btn" onclick="sessionStorage.setItem('wc2026_submit_unlocked','1');showTab('submit')">Unlock &amp; open Submit Picks</button>`}
     </div>
 
     <div class="admin-section" style="margin-top:2.5rem">
