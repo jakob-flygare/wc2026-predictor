@@ -334,8 +334,10 @@
   .star.empty  { color:var(--border); }
   .match-stakes { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
   .stakes-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
-  .stake-row { font-size:0.78rem; color:var(--text); padding:2px 0; }
+  .stake-row { font-size:0.78rem; color:var(--text); padding:3px 0; }
   .stake-name { color:var(--gold); font-weight:500; }
+  .stake-pick { color:var(--gold-light); font-weight:600; }
+  .stake-names { color:var(--muted); }
   .picks-section-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin:1.5rem 0 0.5rem; }
   .group-standings-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(175px,1fr)); gap:0.6rem; margin-bottom:2rem; }
   .gs-card { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.75rem 1rem; }

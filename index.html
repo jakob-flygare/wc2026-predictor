@@ -1280,19 +1280,23 @@ function renderMatches(){
         {key:'mostCards',     label:'Most Cards'},
         {key:'firstScorer',   label:'First to Score'},
       ];
-      const stakeLines=[];
+      // Group by stake (one row per pick), then list the players who chose it.
+      const stakeGroups={};
+      const addStake=(disp,name)=>{(stakeGroups[disp]=stakeGroups[disp]||[]).push(name);};
       STATE.players.forEach(p=>{
         STAKE_KEYS.forEach(({key,label})=>{
           const pick=(p.special?.[key]||'').toLowerCase();
           if(pick&&(pick===homeTeam||pick===awayTeam))
-            stakeLines.push(`<div class="stake-row"><span class="stake-name">${p.name}</span> → ${label}: <b>${p.special[key]}</b></div>`);
+            addStake(`${label}: ${p.special[key]}`,p.name);
         });
         const boot=p.special?.boot;
         if(boot&&m.scorers){
           const scored=Object.values(m.scorers).some(s=>s.player?.toLowerCase()===boot.toLowerCase());
-          if(scored) stakeLines.push(`<div class="stake-row"><span class="stake-name">${p.name}</span> → Golden Boot pick scored ⚽</div>`);
+          if(scored) addStake(`Golden Boot ⚽: ${p.special.boot}`,p.name);
         }
       });
+      const stakeLines=Object.entries(stakeGroups).map(([disp,names])=>
+        `<div class="stake-row"><span class="stake-pick">${disp}</span> <span class="stake-names">${names.join(', ')}</span></div>`);
       if(stakeLines.length) stakesHtml=`<div class="match-stakes"><div class="stakes-label">Special Stakes</div>${stakeLines.join('')}</div>`;
       // ── Interest stars ──────────────────────────────────────────────────────
       // Divergence: 0 = everyone agrees, 0.5 = perfect split
