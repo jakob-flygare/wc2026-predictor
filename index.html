@@ -1217,6 +1217,17 @@ function lvCardHtml(m){
   </div>`;
 }
 
+// Star interest tooltip — click/tap to toggle (works on touch, unlike title hover).
+function toggleStarTip(e, el){
+  e.stopPropagation();            // don't toggle the match detail underneath
+  const open = el.classList.contains('open');
+  document.querySelectorAll('.match-stars.open').forEach(s => s.classList.remove('open'));
+  if (!open) el.classList.add('open');
+}
+document.addEventListener('click', () => {
+  document.querySelectorAll('.match-stars.open').forEach(s => s.classList.remove('open'));
+});
+
 function renderMatches(){
   // Sort toggle bar
   const sortBar=document.getElementById('matches-sort-bar');
@@ -1301,7 +1312,7 @@ function renderMatches(){
           else if(divergence>=0.2) reasons.push('Picks divided');
           if(hasStakes) reasons.push('Special bets riding on it');
           const reason=`${score}★ interest — ${reasons.join(' · ')}`;
-          starsHtml=`<span class="match-stars" title="${reason}">${[1,2,3].map(i=>i<=score?filled:empty).join('')}</span>`;
+          starsHtml=`<span class="match-stars" onclick="toggleStarTip(event,this)">${[1,2,3].map(i=>i<=score?filled:empty).join('')}<span class="match-stars-tip">${reason}</span></span>`;
         }
       }
     }
