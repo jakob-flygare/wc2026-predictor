@@ -856,6 +856,23 @@ function calcSpecialsWon(player, goalsWinners=new Set()){
   return won;
 }
 
+// Max points a player can still gain (unplayed group games + undecided bracket/specials).
+function maxRemainingPoints(player){
+  let r = STATE.matches.filter(m=>!m.result).length;   // each unplayed group game: +1
+  const earned = calcBracketPoints(player).total, br = player.bracket||{};
+  let maxBracket = 0;
+  ['r16','qf','sf','final'].forEach(s=>{ maxBracket += BRACKET_PTS[s]*((br[s]||[]).length); });
+  if(br.winner) maxBracket += BRACKET_PTS.winner;
+  if(br.bronze) maxBracket += BRACKET_PTS.bronze;
+  r += Math.max(0, maxBracket - earned);
+  const sp = STATE.special||{};
+  [['boot','Golden Boot'],['bestPlayer','Golden Ball'],['bestGoalkeeper','Golden Glove'],
+   ['topScoringTeam','Top Scoring Team'],['mostCards','Most Cards Team'],['firstScorer','First Scorer']]
+    .forEach(([k,sk])=>{ if(!sp[sk] && player.special?.[k]) r += SPECIAL_PTS[k]; });
+  if(!sp['Total Goals']) r += SPECIAL_PTS.totalGoals;
+  return r;
+}
+
 // ── LIVE STATS HELPERS ────────────────────────────────────────────────────────
 function computeScorerLeaderboard(){
   const counts={};
@@ -1182,6 +1199,14 @@ function renderLeaderboard(){
     const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p,goalsWinners);
     return{...p,groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total};
   }).sort((a,b)=>b.pts-a.pts);
+  // Eliminated: can't reach the leader even winning everything, or is behind someone with identical picks.
+  const leaderPts=scored.length?scored[0].pts:0;
+  const picksKey=p=>JSON.stringify(p.picks||{})+'|'+JSON.stringify(p.bracket||{})+'|'+JSON.stringify(p.special||{});
+  scored.forEach(p=>{
+    const cantReachTop=(leaderPts-p.pts)>maxRemainingPoints(p);
+    const dominated=scored.some(o=>o!==p&&o.pts>p.pts&&picksKey(o)===picksKey(p));
+    p.eliminated=cantReachTop||dominated;
+  });
   const gamesPlayed=STATE.matches.filter(m=>m.result).length,totalGames=STATE.matches.length;
   document.getElementById('games-played-sub').innerHTML=`
     <div class="gp-label">${gamesPlayed} of ${totalGames} group matches played</div>
@@ -1225,7 +1250,7 @@ function renderLeaderboard(){
           </div>`;
         }
         return`<div class="lb-wrap" onclick="toggleLbBreakdown('${p.name.replace(/'/g,"\\'")}',event)">
-          <div class="lb-row ${rc[i]||''}">
+          <div class="lb-row ${rc[i]||''}${p.eliminated?' lb-eliminated':''}">
             <div class="rank-num">${rank}${arrow}</div>
             <div>
               <div class="lb-name">${p.name}${bTag}${streakBadge}</div>
