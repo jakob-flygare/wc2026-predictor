@@ -38,6 +38,8 @@
   .deadline-badge::before { content: '⚽'; font-size: 0.85rem; }
   /* No Spoilers toggle — fixed top-right corner */
   .spoiler-toggle { position:fixed; top:12px; right:14px; z-index:50; display:flex; align-items:center; gap:8px; background:rgba(19,22,28,0.85); backdrop-filter:blur(6px); border:1px solid var(--border); border-radius:999px; padding:6px 10px 6px 12px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .spoiler-icon { width:15px; height:15px; flex-shrink:0; color:var(--muted); transition:color .15s; }
+  .spoiler-toggle.on .spoiler-icon { color:var(--gold-light); }
   .spoiler-toggle-label { font-size:0.68rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); white-space:nowrap; transition:color .15s; }
   .spoiler-toggle.on .spoiler-toggle-label { color:var(--gold-light); }
   .spoiler-switch { position:relative; width:34px; height:18px; border-radius:999px; background:var(--surface2); border:1px solid var(--border); transition:background .15s,border-color .15s; flex-shrink:0; }
