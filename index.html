@@ -1296,7 +1296,6 @@ function renderMatches(){
   if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
     <button class="sort-btn${matchSortMode==='date'?' active':''}" onclick="setMatchSort('date')">By Date</button>
     <button class="sort-btn${matchSortMode==='group'?' active':''}" onclick="setMatchSort('group')">By Group</button>
-    ${matchSortMode==='date'?`<button class="sort-btn${hideFinished?' active':''}" onclick="toggleHideFinished()" style="margin-left:auto">Hide finished</button>`:''}
   </div>`;
 
   const consensus=computeConsensusStandings();
@@ -1514,7 +1513,7 @@ function renderMatches(){
   if(matchSortMode==='date'){
     // Sort all matches chronologically, then group by date label
     const sorted=[...STATE.matches].sort((a,b)=>matchSortKey(a)-matchSortKey(b));
-    const visible=hideFinished?sorted.filter(m=>!m.result):sorted;
+    const visible=sorted;
     const byDate={};
     const dateOrder=[];
     visible.forEach(m=>{
@@ -2703,6 +2702,16 @@ function showTab(id,el){
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
+  if(id==='matches') requestAnimationFrame(scrollToNextMatch);
+}
+
+// Jump (instantly) to the next/ongoing match so finished games sit above and
+// upcoming below. Called whenever the Matches tab is opened.
+function scrollToNextMatch(){
+  const f=getFeaturedMatch();
+  if(!f) return;
+  const el=document.getElementById('mw-'+f.id);
+  if(el) el.scrollIntoView({block:'start'});
 }
 
 function loadDemo(){
