@@ -806,6 +806,17 @@ function calcSpecialPoints(player, goalsWinners=new Set()){
   return total;
 }
 
+// Count of special bets a player has got right (for the leaderboard line).
+function calcSpecialsWon(player, goalsWinners=new Set()){
+  const sp=STATE.special||{},picks=player.special||{};
+  let won=0;
+  const ok=(key,stateKey)=>{const a=sp[stateKey],p=picks[key];if(a&&p&&a.toLowerCase().trim()===p.toLowerCase().trim())won++;};
+  ok('boot','Golden Boot');ok('bestPlayer','Golden Ball');ok('bestGoalkeeper','Golden Glove');
+  ok('topScoringTeam','Top Scoring Team');ok('mostCards','Most Cards Team');ok('firstScorer','First Scorer');
+  if(goalsWinners.has(player.name)) won++;
+  return won;
+}
+
 // ── LIVE STATS HELPERS ────────────────────────────────────────────────────────
 function computeScorerLeaderboard(){
   const counts={};
@@ -1179,8 +1190,8 @@ function renderLeaderboard(){
             <div class="rank-num">${rank}${arrow}</div>
             <div>
               <div class="lb-name">${p.name}${bTag}${streakBadge}</div>
-              <div class="lb-meta">${p.groupPts} group · ${p.bracketPts} bracket · ${p.specialPts||0} specials</div>
-              <div class="progress-bar-wrap" style="max-width:160px"><div class="progress-bar-fill" style="width:${pct}%"></div></div>
+              <div class="lb-meta"><span class="lb-ok">✓</span> ${p.correct}/${p.total} games correct</div>
+              ${(()=>{const w=calcSpecialsWon(p,goalsWinners);return `<div class="lb-meta"><span class="lb-ok">✓</span> ${w} special bet${w!==1?'s':''} won</div>`;})()}
             </div>
             <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div></div>
           </div>
@@ -1405,16 +1416,17 @@ function renderMatches(){
     const whenStr=inDateMode?(t||m.date):`${m.date}${t?' · '+t:''}`;
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
+    const dashScore=`–<span class="mc-score-sep">:</span>–`;   // shown when No Spoilers is on
     let mcCenter,mcStateCls;
     if(mStatus==='live'){
       mcStateCls='mc-live';
       mcCenter=`<div class="mc-when">${whenStr}</div>
-        <div class="mc-score">${showScore?scoreStr:`0<span class="mc-score-sep">:</span>0`}</div>
+        <div class="mc-score">${showScore?scoreStr:dashScore}</div>
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
       mcCenter=`<div class="mc-when">${whenStr}</div>
-        <div class="mc-score">${showScore?scoreStr:`<span class="mc-score-sep">–</span>`}</div>`;
+        <div class="mc-score">${showScore?scoreStr:dashScore}</div>`;
     }else{
       mcStateCls='mc-upcoming';
       mcCenter=`<div class="mc-when mc-when-lg">${whenStr}</div>
@@ -1428,6 +1440,9 @@ function renderMatches(){
       else{awayCls=' mc-win';homeCls=' mc-lose';awayConfetti=confettiHtml();}
     }
     // Single bordered container: the clickable head + (when open) the detail live inside one .match-card.
+    // Pre-match win probability shown under each team
+    const winH=m.odds?`<span class="mc-winpct">${Math.round(m.odds.home*100)}%</span>`:'';
+    const winA=m.odds?`<span class="mc-winpct">${Math.round(m.odds.away*100)}%</span>`:'';
     let out=`<div class="match-wrap" id="mw-${m.id}">
       <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}">
         <div class="mc-clickable" ${clickAttr}>
@@ -1440,12 +1455,14 @@ function renderMatches(){
               ${homeConfetti}
               <span class="mc-flag">${fh}</span>
               <span class="mc-team-name">${hn}</span>
+              ${winH}
             </div>
             <div class="mc-center">${mcCenter}</div>
             <div class="mc-team mc-team-away${awayCls}">
               ${awayConfetti}
               <span class="mc-flag">${fa}</span>
               <span class="mc-team-name">${an}</span>
+              ${winA}
             </div>
           </div>
           ${starsRow}

@@ -111,6 +111,7 @@
   .rank-3 .rank-num { color: #CD7F32; }
   .lb-name { font-weight: 500; font-size: 0.95rem; }
   .lb-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+  .lb-ok { color: var(--green); font-weight: 700; margin-right: 3px; }
   .lb-points { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); text-align: right; line-height: 1; }
   .lb-pts-label { font-size: 0.65rem; color: var(--muted); text-align: right; text-transform: uppercase; letter-spacing: 0.1em; }
   .progress-bar-wrap { background: var(--surface2); border-radius: 999px; height: 4px; overflow: hidden; margin-top: 6px; }
@@ -161,6 +162,7 @@
   .mc-flag { width:48px; height:48px; border-radius:50%; background:var(--surface2); border:1px solid var(--border); box-shadow:0 1px 3px rgba(0,0,0,0.3); display:flex; align-items:center; justify-content:center; overflow:hidden; flex-shrink:0; }
   .mc-flag img.emoji { width:48px; height:48px; max-width:none; margin:0; border-radius:0; vertical-align:middle; object-fit:cover; transform:scale(1.45); }
   .mc-team-name { font-size:0.82rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; color:var(--text); text-align:center; line-height:1.15; }
+  .mc-winpct { position:relative; z-index:1; font-size:0.62rem; color:var(--muted); margin-top:2px; letter-spacing:0.03em; }
   /* Center column */
   .mc-center { display:flex; flex-direction:column; align-items:center; gap:0.25rem; padding:0 0.5rem; min-width:96px; }
   .mc-when { font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap; }
