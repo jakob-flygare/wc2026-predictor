@@ -181,9 +181,29 @@ function initData() {
 // ── Client-side live score polling (no backend needed) ───────────────────────
 // Polls ESPN directly from the browser while a match is in its live window and
 // overlays the score onto STATE so the Live rail + match cards update in ~real time.
-const LIVE_SCORES = {};
+const LIVE_SCORES = {};   // {id:{home,away}} — persisted so the last score shows instantly on reload
+const LIVE_CLOCK = {};    // {id: "'16" | "PAUS"} — game clock for the LIVE pill (not persisted)
+const LIVE_EVENTS = {};   // {id:{scorers:[],cards:[]}} — live timeline events
+try { Object.assign(LIVE_SCORES, JSON.parse(localStorage.getItem('wc2026_live_scores')||'{}')); } catch(e){}
 const ESPN_TEAM_MAP = {'United States':'USA','Korea Republic':'South Korea','Czech Republic':'Czechia','Turkey':'Türkiye','Bosnia and Herzegovina':'Bosnia-Herzegovina','Congo DR':'DR Congo','Democratic Republic of Congo':'DR Congo',"Cote d'Ivoire":'Ivory Coast',"Côte d'Ivoire":'Ivory Coast','Curacao':'Curaçao'};
 const espnNorm = n => ESPN_TEAM_MAP[n] || n;
+// Game clock label for the LIVE pill, e.g. "'16", "PAUS", "'90+2".
+function espnClock(status){
+  if(!status) return '';
+  const tn=(status.type?.name||'').toUpperCase();
+  const desc=`${status.type?.description||''} ${status.type?.detail||''}`;
+  if(tn.includes('HALFTIME')||/half-?time/i.test(desc)) return 'PAUS';
+  const dc=(status.displayClock||'').replace(/:00$/,'').replace(/'/g,'').trim();
+  return dc ? "'"+dc : '';
+}
+// Live goal/card events parsed from the scoreboard, for the live timeline.
+function espnEvents(comp){
+  const teamById={}; (comp.competitors||[]).forEach(c=>{ if(c.team?.id) teamById[c.team.id]=espnNorm(c.team.displayName||''); });
+  const d=comp.details||[];
+  const scorers=d.filter(x=>x.scoringPlay===true&&!x.ownGoal).map(x=>({player:x.athletesInvolved?.[0]?.displayName||'Unknown',team:teamById[x.team?.id]||'',minute:parseInt(x.clock?.displayValue)||0,type:x.penaltyKick?'PENALTY':'REGULAR',assist:null}));
+  const cards=d.filter(x=>x.yellowCard===true||x.redCard===true).map(x=>({player:x.athletesInvolved?.[0]?.displayName||'Unknown',team:teamById[x.team?.id]||'',minute:parseInt(x.clock?.displayValue)||0,type:(x.redCard&&x.yellowCard)?'Yellow Red Card':x.redCard?'Red Card':'Yellow Card'}));
+  return {scorers,cards};
+}
 const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=500';
 
 function inLiveWindow(){
@@ -215,8 +235,17 @@ async function pollLiveScores(){
     if (!prev || prev.home!==score.home || prev.away!==score.away){
       LIVE_SCORES[m.id] = score; m.score = score; changed = true;
     }
+    const newClock = espnClock(comp.status);
+    if (LIVE_CLOCK[m.id] !== newClock){ LIVE_CLOCK[m.id] = newClock; m.liveClock = newClock; changed = true; }
+    LIVE_EVENTS[m.id] = espnEvents(comp);
+    m.scorers = m.scorers || (LIVE_EVENTS[m.id].scorers.length ? LIVE_EVENTS[m.id].scorers : null);
+    m.cards   = m.cards   || (LIVE_EVENTS[m.id].cards.length   ? LIVE_EVENTS[m.id].cards   : null);
   }
-  if (changed){ renderLiveRail(); if(document.getElementById('matches')?.classList.contains('active')) renderMatches(); }
+  if (changed){
+    try { localStorage.setItem('wc2026_live_scores', JSON.stringify(LIVE_SCORES)); } catch(e){}
+    renderLiveRail();
+    if(document.getElementById('matches')?.classList.contains('active')) renderMatches();
+  }
 }
 
 function applyDataSnapshot(data) {
@@ -252,8 +281,17 @@ function applyDataSnapshot(data) {
     odds:    oddsDb[String(m.id)]  || null,
     highlights: hlDb[String(m.id)] || null,
   }));
-  // Keep client-side live scores (polled from ESPN) through Firebase rebuilds.
-  matches.forEach(m => { if (!m.result && LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id]; });
+  // Keep client-side live data (polled from ESPN) through Firebase rebuilds.
+  matches.forEach(m => {
+    if (m.result) return;
+    if (LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id];
+    if (LIVE_CLOCK[m.id]) m.liveClock = LIVE_CLOCK[m.id];
+    const ev = LIVE_EVENTS[m.id];
+    if (ev) {
+      if (!m.scorers && ev.scorers.length) m.scorers = ev.scorers;
+      if (!m.cards && ev.cards.length) m.cards = ev.cards;
+    }
+  });
   const knockout = {
     r16:    parseList(results.r16),
     qf:     parseList(results.qf),
@@ -301,6 +339,7 @@ function applyDataSnapshot(data) {
     },
   };
   renderAll();
+  pollLiveScores();   // data is now loaded — poll ESPN for live scores right away
 }
 
 // ── DEMO DATA ─────────────────────────────────────────────────────────────────
@@ -1267,7 +1306,7 @@ function lvCardHtml(m){
   const sh=m.score?m.score.home:0,sa=m.score?m.score.away:0;
   return `<div class="lv-card" onclick="goToMatch(${m.id})">
     <div class="lv-top">
-      <span class="lv-pill"><span class="lv-dot"></span>Live</span>
+      <span class="lv-pill"><span class="lv-dot"></span>Live${m.liveClock?' '+m.liveClock:''}</span>
       <span class="lv-comp">${m.group||''}</span>
     </div>
     <div class="lv-crests"><span class="lv-crest">${flagOf(m.home)}</span><span class="lv-crest">${flagOf(m.away)}</span></div>
@@ -1422,7 +1461,7 @@ function renderMatches(){
       mcStateCls='mc-live';
       mcCenter=`<div class="mc-when">${whenStr}</div>
         <div class="mc-score">${showScore?scoreStr:dashScore}</div>
-        <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live</span></div>`;
+        <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live${m.liveClock?' '+m.liveClock:''}</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
       mcCenter=`<div class="mc-when">${whenStr}</div>

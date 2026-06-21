@@ -178,6 +178,7 @@
   .mc-pill-today { background:rgba(232,184,75,0.18); color:var(--draw); }
   .mc-stars-row { text-align:center; padding:0 0 0.7rem; }
   /* Live state accent */
+  .mc-live { border-color:rgba(231,76,60,0.45); box-shadow:0 0 16px rgba(231,76,60,0.12); }
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
   .match-wrap { margin-bottom: 0.4rem; }
   /* Detail lives inside the card now — no own border; a top line separates it from the head. */
