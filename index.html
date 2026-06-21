@@ -2706,7 +2706,7 @@ function showTab(id,el){
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
-  if(id==='matches') requestAnimationFrame(scrollToNextMatch);
+  if(id==='matches') setTimeout(scrollToNextMatch, 300);
 }
 
 // Jump (instantly) to the next/ongoing match so finished games sit above and
@@ -2715,7 +2715,7 @@ function scrollToNextMatch(){
   const f=getFeaturedMatch();
   if(!f) return;
   const el=document.getElementById('mw-'+f.id);
-  if(el) el.scrollIntoView({block:'start'});
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 function loadDemo(){
