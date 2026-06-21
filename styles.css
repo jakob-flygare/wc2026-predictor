@@ -119,6 +119,10 @@
   .section-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.5rem; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.04em; color: var(--text); }
   .section-sub { font-size: 0.8rem; color: var(--muted); }
+  .games-progress { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.7rem 1rem; margin-bottom:1.25rem; }
+  .gp-label { font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem; }
+  .gp-bar { height:6px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+  .gp-fill { height:100%; background:var(--gold); border-radius:999px; transition:width .3s ease; }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
   .sort-bar { display:flex; gap:8px; padding:12px 0 4px; }

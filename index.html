@@ -47,11 +47,10 @@
 <div id="leaderboard" class="section active">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Standings</div>
-      <span class="data-source-badge" id="data-badge"></span>
-      <div class="section-sub" id="games-played-sub"></div>
+      <div class="section-title">Leaderboard</div>
       <div id="lb-share-area"></div>
     </div>
+    <div class="games-progress" id="games-played-sub"></div>
     <div id="lb-error"></div>
     <div class="leaderboard-grid" id="lb-grid"></div>
   </div>
@@ -71,6 +70,7 @@
 <!-- MATCHES -->
 <div id="matches" class="section">
   <div class="container">
+    <div class="section-header"><div class="section-title">Matches</div></div>
     <div id="matches-sort-bar"></div>
     <div id="matches-list"></div>
   </div>
@@ -80,7 +80,7 @@
 <div id="picks" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Stakes</div>
+      <div class="section-title">All Picks</div>
       <div class="section-sub">Exclusive &amp; rare picks — click a player to see all their predictions</div>
     </div>
     <div class="player-grid" id="player-grid"></div>
@@ -102,7 +102,7 @@
 <div id="bracket" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Group Standings</div>
+      <div class="section-title">Standings</div>
       <div class="section-sub">Live standings based on match results · top 2 per group advance + best 3rd-place teams</div>
     </div>
     <div id="bracket-content">
@@ -1133,10 +1133,9 @@ function renderLeaderboard(){
     return{...p,groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total};
   }).sort((a,b)=>b.pts-a.pts);
   const gamesPlayed=STATE.matches.filter(m=>m.result).length,totalGames=STATE.matches.length;
-  document.getElementById('games-played-sub').textContent=`${gamesPlayed} of ${totalGames} group matches played`;
-  const badge=document.getElementById('data-badge');
-  if(STATE.source==='live'){badge.className='data-source-badge badge-live';badge.textContent='● Live';}
-  else{badge.className='data-source-badge badge-demo';badge.textContent='○ Demo';}
+  document.getElementById('games-played-sub').innerHTML=`
+    <div class="gp-label">${gamesPlayed} of ${totalGames} group matches played</div>
+    <div class="gp-bar"><div class="gp-fill" style="width:${Math.round(gamesPlayed/totalGames*100)}%"></div></div>`;
   // locked must be declared before anything that uses it
   const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
 
@@ -1414,16 +1413,12 @@ function renderMatches(){
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
-      // Winner is shown on the team itself (gold ring + confetti); only draws get a center tag.
-      const drawTag=(m.result==='draw'&&!spoilerMode)?`<div class="mc-statusrow"><span class="mc-pill mc-pill-draw">Draw</span></div>`:'';
       mcCenter=`<div class="mc-when">${whenStr}</div>
-        <div class="mc-score">${showScore?scoreStr:`<span class="mc-score-sep">–</span>`}</div>
-        ${drawTag}`;
+        <div class="mc-score">${showScore?scoreStr:`<span class="mc-score-sep">–</span>`}</div>`;
     }else{
       mcStateCls='mc-upcoming';
       mcCenter=`<div class="mc-when mc-when-lg">${whenStr}</div>
-        <div class="mc-vs">VS</div>
-        ${mStatus==='today'?`<div class="mc-statusrow"><span class="mc-pill mc-pill-today">Today</span></div>`:''}`;
+        <div class="mc-vs">VS</div>`;
     }
     const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
     // Winner highlight: gold ring + confetti on the winning team, grey out the loser.
@@ -2704,6 +2699,7 @@ function showTab(id,el){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
   if(el)el.classList.add('active');
+  window.scrollTo(0,0);   // reset scroll so the new section starts at the top (not hidden behind the sticky bar)
   if(id==='submit') renderSubmitTab();
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
