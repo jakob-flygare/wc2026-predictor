@@ -132,6 +132,8 @@
   </div>
 </div>
 
+<div id="team-overlay" class="team-overlay" onclick="closeTeamPage(event)"></div>
+
 <script>
 // ── FIREBASE ──────────────────────────────────────────────────────────────────
 const FIREBASE_CONFIG = {
@@ -1353,6 +1355,45 @@ document.addEventListener('click', () => {
   document.querySelectorAll('.match-stars.open').forEach(s => s.classList.remove('open'));
 });
 
+// ── TEAM PAGE (overlay) ───────────────────────────────────────────────────────
+// Opened by tapping a team on a match card: shows the team's games + top scorers.
+function openTeamPage(team){
+  const ov=document.getElementById('team-overlay'); if(!ov||!team)return;
+  const games=STATE.matches
+    .filter(m=>shortName(m.home)===team||shortName(m.away)===team)
+    .sort((a,b)=>matchSortKey(a)-matchSortKey(b));
+  // Top 3 scorers for this team across all matches
+  const counts={};
+  STATE.matches.forEach(m=>{ if(!m.scorers)return; Object.values(m.scorers).forEach(s=>{
+    if(s.type==='OWN_GOAL'||s.team!==team)return; counts[s.player]=(counts[s.player]||0)+1; }); });
+  const topScorers=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3);
+  let gf=0,ga=0,played=0;
+  const gamesHtml=games.map(m=>{
+    const isHome=shortName(m.home)===team, oppName=isHome?shortName(m.away):shortName(m.home);
+    const st=getMatchStatus(m); let right,cls='';
+    if(m.score&&!spoilerMode&&(m.result||st==='live')){
+      const my=isHome?m.score.home:m.score.away, th=isHome?m.score.away:m.score.home;
+      if(m.result){played++;gf+=my;ga+=th;}
+      cls=m.result?(my>th?'tp-w':my<th?'tp-l':'tp-d'):'tp-live';
+      right=`<b>${my}–${th}</b>${st==='live'?' <span class="tp-livedot">●</span>':''}`;
+    } else { right=`<span class="tp-when">${m.date}${matchTimeStr(m)?' · '+matchTimeStr(m):''}</span>`; }
+    return `<div class="tp-game ${cls}"><span class="tp-opp">${withFlag(oppName)}</span><span>${right}</span></div>`;
+  }).join('');
+  const scorersHtml=topScorers.length
+    ? topScorers.map(([p,g],i)=>`<div class="tp-scorer"><span><span class="tp-rank">${i+1}</span> ${p}</span><span class="tp-goals">${g} ⚽</span></div>`).join('')
+    : `<div class="tp-empty">No goals yet</div>`;
+  ov.innerHTML=`<div class="team-sheet" onclick="event.stopPropagation()">
+    <button class="tp-close" onclick="closeTeamPage()" aria-label="Close">✕</button>
+    <div class="tp-head"><span class="tp-flag">${withFlag(team)}</span></div>
+    ${played?`<div class="tp-stat-row"><span>${played} played</span><span>${gf} scored · ${ga} conceded</span></div>`:''}
+    <div class="tp-title">Games</div>${gamesHtml}
+    <div class="tp-title">Top scorers</div>${scorersHtml}
+  </div>`;
+  ov.classList.add('open');
+  applyFlags('team-overlay');
+}
+function closeTeamPage(e){ if(e&&e.target!==e.currentTarget)return; document.getElementById('team-overlay')?.classList.remove('open'); }
+
 // Live rail — ongoing matches shown above the tabs (visible on every tab).
 function renderLiveRail(){
   const cont=document.getElementById('global-live'); if(!cont)return;
@@ -1515,14 +1556,14 @@ function renderMatches(){
             <span class="mc-meta">${metaRight}</span>
           </div>
           <div class="mc-body">
-            <div class="mc-team${homeCls}">
+            <div class="mc-team mc-team-link${homeCls}" onclick="event.stopPropagation();openTeamPage('${hn.replace(/'/g,"\\'")}')">
               ${homeConfetti}
               <span class="mc-flag">${fh}</span>
               <span class="mc-team-name">${hn}</span>
               ${winH}
             </div>
             <div class="mc-center">${mcCenter}</div>
-            <div class="mc-team mc-team-away${awayCls}">
+            <div class="mc-team mc-team-away mc-team-link${awayCls}" onclick="event.stopPropagation();openTeamPage('${an.replace(/'/g,"\\'")}')">
               ${awayConfetti}
               <span class="mc-flag">${fa}</span>
               <span class="mc-team-name">${an}</span>

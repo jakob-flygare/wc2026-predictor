@@ -489,3 +489,27 @@
     .mc-stage { font-size:0.66rem; }
     .mc-meta { font-size:0.62rem; }
   }
+  /* ── TEAM PAGE OVERLAY ─────────────────────────────────────────────────────── */
+  .mc-team-link { cursor:pointer; }
+  .team-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.65); backdrop-filter:blur(3px); display:none; align-items:flex-end; justify-content:center; }
+  .team-overlay.open { display:flex; }
+  .team-sheet { background:var(--surface); border:1px solid var(--border); border-radius:16px 16px 0 0; width:100%; max-width:520px; max-height:85vh; overflow-y:auto; padding:1.5rem 1.25rem 2rem; position:relative; }
+  @media (min-width:560px){ .team-overlay{ align-items:center; } .team-sheet{ border-radius:16px; } }
+  .tp-close { position:absolute; top:0.8rem; right:1rem; background:none; border:none; color:var(--muted); font-size:1.2rem; cursor:pointer; line-height:1; }
+  .tp-head { display:flex; align-items:center; margin-bottom:0.9rem; }
+  .tp-flag { font-family:'Bebas Neue',sans-serif; font-size:1.9rem; letter-spacing:0.03em; color:var(--text); display:flex; align-items:center; gap:0.55rem; }
+  .tp-flag img.emoji { width:32px; height:32px; }
+  .tp-stat-row { display:flex; justify-content:space-between; font-size:0.78rem; color:var(--muted); padding:0.55rem 0.75rem; background:var(--surface2); border-radius:8px; margin-bottom:0.5rem; }
+  .tp-title { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:var(--gold); letter-spacing:0.04em; margin:1.1rem 0 0.5rem; }
+  .tp-game { display:flex; justify-content:space-between; align-items:center; padding:0.55rem 0.75rem; border:1px solid var(--border); border-radius:8px; margin-bottom:0.4rem; font-size:0.85rem; }
+  .tp-game .tp-opp { color:var(--text); }
+  .tp-game.tp-w { border-left:3px solid var(--green); }
+  .tp-game.tp-l { border-left:3px solid var(--red); }
+  .tp-game.tp-d { border-left:3px solid var(--draw); }
+  .tp-game.tp-live { border-left:3px solid var(--red); }
+  .tp-livedot { color:var(--red); }
+  .tp-when { color:var(--muted); font-size:0.8rem; }
+  .tp-scorer { display:flex; justify-content:space-between; padding:0.45rem 0.75rem; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.85rem; }
+  .tp-rank { color:var(--gold); font-weight:700; margin-right:6px; }
+  .tp-goals { color:var(--muted); }
+  .tp-empty { color:var(--muted); font-size:0.82rem; padding:0.45rem 0.75rem; }
