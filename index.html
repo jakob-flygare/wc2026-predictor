@@ -16,6 +16,7 @@
   <span>👁 Preview Mode — showing demo data with fake scores. Real data is unaffected.</span>
   <button onclick="exitPreview()" style="background:none;border:1px solid rgba(232,184,75,0.4);color:var(--gold);border-radius:4px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;font-family:'DM Sans',sans-serif">Exit Preview</button>
 </div>
+<div class="topbar">
 <header>
   <img class="wc-logo" src="logo.png" alt="FIFA World Cup 2026">
   <div class="subtitle">Lehman Brothers</div>
@@ -40,6 +41,7 @@
   <button class="tab" onclick="showTab('scoring',this)">How it works</button>
   <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
 </nav>
+</div>
 
 <!-- LEADERBOARD -->
 <div id="leaderboard" class="section active">
@@ -2753,6 +2755,11 @@ function renderAll(){
   renderLiveRail();
   updateSpoilerBtn();
 }
+
+// Compact the sticky header as soon as the user scrolls from the top.
+addEventListener('scroll', () => {
+  document.body.classList.toggle('scrolled', window.scrollY > 8);
+}, { passive: true });
 
 initData();
 </script>

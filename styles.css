@@ -15,29 +15,38 @@
     --text-muted: var(--muted);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scrollbar-gutter: stable; } /* prevents horizontal shift when scrollbar appears/disappears */
+  html { scrollbar-gutter: stable; scroll-padding-top: 104px; } /* gutter: prevents shift; padding-top: keep scrollIntoView clear of the sticky bar */
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
+  /* Sticky top bar (header + live rail + tabs) */
+  .topbar { position: sticky; top: 0; z-index: 100; background: var(--bg); }
   header {
     position: relative; overflow: hidden;
     padding: 3rem 2rem 2rem; text-align: center;
     border-bottom: 1px solid var(--border);
     background: linear-gradient(180deg, #0D1117 0%, var(--bg) 100%);
+    transition: padding .25s ease;
   }
   header::before {
     content: ''; position: absolute; inset: 0;
     background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.12) 0%, transparent 70%);
-    pointer-events: none;
+    pointer-events: none; transition: opacity .25s ease;
   }
   .trophy-icon { font-size: 2.5rem; margin-bottom: 0.5rem; display: block; filter: drop-shadow(0 0 20px rgba(201,168,76,0.4)); }
-  .wc-logo { display:block; height:clamp(130px,24vw,180px); width:auto; margin:0 auto 0.6rem; }
+  .wc-logo { display:block; height:clamp(130px,24vw,180px); width:auto; margin:0 auto 0.6rem; transition: height .25s ease, margin .25s ease; }
+  /* Compact state — collapses to a small top-left lockup as soon as you scroll */
+  body.scrolled header { display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:0.6rem; padding:0.55rem 1rem; }
+  body.scrolled header::before { opacity:0; }
+  body.scrolled .wc-logo { height:34px; margin:0; }
+  body.scrolled .subtitle { margin:0; font-size:0.72rem; }
+  body.scrolled #global-live { display:none; }
   h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.8rem, 6vw, 4.5rem); letter-spacing: 0.05em; color: var(--gold); line-height: 1; margin-bottom: 0.25rem; }
   .subtitle { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; }
   .deadline-badge { display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem; background: rgba(201,168,76,0.1); border: 1px solid rgba(201,168,76,0.25); color: var(--gold-light); font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.9rem; border-radius: 999px; }
   .deadline-badge::before { content: '⚽'; font-size: 0.85rem; }
   /* No Spoilers toggle — fixed top-right corner */
-  .spoiler-toggle { position:fixed; top:12px; right:14px; z-index:50; display:flex; align-items:center; gap:8px; background:rgba(19,22,28,0.85); backdrop-filter:blur(6px); border:1px solid var(--border); border-radius:999px; padding:6px 10px 6px 12px; cursor:pointer; font-family:'DM Sans',sans-serif; }
+  .spoiler-toggle { position:fixed; top:12px; right:14px; z-index:110; display:flex; align-items:center; gap:8px; background:rgba(19,22,28,0.85); backdrop-filter:blur(6px); border:1px solid var(--border); border-radius:999px; padding:6px 10px 6px 12px; cursor:pointer; font-family:'DM Sans',sans-serif; }
   .spoiler-icon { width:15px; height:15px; flex-shrink:0; color:var(--muted); transition:color .15s; }
   .spoiler-toggle.on .spoiler-icon { color:var(--gold-light); }
   .spoiler-toggle-label { font-size:0.68rem; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); white-space:nowrap; transition:color .15s; }
