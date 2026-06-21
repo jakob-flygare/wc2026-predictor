@@ -1480,27 +1480,23 @@ function renderMatches(){
       const stakeLines=Object.entries(stakeGroups).map(([disp,names])=>
         `<div class="stake-row"><span class="stake-pick">${disp}</span> <span class="stake-names">${names.join(', ')}</span></div>`);
       if(stakeLines.length) stakesHtml=`<div class="match-stakes"><div class="stakes-label">Special Stakes</div>${stakeLines.join('')}</div>`;
-      // ── Interest stars ──────────────────────────────────────────────────────
-      // Divergence: 0 = everyone agrees, 0.5 = perfect split
+      // ── Interest stars (0–3) — always shown, in the card header ──────────────
       const tot=hv.length+dv.length+av.length;
+      let score=0; const reasons=[];
       if(tot>0){
         const divergence=1-Math.max(hv.length,dv.length,av.length)/tot;
         const hasStakes=stakeLines.length>0;
-        let score=0;
         if(divergence>=0.2) score++;   // at least one dissenter
         if(divergence>=0.4) score++;   // genuine split
         if(hasStakes)       score++;   // special money on the table
-        if(score>0){
-          const filled='<span class="star filled">★</span>';
-          const empty='<span class="star empty">★</span>';
-          const reasons=[];
-          if(divergence>=0.4) reasons.push('Picks heavily split');
-          else if(divergence>=0.2) reasons.push('Picks divided');
-          if(hasStakes) reasons.push('Special bets riding on it');
-          const reason=`${score}★ interest — ${reasons.join(' · ')}`;
-          starsHtml=`<span class="match-stars" onclick="toggleStarTip(event,this)">${[1,2,3].map(i=>i<=score?filled:empty).join('')}<span class="match-stars-tip">${reason}</span></span>`;
-        }
+        if(divergence>=0.4) reasons.push('Picks heavily split');
+        else if(divergence>=0.2) reasons.push('Picks divided');
+        if(hasStakes) reasons.push('Special bets riding on it');
       }
+      const filled='<span class="star filled">★</span>';
+      const empty='<span class="star empty">★</span>';
+      const tip=reasons.length?reasons.join(' · '):'Low interest';
+      starsHtml=`<span class="match-stars" onclick="toggleStarTip(event,this)">${[1,2,3].map(i=>i<=score?filled:empty).join('')}<span class="match-stars-tip">${tip}</span></span>`;
     }
     const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml||!!stakesHtml;
     const clickAttr=hasDetail?`onclick="toggleMatchDetail(${m.id})"`:'' ;
@@ -1518,6 +1514,8 @@ function renderMatches(){
       const pos=gm.findIndex(x=>x.id===m.id);
       if(pos>=0)metaRight=`${m.group} · Matchday ${Math.floor(pos/2)+1} of 3`;
     }
+    // Group games: show the interest stars where the stage label used to be.
+    const headerLeft=isGroupStage?starsHtml:`<span class="mc-stage">${stageLabel}</span>`;
     const whenStr=inDateMode?(t||m.date):`${m.date}${t?' · '+t:''}`;
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
@@ -1552,7 +1550,7 @@ function renderMatches(){
       <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}">
         <div class="mc-clickable" ${clickAttr}>
           <div class="mc-header">
-            <span class="mc-stage">${stageLabel}</span>
+            ${headerLeft}
             <span class="mc-meta">${metaRight}</span>
           </div>
           <div class="mc-body">
@@ -1570,7 +1568,6 @@ function renderMatches(){
               ${winA}
             </div>
           </div>
-          ${starsRow}
         </div>`;
     if(hasDetail){
       const timeline=[

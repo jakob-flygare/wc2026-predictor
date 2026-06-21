@@ -106,10 +106,7 @@
   .lb-row.rank-1 { background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, var(--surface) 60%); border-color: rgba(201,168,76,0.35); }
   .lb-row.rank-2 { border-color: rgba(180,180,180,0.25); }
   .lb-row.rank-3 { border-color: rgba(176,110,60,0.3); }
-  .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; text-align: center; line-height: 1; }
-  .rank-1 .rank-num { color: var(--gold); }
-  .rank-2 .rank-num { color: #C0C0C0; }
-  .rank-3 .rank-num { color: #CD7F32; }
+  .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; text-align: center; line-height: 1; color: var(--text); }
   .lb-name { font-weight: 500; font-size: 0.95rem; }
   .lb-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
   .lb-ok { color: var(--green); font-weight: 700; margin-right: 3px; }
@@ -145,7 +142,7 @@
   .mc-stage { font-size:0.74rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); }
   .mc-meta { font-size:0.72rem; color:var(--muted); font-weight:500; }
   /* Body: team — center — team */
-  .mc-body { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:0.75rem; padding:1.1rem 1.2rem; }
+  .mc-body { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:0.75rem; padding:1.1rem 1.2rem; min-height:96px; box-sizing:content-box; }
   .mc-team { display:flex; flex-direction:column; align-items:center; gap:0.5rem; min-width:0; position:relative; }
   .mc-team > .mc-flag, .mc-team > .mc-team-name { position:relative; z-index:1; }
   /* Winner / loser states */
@@ -364,7 +361,7 @@
   .match-stars.open .match-stars-tip { display:block; }
   .group-stars { font-size:0.65rem; letter-spacing:1px; margin-left:8px; vertical-align:middle; opacity:0.85; }
   .star.filled { color:var(--gold); }
-  .star.empty  { color:var(--border); }
+  .star.empty  { color:rgba(255,255,255,0.1); }
   .match-stakes { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
   .stakes-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
   .stake-row { font-size:0.78rem; color:var(--text); padding:3px 0; }
