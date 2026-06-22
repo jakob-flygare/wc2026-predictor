@@ -19,27 +19,26 @@
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
-  /* Sticky top bar (header + live rail + tabs) */
-  .topbar { position: sticky; top: 0; z-index: 100; background: var(--bg); }
+  /* Big brand header — scrolls away normally (not sticky) */
   header {
     position: relative; overflow: hidden;
     padding: 3rem 2rem 2rem; text-align: center;
     border-bottom: 1px solid var(--border);
     background: linear-gradient(180deg, #0D1117 0%, var(--bg) 100%);
-    transition: padding .25s ease;
   }
   header::before {
     content: ''; position: absolute; inset: 0;
     background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(201,168,76,0.12) 0%, transparent 70%);
-    pointer-events: none; transition: opacity .25s ease;
+    pointer-events: none;
   }
   .trophy-icon { font-size: 2.5rem; margin-bottom: 0.5rem; display: block; filter: drop-shadow(0 0 20px rgba(201,168,76,0.4)); }
-  .wc-logo { display:block; height:clamp(130px,24vw,180px); width:auto; margin:0 auto 0.6rem; transition: height .25s ease, margin .25s ease; }
-  /* Compact state — collapses to a small top-left lockup as soon as you scroll */
-  body.scrolled header { display:flex; flex-direction:row; align-items:center; justify-content:flex-start; gap:0.6rem; padding:0.55rem 1rem; }
-  body.scrolled header::before { opacity:0; }
-  body.scrolled .wc-logo { height:34px; margin:0; }
-  body.scrolled .subtitle { margin:0; font-size:0.72rem; }
+  .wc-logo { display:block; height:clamp(130px,24vw,180px); width:auto; margin:0 auto 0.6rem; }
+  /* Sticky bar (compact brand + live rail + tabs) — pins under the scrolled-away header */
+  .topbar { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); }
+  .compact-brand { display:none; align-items:center; gap:0.5rem; padding:0.5rem 1rem 0; }
+  .compact-brand .cb-logo { height:30px; width:auto; }
+  .compact-brand .cb-name { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
+  body.scrolled .compact-brand { display:flex; }
   body.scrolled #global-live { display:none; }
   h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(2.8rem, 6vw, 4.5rem); letter-spacing: 0.05em; color: var(--gold); line-height: 1; margin-bottom: 0.25rem; }
   .subtitle { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.15em; text-transform: uppercase; font-weight: 500; }

@@ -16,7 +16,6 @@
   <span>👁 Preview Mode — showing demo data with fake scores. Real data is unaffected.</span>
   <button onclick="exitPreview()" style="background:none;border:1px solid rgba(232,184,75,0.4);color:var(--gold);border-radius:4px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;font-family:'DM Sans',sans-serif">Exit Preview</button>
 </div>
-<div class="topbar">
 <header>
   <img class="wc-logo" src="logo.png" alt="FIFA World Cup 2026">
   <div class="subtitle">Lehman Brothers</div>
@@ -30,17 +29,21 @@
   </button>
 </header>
 
-<div id="global-live"></div>
-
-<nav>
-  <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
-  <button class="tab" onclick="showTab('matches',this)">Matches</button>
-  <button class="tab" onclick="showTab('picks',this)">All Picks</button>
-  <button class="tab" onclick="showTab('special',this)">Special Bets</button>
-  <button class="tab" onclick="showTab('bracket',this)">Standings</button>
-  <button class="tab" onclick="showTab('scoring',this)">How it works</button>
-  <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
-</nav>
+<div class="topbar">
+  <div class="compact-brand">
+    <img class="cb-logo" src="logo.png" alt="">
+    <span class="cb-name">Lehman Brothers</span>
+  </div>
+  <div id="global-live"></div>
+  <nav>
+    <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
+    <button class="tab" onclick="showTab('matches',this)">Matches</button>
+    <button class="tab" onclick="showTab('picks',this)">All Picks</button>
+    <button class="tab" onclick="showTab('special',this)">Special Bets</button>
+    <button class="tab" onclick="showTab('bracket',this)">Standings</button>
+    <button class="tab" onclick="showTab('scoring',this)">How it works</button>
+    <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
+  </nav>
 </div>
 
 <!-- LEADERBOARD -->
@@ -2823,16 +2826,25 @@ function renderScoringTab(){
 
 // ── TABS + RENDER ALL ─────────────────────────────────────────────────────────
 function showTab(id,el){
+  const wasCondensed=document.body.classList.contains('scrolled');
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
   if(el)el.classList.add('active');
-  window.scrollTo(0,0);   // reset scroll so the new section starts at the top (not hidden behind the sticky bar)
   if(id==='submit') renderSubmitTab();
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
-  if(id==='matches'){ document.body.classList.add('scrolled'); setTimeout(scrollToNextMatch, 350); }
+  if(id==='matches'){ setTimeout(scrollToNextMatch, 300); return; }
+  // Land at the top of the new content. If the header was condensed, stay condensed
+  // (scroll the big header off so the section starts just under the sticky bar).
+  if(wasCondensed){
+    document.body.classList.add('scrolled');
+    const h=document.querySelector('header');
+    window.scrollTo(0, h?h.offsetHeight:0);
+  } else {
+    window.scrollTo(0,0);
+  }
 }
 
 // Jump (instantly) to the next/ongoing match so finished games sit above and
@@ -2884,9 +2896,11 @@ function renderAll(){
   updateSpoilerBtn();
 }
 
-// Compact the sticky header as soon as the user scrolls from the top.
+// Condense the bar (show compact brand, hide live rail) once the big header has scrolled away.
 addEventListener('scroll', () => {
-  document.body.classList.toggle('scrolled', window.scrollY > 8);
+  const h=document.querySelector('header');
+  const trigger=h?Math.max(20,h.offsetHeight-60):60;
+  document.body.classList.toggle('scrolled', window.scrollY > trigger);
 }, { passive: true });
 
 initData();
