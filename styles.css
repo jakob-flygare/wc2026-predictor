@@ -82,11 +82,22 @@
   .share-btn:hover { border-color:var(--gold); color:var(--gold); }
   /* Streak badge */
   .streak-badge { font-size:0.75rem; margin-left:0.35rem; }
-  /* Swedish TV channel badge */
+  /* Broadcaster channel badge (Swedish: SVT/TV4 · UK: BBC/ITV) */
   .mc-tv-badge { display:inline-flex; align-items:center; }
   .mc-tv-logo { display:block; width:auto; transform:translateY(-1.5px); }
   .mc-tv-logo-svt { height:14px; }
   .mc-tv-logo-tv4 { height:19px; }
+  /* BBC three-box wordmark */
+  .mc-tv-logo-bbc { display:inline-flex; gap:1.5px; transform:translateY(-1px); }
+  .mc-tv-logo-bbc i { font-style:normal; font-family:'Bebas Neue',sans-serif; font-weight:700; font-size:11px; line-height:1; color:#000; background:#fff; padding:2px 2.5px 1px; border-radius:1px; }
+  /* ITV wordmark */
+  .mc-tv-logo-itv { font-family:'Bebas Neue',sans-serif; font-weight:700; font-size:15px; line-height:1; letter-spacing:0.5px; color:#fff; transform:translateY(-1px); }
+  /* Floating broadcaster-region toggle (Matches tab) */
+  .tv-region-toggle { position:fixed; right:1rem; bottom:1rem; z-index:90; display:flex; gap:0.2rem; background:rgba(19,22,28,0.92); backdrop-filter:blur(6px); border:1px solid var(--border); border-radius:999px; padding:0.25rem; box-shadow:0 6px 20px rgba(0,0,0,0.45); }
+  .trt-opt { font-size:1.1rem; line-height:1; padding:0.35rem 0.5rem; border-radius:999px; cursor:pointer; opacity:0.4; filter:grayscale(0.9); transition:opacity .15s, filter .15s, background .15s; }
+  .trt-opt:hover { opacity:0.8; filter:grayscale(0.3); }
+  .tv-region-toggle[data-region="se"] .trt-opt[data-r="se"],
+  .tv-region-toggle[data-region="uk"] .trt-opt[data-r="uk"] { opacity:1; filter:none; background:rgba(201,168,76,0.18); }
   /* Consensus row */
   .consensus-row { font-size:0.75rem; color:var(--muted); padding:0.35rem 0.5rem; background:rgba(201,168,76,.06); border-radius:0 0 8px 8px; border:1px solid rgba(201,168,76,.12); border-top:none; margin-bottom:0.4rem; }
   .consensus-row b { color:var(--gold-light); }

@@ -77,6 +77,11 @@
     <div id="matches-sort-bar"></div>
     <div id="matches-list"></div>
   </div>
+  <!-- Floating broadcaster-region toggle (Swedish ⇄ UK) -->
+  <div id="tv-region-toggle" class="tv-region-toggle" data-region="se" title="Broadcaster &amp; kickoff times">
+    <span class="trt-opt" data-r="se" onclick="setTvRegion('se')">🇸🇪</span>
+    <span class="trt-opt" data-r="uk" onclick="setTvRegion('uk')">🇬🇧</span>
+  </div>
 </div>
 
 <!-- STAKES -->
@@ -685,10 +690,13 @@ function matchSortKey(m){
   return new Date(2026,(MONTH_IDX[mon]??5),parseInt(day)).getTime();
 }
 
-// Returns "HH.mm" Swedish time from the kickoff field (stored as local CET/CEST).
+// Returns "HH.mm" kickoff time. Stored as Swedish wall-clock (CET/CEST); in UK
+// region we show London time, which is exactly 1 hour behind throughout the tournament.
 function matchTimeStr(m){
   if(!m.kickoff) return '';
-  return m.kickoff.slice(11,16).replace(':','.');
+  let [h,mi]=m.kickoff.slice(11,16).split(':').map(Number);
+  if(tvRegion==='uk') h=(h+23)%24;   // shift -1h (with midnight rollover)
+  return `${String(h).padStart(2,'0')}.${String(mi).padStart(2,'0')}`;
 }
 // "Today" / "Tomorrow" / "Yesterday" when the match falls on those days, else the date label.
 function friendlyDate(m){
@@ -714,6 +722,14 @@ function toggleHideFinished(){
   hideFinished=!hideFinished;
   localStorage.setItem('wc2026_hide_finished',hideFinished?'1':'0');
   renderMatches();
+}
+// Switch broadcaster region (Swedish ⇄ UK): updates the TV badges and kickoff times.
+function setTvRegion(r){
+  if(r!==tvRegion){ tvRegion=r; localStorage.setItem('wc2026_tv_region',r); renderMatches(); }
+}
+function syncTvToggle(){
+  const el=document.getElementById('tv-region-toggle');
+  if(el) el.dataset.region=tvRegion;
 }
 function getFeaturedMatch(){
   const live=STATE.matches.find(m=>getMatchStatus(m)==='live');
@@ -819,14 +835,24 @@ const SPECIAL_PTS={boot:5,bestPlayer:5,bestGoalkeeper:4,topScoringTeam:3,mostCar
 // Channel logos (SVT recolored to white; TV4 keeps its red circle).
 const TV_LOGO_SVT='<svg class="mc-tv-logo mc-tv-logo-svt" viewBox="0 0 999.8 554.257" fill="#fff"><path d="M.4 473.04l67.24-48.906s35.69 49.128 85.207 49.128c33.085 0 62.154-18.011 62.154-46.951 0-71.6-191.593-52.954-191.593-192.242 0-69.016 53.018-120.187 131.87-120.187 86.894 0 126.834 64.066 126.834 64.066l-64.174 46.509s-25.521-30.628-61.094-30.628c-30.417 0-47.876 17.054-47.876 39.934 0 70.762 191.554 56.81 191.554 190.982 0 71.367-55.316 129.027-147.094 129.027C54.22 553.772.4 473.04.4 473.04zM309.101 122.015h92.076l111.45 298.834 111.05-298.834h92.594l-158.195 422.89H466.13zM758.594.4h85.684v121.2H975.1l-30.862 83.75h-99.961v204.564c0 28.809 22.027 62.043 57.025 62.043 25.086 0 44.441-17.03 44.441-17.03l53.656 60.954s-33.94 37.976-99.164 37.976c-88.68 0-141.814-75.845-141.814-139.636z"/></svg>';
 const TV_LOGO_TV4='<svg class="mc-tv-logo mc-tv-logo-tv4" viewBox="0 0 200 200"><path fill="#e0001c" d="M 100,200 C 155.23334,200 200,155.25 200,100.03333 200,44.816667 155.23334,0 100,0 44.766667,0 0,44.783334 0,100.03333 0,155.28334 44.750001,200 100,200"/><path fill="#fff" d="M 104.88333,132.83334 H 78.883334 L 104.88333,94.350001 Z M 145.13334,132.75 H 131.56667 V 17.3 C 131.56667,16.35 130.96667,15.6 130.08334,15.316667 129.21667,15.05 128.28334,15.366667 127.76667,16.15 L 33.883334,155.01667 C 33.45,155.63334 33.416667,156.45 33.8,157.13334 34.15,157.81667 34.85,158.25 35.616667,158.25 H 104.9 V 173.9 C 104.9,174.98334 105.85,175.95 106.96667,175.95 H 129.5 C 130.63334,175.95 131.58334,174.98334 131.58334,173.9 V 158.25 H 145.15 C 146.33334,158.25 147.21667,157.33334 147.21667,156.15 V 134.83334 C 147.21667,133.68334 146.33334,132.75 145.15,132.75"/></svg>';
+// UK channel logos (BBC three-box blocks; ITV wordmark), built from styled HTML.
+const TV_LOGO_BBC='<span class="mc-tv-logo mc-tv-logo-bbc"><i>B</i><i>B</i><i>C</i></span>';
+const TV_LOGO_ITV='<span class="mc-tv-logo mc-tv-logo-itv">ITV</span>';
+// Active broadcaster region for the Matches tab: 'se' (Swedish, default) or 'uk'.
+let tvRegion = localStorage.getItem('wc2026_tv_region')==='uk' ? 'uk' : 'se';
 // Source: cross-referenced SVT.se, TV4.se, Fotbollskanalen, fotbolldirekt.se (TV4=49, SVT=23, group stage)
-const SWEDISH_TV=(()=>{
-  const norm=n=>n.toLowerCase().replace(/ü/g,'u').replace(/ô/g,'o').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
+// Shared team-name normalizer for broadcaster lookups (handles flags, accents, aliases).
+function normTeam(n){
+  return n.toLowerCase().replace(/ü/g,'u').replace(/ô/g,'o').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
     .replace(/^turkiye$/,'turkey').replace(/^bosnia.*/,'bosnia')
     .replace(/.*ivory coast.*|.*cote d.*/,'ivory coast').replace(/.*dr congo.*|.*democratic republic.*/,'dr congo');
-  const k=(a,b)=>[norm(a),norm(b)].sort().join('|');
+}
+const tvKey=(a,b)=>[normTeam(a),normTeam(b)].sort().join('|');
+
+// Swedish broadcasters (TV4=49, SVT=23) — cross-referenced SVT.se, TV4.se, Fotbollskanalen, fotbolldirekt.se.
+const SWEDISH_TV=(()=>{
   const m={},T='TV4',S='SVT';
-  const add=(ch,...pairs)=>pairs.forEach(([a,b])=>(m[k(a,b)]=ch));
+  const add=(ch,...pairs)=>pairs.forEach(([a,b])=>(m[tvKey(a,b)]=ch));
   add(T,['Mexico','South Africa'],['South Korea','Czechia'],['USA','Paraguay'],['Qatar','Switzerland'],
     ['Australia','Turkey'],['Germany','Curaçao'],['Netherlands','Japan'],
     ['Ivory Coast','Ecuador'],['Saudi Arabia','Uruguay'],['Iran','New Zealand'],
@@ -848,12 +874,35 @@ const SWEDISH_TV=(()=>{
     ['Tunisia','Netherlands'],['Sweden','Japan'],['Panama','England'],['Croatia','Ghana']);
   return m;
 })();
-function getSwedishTV(match){
-  const norm=n=>n.toLowerCase().replace(/ü/g,'u').replace(/ô/g,'o').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
-    .replace(/^turkiye$/,'turkey').replace(/^bosnia.*/,'bosnia')
-    .replace(/.*ivory coast.*|.*cote d.*/,'ivory coast').replace(/.*dr congo.*|.*democratic republic.*/,'dr congo');
-  return SWEDISH_TV[[norm(match.home),norm(match.away)].sort().join('|')]||null;
-}
+// UK broadcasters (ITV=34, BBC=38) — cross-referenced official ITV/BBC release, ESPN UK, Radio Times.
+const UK_TV=(()=>{
+  const m={},B='BBC',I='ITV';
+  const add=(ch,...pairs)=>pairs.forEach(([a,b])=>(m[tvKey(a,b)]=ch));
+  add(I,['Mexico','South Africa'],['South Korea','Czechia'],['Qatar','Switzerland'],['Australia','Turkey'],
+    ['Germany','Curaçao'],['Netherlands','Japan'],['Sweden','Tunisia'],['Spain','Cape Verde'],
+    ['Saudi Arabia','Uruguay'],['Argentina','Algeria'],['England','Croatia'],['Ghana','Panama'],
+    ['Switzerland','Bosnia-Herzegovina'],['Canada','Qatar'],['Scotland','Morocco'],['Brazil','Haiti'],
+    ['Turkey','Paraguay'],['Germany','Ivory Coast'],['Belgium','Iran'],['New Zealand','Egypt'],
+    ['Norway','Senegal'],['Jordan','Algeria'],['Portugal','Uzbekistan'],['Colombia','DR Congo'],
+    ['Switzerland','Canada'],['Bosnia-Herzegovina','Qatar'],['Turkey','USA'],['Paraguay','Australia'],
+    ['Cape Verde','Saudi Arabia'],['Uruguay','Spain'],['Norway','France'],['Senegal','Iraq'],
+    ['Croatia','Ghana'],['Panama','England']);
+  add(B,['USA','Paraguay'],['Canada','Bosnia-Herzegovina'],['Brazil','Morocco'],['Haiti','Scotland'],
+    ['Ivory Coast','Ecuador'],['Belgium','Egypt'],['Iran','New Zealand'],['France','Senegal'],
+    ['Iraq','Norway'],['Austria','Jordan'],['Portugal','DR Congo'],['Uzbekistan','Colombia'],
+    ['Czechia','South Africa'],['Mexico','South Korea'],['USA','Australia'],['Netherlands','Sweden'],
+    ['Ecuador','Curaçao'],['Tunisia','Japan'],['Spain','Saudi Arabia'],['Uruguay','Cape Verde'],
+    ['Argentina','Austria'],['France','Iraq'],['England','Ghana'],['Panama','Croatia'],
+    ['Morocco','Haiti'],['Scotland','Brazil'],['Czechia','Mexico'],['South Africa','South Korea'],
+    ['Curaçao','Ivory Coast'],['Ecuador','Germany'],['Tunisia','Netherlands'],['Sweden','Japan'],
+    ['New Zealand','Belgium'],['Egypt','Iran'],['Colombia','Portugal'],['DR Congo','Uzbekistan'],
+    ['Algeria','Austria'],['Jordan','Argentina']);
+  return m;
+})();
+function getSwedishTV(match){ return SWEDISH_TV[tvKey(match.home,match.away)]||null; }
+function getUKTV(match){ return UK_TV[tvKey(match.home,match.away)]||null; }
+// Region dispatcher: returns the broadcaster for the active tvRegion.
+function getTV(match){ return tvRegion==='uk' ? getUKTV(match) : getSwedishTV(match); }
 
 function calcBracketPoints(player){
   const ko=STATE.knockout||{},bracket=player.bracket||{};
@@ -1487,6 +1536,7 @@ function renderLiveRail(){
 }
 
 function renderMatches(){
+  syncTvToggle();
   // Sort toggle bar
   const sortBar=document.getElementById('matches-sort-bar');
   if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
@@ -1595,8 +1645,10 @@ function renderMatches(){
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
     const dashScore=`–<span class="mc-score-sep">:</span>–`;   // shown when No Spoilers is on
-    const tvCh=getSwedishTV(m);
-    const tvBadge=tvCh?`<span class="mc-tv-badge" title="Sänds på ${tvCh}">${tvCh==='SVT'?TV_LOGO_SVT:TV_LOGO_TV4}</span>`:'';
+    const tvCh=getTV(m);
+    const TV_LOGOS={SVT:TV_LOGO_SVT,TV4:TV_LOGO_TV4,BBC:TV_LOGO_BBC,ITV:TV_LOGO_ITV};
+    const tvTitle=tvRegion==='uk'?`Watch on ${tvCh}`:`Sänds på ${tvCh}`;
+    const tvBadge=tvCh?`<span class="mc-tv-badge" title="${tvTitle}">${TV_LOGOS[tvCh]||''}</span>`:'';
     let mcCenter,mcStateCls;
     if(mStatus==='live'){
       mcStateCls='mc-live';
