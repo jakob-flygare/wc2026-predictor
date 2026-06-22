@@ -49,7 +49,7 @@
 <!-- LEADERBOARD -->
 <div id="leaderboard" class="section active">
   <div class="container">
-    <div class="section-header">
+    <div class="section-header" style="flex-direction:row;align-items:center;justify-content:space-between">
       <div class="section-title">Leaderboard</div>
       <div id="lb-share-area"></div>
     </div>
@@ -703,6 +703,12 @@ function friendlyDate(m){
 function setMatchSort(mode){
   matchSortMode=mode;
   renderMatches();
+  if(mode==='date') setTimeout(scrollToNextMatch, 80);
+  else {
+    const h=document.querySelector('header');
+    const top=document.body.classList.contains('scrolled')&&h ? h.offsetHeight : 0;
+    window.scrollTo({top, behavior:'instant'});
+  }
 }
 function toggleHideFinished(){
   hideFinished=!hideFinished;
@@ -808,6 +814,46 @@ function resolveSlot(slot,standings,best3rd){
 // ── BRACKET SCORING ───────────────────────────────────────────────────────────
 const BRACKET_PTS={r16:1,qf:2,sf:3,final:5,winner:8,bronze:3};
 const SPECIAL_PTS={boot:5,bestPlayer:5,bestGoalkeeper:4,topScoringTeam:3,mostCards:2,totalGoals:4,firstScorer:3};
+
+// ── SWEDISH TV BROADCAST LOOKUP ───────────────────────────────────────────────
+// Channel logos (SVT recolored to white; TV4 keeps its red circle).
+const TV_LOGO_SVT='<svg class="mc-tv-logo mc-tv-logo-svt" viewBox="0 0 999.8 554.257" fill="#fff"><path d="M.4 473.04l67.24-48.906s35.69 49.128 85.207 49.128c33.085 0 62.154-18.011 62.154-46.951 0-71.6-191.593-52.954-191.593-192.242 0-69.016 53.018-120.187 131.87-120.187 86.894 0 126.834 64.066 126.834 64.066l-64.174 46.509s-25.521-30.628-61.094-30.628c-30.417 0-47.876 17.054-47.876 39.934 0 70.762 191.554 56.81 191.554 190.982 0 71.367-55.316 129.027-147.094 129.027C54.22 553.772.4 473.04.4 473.04zM309.101 122.015h92.076l111.45 298.834 111.05-298.834h92.594l-158.195 422.89H466.13zM758.594.4h85.684v121.2H975.1l-30.862 83.75h-99.961v204.564c0 28.809 22.027 62.043 57.025 62.043 25.086 0 44.441-17.03 44.441-17.03l53.656 60.954s-33.94 37.976-99.164 37.976c-88.68 0-141.814-75.845-141.814-139.636z"/></svg>';
+const TV_LOGO_TV4='<svg class="mc-tv-logo mc-tv-logo-tv4" viewBox="0 0 200 200"><path fill="#e0001c" d="M 100,200 C 155.23334,200 200,155.25 200,100.03333 200,44.816667 155.23334,0 100,0 44.766667,0 0,44.783334 0,100.03333 0,155.28334 44.750001,200 100,200"/><path fill="#fff" d="M 104.88333,132.83334 H 78.883334 L 104.88333,94.350001 Z M 145.13334,132.75 H 131.56667 V 17.3 C 131.56667,16.35 130.96667,15.6 130.08334,15.316667 129.21667,15.05 128.28334,15.366667 127.76667,16.15 L 33.883334,155.01667 C 33.45,155.63334 33.416667,156.45 33.8,157.13334 34.15,157.81667 34.85,158.25 35.616667,158.25 H 104.9 V 173.9 C 104.9,174.98334 105.85,175.95 106.96667,175.95 H 129.5 C 130.63334,175.95 131.58334,174.98334 131.58334,173.9 V 158.25 H 145.15 C 146.33334,158.25 147.21667,157.33334 147.21667,156.15 V 134.83334 C 147.21667,133.68334 146.33334,132.75 145.15,132.75"/></svg>';
+// Source: cross-referenced SVT.se, TV4.se, Fotbollskanalen, fotbolldirekt.se (TV4=49, SVT=23, group stage)
+const SWEDISH_TV=(()=>{
+  const norm=n=>n.toLowerCase().replace(/ü/g,'u').replace(/ô/g,'o').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
+    .replace(/^turkiye$/,'turkey').replace(/^bosnia.*/,'bosnia')
+    .replace(/.*ivory coast.*|.*cote d.*/,'ivory coast').replace(/.*dr congo.*|.*democratic republic.*/,'dr congo');
+  const k=(a,b)=>[norm(a),norm(b)].sort().join('|');
+  const m={},T='TV4',S='SVT';
+  const add=(ch,...pairs)=>pairs.forEach(([a,b])=>(m[k(a,b)]=ch));
+  add(T,['Mexico','South Africa'],['South Korea','Czechia'],['USA','Paraguay'],['Qatar','Switzerland'],
+    ['Australia','Turkey'],['Germany','Curaçao'],['Netherlands','Japan'],
+    ['Ivory Coast','Ecuador'],['Saudi Arabia','Uruguay'],['Iran','New Zealand'],
+    ['Iraq','Norway'],['Argentina','Algeria'],['Austria','Jordan'],['Portugal','DR Congo'],['England','Croatia'],
+    ['Ghana','Panama'],['Uzbekistan','Colombia'],['Czechia','South Africa'],['Switzerland','Bosnia-Herzegovina'],
+    ['Canada','Qatar'],['Mexico','South Korea'],['Brazil','Haiti'],['Turkey','Paraguay'],
+    ['Netherlands','Sweden'],['Germany','Ivory Coast'],['Ecuador','Curaçao'],['Spain','Saudi Arabia'],
+    ['Belgium','Iran'],['Uruguay','Cape Verde'],['New Zealand','Egypt'],['Brazil','Morocco'],
+    ['Jordan','Algeria'],['Panama','Croatia'],['Switzerland','Canada'],['Bosnia-Herzegovina','Qatar'],
+    ['Morocco','Haiti'],['Scotland','Brazil'],['Turkey','USA'],['Paraguay','Australia'],
+    ['Norway','France'],['Senegal','Iraq'],['Cape Verde','Saudi Arabia'],['Uruguay','Spain'],
+    ['New Zealand','Belgium'],['Egypt','Iran'],['DR Congo','Uzbekistan'],['Colombia','Portugal'],
+    ['Algeria','Austria'],['Jordan','Argentina']);
+  add(S,['Canada','Bosnia-Herzegovina'],['France','Iraq'],['Haiti','Scotland'],
+    ['Sweden','Tunisia'],['Spain','Cape Verde'],['Belgium','Egypt'],['France','Senegal'],
+    ['USA','Australia'],['Scotland','Morocco'],['Tunisia','Japan'],['Argentina','Austria'],
+    ['Norway','Senegal'],['Portugal','Uzbekistan'],['England','Ghana'],['Colombia','DR Congo'],
+    ['South Africa','South Korea'],['Czechia','Mexico'],['Curaçao','Ivory Coast'],['Ecuador','Germany'],
+    ['Tunisia','Netherlands'],['Sweden','Japan'],['Panama','England'],['Croatia','Ghana']);
+  return m;
+})();
+function getSwedishTV(match){
+  const norm=n=>n.toLowerCase().replace(/ü/g,'u').replace(/ô/g,'o').replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim()
+    .replace(/^turkiye$/,'turkey').replace(/^bosnia.*/,'bosnia')
+    .replace(/.*ivory coast.*|.*cote d.*/,'ivory coast').replace(/.*dr congo.*|.*democratic republic.*/,'dr congo');
+  return SWEDISH_TV[[norm(match.home),norm(match.away)].sort().join('|')]||null;
+}
 
 function calcBracketPoints(player){
   const ko=STATE.knockout||{},bracket=player.bracket||{};
@@ -1222,9 +1268,26 @@ function renderLeaderboard(){
     p.eliminated=cantReachTop||dominated;
   });
   const gamesPlayed=STATE.matches.filter(m=>m.result).length,totalGames=STATE.matches.length;
+  // Points settled so far out of the theoretical maximum (163 pts total)
+  const ko=STATE.knockout||{},sp2=STATE.special||{};
+  let decidedPts=gamesPlayed; // 1pt per group match
+  if(ko.r16?.length)   decidedPts+=16*BRACKET_PTS.r16;
+  if(ko.qf?.length)    decidedPts+=8*BRACKET_PTS.qf;
+  if(ko.sf?.length)    decidedPts+=4*BRACKET_PTS.sf;
+  if(ko.final?.length) decidedPts+=2*BRACKET_PTS.final;
+  if(ko.winner)        decidedPts+=BRACKET_PTS.winner;
+  if(ko.bronze)        decidedPts+=BRACKET_PTS.bronze;
+  if(sp2['Golden Boot'])       decidedPts+=SPECIAL_PTS.boot;
+  if(sp2['Golden Ball'])       decidedPts+=SPECIAL_PTS.bestPlayer;
+  if(sp2['Golden Glove'])      decidedPts+=SPECIAL_PTS.bestGoalkeeper;
+  if(sp2['Top Scoring Team'])  decidedPts+=SPECIAL_PTS.topScoringTeam;
+  if(sp2['Most Cards Team'])   decidedPts+=SPECIAL_PTS.mostCards;
+  if(sp2['Total Goals'])       decidedPts+=SPECIAL_PTS.totalGoals;
+  if(sp2['First Scorer'])      decidedPts+=SPECIAL_PTS.firstScorer;
+  const totalPts=72+65+26; // 163
   document.getElementById('games-played-sub').innerHTML=`
-    <div class="gp-label">${gamesPlayed} of ${totalGames} group matches played</div>
-    <div class="gp-bar"><div class="gp-fill" style="width:${Math.round(gamesPlayed/totalGames*100)}%"></div></div>`;
+    <div class="gp-label">${Math.round(decidedPts/totalPts*100)}% of competition pts decided</div>
+    <div class="gp-bar"><div class="gp-fill" style="width:${Math.round(decidedPts/totalPts*100)}%"></div></div>`;
   // locked must be declared before anything that uses it
   const locked=!isPreviewMode()&&new Date()<PICK_DEADLINE;
 
@@ -1242,7 +1305,7 @@ function renderLeaderboard(){
   // Share button (only when unlocked and players exist)
   const shareArea=document.getElementById('lb-share-area');
   if(shareArea&&scored.length&&!locked){
-    shareArea.innerHTML=`<button class="share-btn" onclick="shareLeaderboard(this)">📋 Share</button>`;
+    shareArea.innerHTML=`<button class="share-btn" onclick="shareLeaderboard(this)" title="Share leaderboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>`;
   }else if(shareArea){shareArea.innerHTML='';}
   const rc=['rank-1','rank-2','rank-3'];
   lbGrid.innerHTML=scored.length
@@ -1532,10 +1595,12 @@ function renderMatches(){
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
     const dashScore=`–<span class="mc-score-sep">:</span>–`;   // shown when No Spoilers is on
+    const tvCh=getSwedishTV(m);
+    const tvBadge=tvCh?`<span class="mc-tv-badge" title="Sänds på ${tvCh}">${tvCh==='SVT'?TV_LOGO_SVT:TV_LOGO_TV4}</span>`:'';
     let mcCenter,mcStateCls;
     if(mStatus==='live'){
       mcStateCls='mc-live';
-      mcCenter=`<div class="mc-when">${whenStr}</div>
+      mcCenter=`<div class="mc-when">${whenStr}${tvBadge}</div>
         <div class="mc-score">${showScore?scoreStr:dashScore}</div>
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live${m.liveClock?' '+m.liveClock:''}</span></div>`;
     }else if(m.result){
@@ -1544,7 +1609,7 @@ function renderMatches(){
         <div class="mc-score">${showScore?scoreStr:dashScore}</div>`;
     }else{
       mcStateCls='mc-upcoming';
-      mcCenter=`<div class="mc-when mc-when-lg">${whenStr}</div>
+      mcCenter=`<div class="mc-when mc-when-lg">${whenStr}${tvBadge}</div>
         <div class="mc-vs">VS</div>`;
     }
     const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
@@ -2835,6 +2900,7 @@ function showTab(id,el){
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
+  if(id==='matches'&&matchSortMode==='date') setTimeout(scrollToNextMatch, 80);
   // Land at the top of the new content. If the header was condensed, stay condensed
   // (scroll the big header off so the section starts just under the sticky bar).
   if(wasCondensed){

@@ -78,10 +78,15 @@
   .round-banner { background:rgba(201,168,76,.1); border:1px solid rgba(201,168,76,.3); border-radius:8px; padding:0.75rem 1rem; margin-bottom:1rem; font-size:0.82rem; position:relative; }
   .round-banner-close { position:absolute; top:0.5rem; right:0.75rem; background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; padding:0; }
   /* Share button */
-  .share-btn { background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:0.3rem 0.7rem; font-size:0.75rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:all .15s; }
+  .share-btn { background:none; border:1px solid var(--border); color:var(--muted); border-radius:6px; padding:0.35rem; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all .15s; }
   .share-btn:hover { border-color:var(--gold); color:var(--gold); }
   /* Streak badge */
   .streak-badge { font-size:0.75rem; margin-left:0.35rem; }
+  /* Swedish TV channel badge */
+  .mc-tv-badge { display:inline-flex; align-items:center; }
+  .mc-tv-logo { display:block; width:auto; transform:translateY(-1.5px); }
+  .mc-tv-logo-svt { height:14px; }
+  .mc-tv-logo-tv4 { height:19px; }
   /* Consensus row */
   .consensus-row { font-size:0.75rem; color:var(--muted); padding:0.35rem 0.5rem; background:rgba(201,168,76,.06); border-radius:0 0 8px 8px; border:1px solid rgba(201,168,76,.12); border-top:none; margin-bottom:0.4rem; }
   .consensus-row b { color:var(--gold-light); }
@@ -114,7 +119,7 @@
   .progress-bar-wrap { background: var(--surface2); border-radius: 999px; height: 4px; overflow: hidden; margin-top: 6px; }
   .progress-bar-fill { height: 100%; background: var(--gold); border-radius: 999px; }
 
-  .section-header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 1.5rem; }
+  .section-header { display: flex; flex-direction: column; gap: 0.25rem; margin-bottom: 1.5rem; }
   .section-title { font-family: 'Bebas Neue', sans-serif; font-size: 1.8rem; letter-spacing: 0.04em; color: var(--text); }
   .section-sub { font-size: 0.8rem; color: var(--muted); }
   .games-progress { background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.7rem 1rem; margin-bottom:1.25rem; }
@@ -163,11 +168,11 @@
   .mc-winpct { position:relative; z-index:1; font-size:0.62rem; color:var(--muted); margin-top:2px; letter-spacing:0.03em; }
   /* Center column */
   .mc-center { display:flex; flex-direction:column; align-items:center; gap:0.25rem; padding:0 0.5rem; min-width:96px; }
-  .mc-when { font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap; }
+  .mc-when { font-size:0.68rem; color:var(--muted); text-transform:uppercase; letter-spacing:0.06em; white-space:nowrap; display:inline-flex; align-items:center; gap:0.55rem; line-height:1; }
   .mc-when-lg { font-size:0.74rem; font-weight:600; color:var(--text); }
   .mc-score { font-family:'Bebas Neue',sans-serif; font-size:2rem; line-height:1; color:var(--text); letter-spacing:0.03em; }
   .mc-score-sep { color:var(--gold); padding:0 0.1rem; }
-  .mc-vs { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--muted); letter-spacing:0.05em; }
+  .mc-vs { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--muted); letter-spacing:0.05em; margin-top:0.5rem; }
   .mc-statusrow { margin-top:0.15rem; }
   .mc-pill { font-size:0.62rem; font-weight:700; letter-spacing:0.07em; text-transform:uppercase; padding:0.18rem 0.6rem; border-radius:999px; display:inline-block; }
   .mc-pill-live { background:rgba(231,76,60,0.2); color:var(--red); animation:pulse-badge 1.2s ease-in-out infinite; }
