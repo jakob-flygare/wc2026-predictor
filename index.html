@@ -2835,7 +2835,6 @@ function showTab(id,el){
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
-  if(id==='matches'){ setTimeout(scrollToNextMatch, 300); return; }
   // Land at the top of the new content. If the header was condensed, stay condensed
   // (scroll the big header off so the section starts just under the sticky bar).
   if(wasCondensed){

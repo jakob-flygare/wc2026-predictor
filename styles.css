@@ -123,7 +123,8 @@
   .gp-fill { height:100%; background:var(--gold); border-radius:999px; transition:width .3s ease; }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
-  .sort-bar { display:flex; gap:8px; padding:12px 0 4px; }
+  #matches-sort-bar { position:sticky; top:84px; z-index:90; background:var(--bg); }
+  .sort-bar { display:flex; gap:8px; padding:12px 0; }
   .sort-btn { padding:5px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background 0.15s,color 0.15s; }
   .sort-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }
   .match-time { font-size:0.7rem; color:var(--text-muted); margin-top:2px; }
