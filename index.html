@@ -196,7 +196,7 @@ function espnClock(status){
   const desc=`${status.type?.description||''} ${status.type?.detail||''}`;
   if(tn.includes('HALFTIME')||/half-?time/i.test(desc)) return 'PAUS';
   const dc=(status.displayClock||'').replace(/:00$/,'').replace(/'/g,'').trim();
-  return dc ? "'"+dc : '';
+  return dc ? dc+"'" : '';
 }
 // Live goal/card events parsed from the scoreboard, for the live timeline.
 function espnEvents(comp){
@@ -686,6 +686,15 @@ function matchSortKey(m){
 function matchTimeStr(m){
   if(!m.kickoff) return '';
   return m.kickoff.slice(11,16).replace(':','.');
+}
+// "Today" / "Tomorrow" / "Yesterday" when the match falls on those days, else the date label.
+function friendlyDate(m){
+  if(!m.kickoff) return m.date;
+  const ko=new Date(m.kickoff), now=new Date();
+  const d0=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const dk=new Date(ko.getFullYear(),ko.getMonth(),ko.getDate());
+  const diff=Math.round((dk-d0)/86400000);
+  return diff===0?'Today':diff===1?'Tomorrow':diff===-1?'Yesterday':m.date;
 }
 
 function setMatchSort(mode){
@@ -1516,7 +1525,7 @@ function renderMatches(){
     }
     // Group games: show the interest stars where the stage label used to be.
     const headerLeft=isGroupStage?starsHtml:`<span class="mc-stage">${stageLabel}</span>`;
-    const whenStr=inDateMode?(t||m.date):`${m.date}${t?' · '+t:''}`;
+    const whenStr=inDateMode?(t||friendlyDate(m)):`${friendlyDate(m)}${t?' · '+t:''}`;
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
     const dashScore=`–<span class="mc-score-sep">:</span>–`;   // shown when No Spoilers is on
@@ -1642,7 +1651,7 @@ function renderMatches(){
     });
     if(!dateOrder.length) html='<div class="loading">No upcoming matches.</div>';
     dateOrder.forEach(d=>{
-      html+=`<div class="group-label">${d}</div>`;
+      html+=`<div class="group-label">${friendlyDate(byDate[d][0])}</div>`;
       byDate[d].forEach(m=>{ html+=cardHtml(m,true); });
     });
   } else {
@@ -2143,7 +2152,7 @@ function renderBracketTab(){
       } else {
         if(i<2&&anyResults) adv='<span style="font-size:0.6rem;color:var(--gold)"> Q</span>';
       }
-      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
+      html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name tp-link" onclick="event.stopPropagation();openTeamPage('${t.team.replace(/'/g,"\\'")}')">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
     });
 
     if(picksVisible&&STATE.players.length){
@@ -2823,7 +2832,7 @@ function showTab(id,el){
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
-  if(id==='matches') setTimeout(scrollToNextMatch, 300);
+  if(id==='matches'){ document.body.classList.add('scrolled'); setTimeout(scrollToNextMatch, 350); }
 }
 
 // Jump (instantly) to the next/ongoing match so finished games sit above and
@@ -2832,7 +2841,11 @@ function scrollToNextMatch(){
   const f=getFeaturedMatch();
   if(!f) return;
   const el=document.getElementById('mw-'+f.id);
-  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+  if(!el) return;
+  // Land the card's top just below the sticky header+tabs (never past its top / too far down).
+  const STICKY=110;
+  const top=Math.max(0, el.getBoundingClientRect().top + window.scrollY - STICKY);
+  window.scrollTo({ top, behavior:'smooth' });
 }
 
 function loadDemo(){

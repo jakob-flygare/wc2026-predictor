@@ -106,10 +106,10 @@
   .lb-row.rank-1 { background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, var(--surface) 60%); border-color: rgba(201,168,76,0.35); }
   .lb-row.rank-2 { border-color: rgba(180,180,180,0.25); }
   .lb-row.rank-3 { border-color: rgba(176,110,60,0.3); }
-  .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; text-align: center; line-height: 1; color: var(--text); }
+  .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; line-height: 1; color: var(--text); display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .lb-name { font-weight: 500; font-size: 0.95rem; }
   .lb-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
-  .lb-ok { color: var(--green); font-weight: 700; margin-right: 3px; }
+  .lb-ok { color: inherit; font-weight: 700; margin-right: 3px; }
   .lb-points { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); text-align: right; line-height: 1; }
   .lb-pts-label { font-size: 0.65rem; color: var(--muted); text-align: right; text-transform: uppercase; letter-spacing: 0.1em; }
   .progress-bar-wrap { background: var(--surface2); border-radius: 999px; height: 4px; overflow: hidden; margin-top: 6px; }
@@ -178,6 +178,9 @@
   /* Live state accent */
   .mc-live { border-color:rgba(231,76,60,0.45); box-shadow:0 0 16px rgba(231,76,60,0.12); }
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
+  /* Played matches are less prominent than live/upcoming; restored on hover or when expanded */
+  .match-card.mc-finished { opacity:0.55; transition:opacity .15s; }
+  .match-card.mc-finished:hover, .match-card.mc-finished:has(.match-scorers.open) { opacity:1; }
   .match-wrap { margin-bottom: 0.4rem; }
   /* Detail lives inside the card now — no own border; a top line separates it from the head. */
   .match-scorers { display:none; border-top:1px solid var(--border); padding:0.2rem 1.2rem 0.7rem; }
@@ -357,7 +360,7 @@
   .standings-table .gd-neg { color:#a05050; }
   .picks-scroll { max-height:440px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; }
   .match-stars { display:inline-block; position:relative; font-size:0.7rem; letter-spacing:1px; margin-top:3px; cursor:pointer; }
-  .match-stars-tip { display:none; position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%); width:max-content; max-width:220px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-size:0.7rem; letter-spacing:normal; line-height:1.35; text-align:center; white-space:normal; padding:0.4rem 0.6rem; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.45); z-index:6; pointer-events:none; }
+  .match-stars-tip { display:none; position:absolute; top:calc(100% + 6px); left:0; width:max-content; max-width:220px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-size:0.7rem; letter-spacing:normal; line-height:1.35; text-align:left; white-space:normal; padding:0.4rem 0.6rem; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.45); z-index:20; pointer-events:none; }
   .match-stars.open .match-stars-tip { display:block; }
   .group-stars { font-size:0.65rem; letter-spacing:1px; margin-left:8px; vertical-align:middle; opacity:0.85; }
   .star.filled { color:var(--gold); }
@@ -487,7 +490,8 @@
     .mc-meta { font-size:0.62rem; }
   }
   /* ── TEAM PAGE OVERLAY ─────────────────────────────────────────────────────── */
-  .mc-team-link { cursor:pointer; }
+  .mc-team-link, .gs-name.tp-link { cursor:pointer; }
+  .gs-name.tp-link:hover { color:var(--gold-light); }
   .team-overlay { position:fixed; inset:0; z-index:200; background:rgba(0,0,0,0.65); backdrop-filter:blur(3px); display:none; align-items:flex-end; justify-content:center; }
   .team-overlay.open { display:flex; }
   .team-sheet { background:var(--surface); border:1px solid var(--border); border-radius:16px 16px 0 0; width:100%; max-width:520px; max-height:85vh; overflow-y:auto; padding:1.5rem 1.25rem 2rem; position:relative; }
