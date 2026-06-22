@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WC2026 — Friends Predictor</title>
+<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('wc2026_theme')==='light'?'light':'dark');}catch(e){}</script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -42,7 +43,7 @@
     <button class="tab" onclick="showTab('special',this)">Special Bets</button>
     <button class="tab" onclick="showTab('bracket',this)">Standings</button>
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
-    <button class="tab" onclick="showTab('admin',this)">⚙ Admin</button>
+    <button class="tab" onclick="showTab('admin',this)">⚙ Settings</button>
   </nav>
 </div>
 
@@ -124,14 +125,34 @@
   </div>
 </div>
 
-<!-- ADMIN -->
+<!-- SETTINGS (was Admin) -->
 <div id="admin" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Admin</div>
-      <div class="section-sub">Enter match results &amp; manage data</div>
+      <div class="section-title">Settings</div>
+      <div class="section-sub">Appearance &amp; match administration</div>
     </div>
-    <div id="admin-content"><div class="loading">Loading…</div></div>
+    <!-- Appearance: theme toggle (always available) -->
+    <div class="settings-block">
+      <div class="settings-block-title">Appearance</div>
+      <div class="settings-block-sub">Choose between light and dark mode.</div>
+      <div id="theme-toggle" class="theme-toggle" data-mode="dark" role="group" aria-label="Theme">
+        <button class="thm-opt" data-m="light" onclick="setTheme('light')" aria-label="Light mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <span>Light</span>
+        </button>
+        <button class="thm-opt" data-m="dark" onclick="setTheme('dark')" aria-label="Dark mode">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          <span>Dark</span>
+        </button>
+      </div>
+    </div>
+    <!-- Admin: password-gated data management -->
+    <div class="settings-block">
+      <div class="settings-block-title">Admin</div>
+      <div class="settings-block-sub">Enter match results &amp; manage data.</div>
+      <div id="admin-content"><div class="loading">Loading…</div></div>
+    </div>
   </div>
 </div>
 
@@ -152,6 +173,19 @@ const PICK_DEADLINE = new Date('2026-06-11T17:00:00');
 const PLAYER_COLORS = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC4899','#06B6D4','#84CC16'];
 let db = null;
 let spoilerMode = localStorage.getItem('wc2026_spoiler') === '1';
+
+// ── THEME (light / dark) ──────────────────────────────────────────────────────
+let themeMode = localStorage.getItem('wc2026_theme') === 'light' ? 'light' : 'dark';
+function applyTheme(){
+  document.documentElement.setAttribute('data-theme', themeMode);
+  const t=document.getElementById('theme-toggle'); if(t) t.dataset.mode=themeMode;
+}
+function setTheme(mode){
+  themeMode = mode==='light' ? 'light' : 'dark';
+  localStorage.setItem('wc2026_theme', themeMode);
+  applyTheme();
+}
+applyTheme();
 
 function toggleSpoiler(){
   spoilerMode = !spoilerMode;
@@ -726,6 +760,28 @@ function syncTvToggle(){
   const el=document.getElementById('tv-region-toggle');
   if(el) el.dataset.region=tvRegion;
 }
+// "Next game" countdown: format ms-until-kickoff as HH:MM:SS (hours can exceed 24).
+function fmtCountdown(ms){
+  if(ms<=0) return null;
+  let s=Math.floor(ms/1000);
+  const h=Math.floor(s/3600); s-=h*3600;
+  const m=Math.floor(s/60);   s-=m*60;
+  const p=n=>String(n).padStart(2,'0');
+  return `${p(h)}:${p(m)}:${p(s)}`;
+}
+// Live-tick the countdown inside the "Next up" pill; re-render once kickoff passes.
+function updateNextupCountdown(){
+  const els=document.querySelectorAll('.nextup-cd');
+  if(!els.length) return;
+  let kickedOff=false;
+  els.forEach(el=>{
+    const txt=fmtCountdown(new Date(el.dataset.ko)-new Date());
+    if(txt===null){ kickedOff=true; } else { el.textContent=txt; }
+  });
+  if(kickedOff) renderMatches();   // next game has started — refresh statuses/theme
+}
+let nextupTicker=null;
+function ensureNextupTicker(){ if(!nextupTicker) nextupTicker=setInterval(updateNextupCountdown,1000); }
 function getFeaturedMatch(){
   const live=STATE.matches.find(m=>getMatchStatus(m)==='live');
   if(live)return live;
@@ -1532,6 +1588,7 @@ function renderLiveRail(){
 
 function renderMatches(){
   syncTvToggle();
+  ensureNextupTicker();
   // Sort toggle bar
   const sortBar=document.getElementById('matches-sort-bar');
   if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
@@ -1668,9 +1725,14 @@ function renderMatches(){
         <div class="mc-score">${showScore?scoreStr:dashScore}</div>`;
     }else{
       mcStateCls='mc-upcoming';
+      let nextPill='';
+      if(isNextUp){
+        const cd=fmtCountdown(new Date(m.kickoff)-new Date());
+        nextPill=`<div class="mc-statusrow"><span class="mc-pill mc-pill-next">Next game:${cd?` <span class="nextup-cd" data-ko="${m.kickoff}">${cd}</span>`:''}</span></div>`;
+      }
       mcCenter=`<div class="mc-when mc-when-lg">${whenStr}${tvBadge}</div>
         <div class="mc-vs">VS</div>
-        ${isNextUp?'<div class="mc-statusrow"><span class="mc-pill mc-pill-next">▶ Next up</span></div>':''}`;
+        ${nextPill}`;
     }
     const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
     // Winner highlight: gold ring + confetti on the winning team, grey out the loser.

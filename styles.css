@@ -14,6 +14,26 @@
     --card: var(--surface2);
     --text-muted: var(--muted);
   }
+  /* Light mode — overrides the core palette; most components are var-driven. */
+  [data-theme="light"] {
+    --gold: #B0892A;
+    --gold-light: #8A6A1C;
+    --bg: #F3F0E8;
+    --surface: #FFFFFF;
+    --surface2: #ECE7DB;
+    --border: rgba(0,0,0,0.12);
+    --text: #1C1A15;
+    --muted: #6E6A60;
+    --green: #1E9E57;
+    --red: #D8392B;
+    --draw: #B0851E;
+  }
+  /* Keep white-filled broadcaster logos legible on light backgrounds */
+  [data-theme="light"] .mc-tv-logo-svt path,
+  [data-theme="light"] .mc-tv-logo-bbc path { fill:#1C1A15; }
+  [data-theme="light"] .mc-tv-logo-itv path[fill="#fff"] { fill:#1D2232; }
+  /* Fixed translucent-dark toggles → translucent-light in light mode */
+  [data-theme="light"] .spoiler-toggle { background:rgba(255,255,255,0.85); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; scroll-padding-top: 104px; } /* gutter: prevents shift; padding-top: keep scrollIntoView clear of the sticky bar */
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
@@ -82,6 +102,16 @@
   .share-btn:hover { border-color:var(--gold); color:var(--gold); }
   /* Streak badge */
   .streak-badge { font-size:0.75rem; margin-left:0.35rem; }
+  /* Settings page blocks + theme toggle */
+  .settings-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1.25rem; }
+  .settings-block-title { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.04em; color:var(--text); }
+  .settings-block-sub { font-size:0.8rem; color:var(--muted); margin:0.15rem 0 0.9rem; }
+  .theme-toggle { display:inline-flex; gap:0.3rem; background:var(--surface2); border:1px solid var(--border); border-radius:999px; padding:0.3rem; }
+  .thm-opt { display:inline-flex; align-items:center; gap:0.45rem; padding:0.45rem 0.95rem; border-radius:999px; border:none; background:none; color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.85rem; font-weight:600; transition:background .15s, color .15s; }
+  .thm-opt svg { width:16px; height:16px; flex-shrink:0; }
+  .thm-opt:hover { color:var(--text); }
+  .theme-toggle[data-mode="light"] .thm-opt[data-m="light"],
+  .theme-toggle[data-mode="dark"] .thm-opt[data-m="dark"] { background:var(--gold); color:#1a1409; }
   /* Broadcaster channel badge (Swedish: SVT/TV4 · UK: BBC/ITV) */
   .mc-tv-badge { display:inline-flex; align-items:center; }
   .mc-tv-logo { display:block; width:auto; transform:translateY(-1.5px); }
@@ -195,11 +225,12 @@
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
   /* Mirror the Live-rail card hover (lift + red glow) on the in-list live card */
   .match-card.mc-live:hover { border-color:var(--red); box-shadow:0 0 22px rgba(231,76,60,0.22); transform:translateY(-2px); }
-  /* "Next up" theme — gold-accented, shown only when no game is live */
-  .mc-nextup { border-color:rgba(201,168,76,0.5); box-shadow:0 0 16px rgba(201,168,76,0.14); }
-  .mc-nextup .mc-header { background:rgba(201,168,76,0.1); border-bottom-color:rgba(201,168,76,0.3); }
-  .match-card.mc-nextup:hover { border-color:var(--gold); box-shadow:0 0 22px rgba(201,168,76,0.25); transform:translateY(-2px); }
-  .mc-pill-next { background:rgba(201,168,76,0.18); color:var(--gold-light); }
+  /* "Next up" theme — gold accent mirroring the Live theme; shown only when no game is live */
+  .mc-nextup { border-color:rgba(201,168,76,0.45); box-shadow:0 0 16px rgba(201,168,76,0.12); }
+  .mc-nextup .mc-header { background:rgba(201,168,76,0.12); border-bottom-color:rgba(201,168,76,0.3); }
+  .match-card.mc-nextup:hover { border-color:var(--gold); box-shadow:0 0 22px rgba(201,168,76,0.22); transform:translateY(-2px); }
+  .mc-pill-next { background:rgba(201,168,76,0.2); color:var(--gold-light); white-space:nowrap; }
+  .mc-nextup .mc-statusrow { position:relative; z-index:2; }
   /* Played matches are less prominent than live/upcoming; restored on hover or when expanded */
   .match-card.mc-finished { opacity:0.55; transition:opacity .15s; }
   .match-card.mc-finished:hover, .match-card.mc-finished:has(.match-scorers.open) { opacity:1; }
