@@ -298,7 +298,6 @@ function applyDataSnapshot(data) {
     }
   });
   const knockout = {
-    r32uncertain: parseList(results.r32uncertain),
     r16:    parseList(results.r16),
     qf:     parseList(results.qf),
     sf:     parseList(results.sf),
@@ -314,14 +313,7 @@ function applyDataSnapshot(data) {
       initials: p.name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
       color:    p.color || PLAYER_COLORS[idx % PLAYER_COLORS.length],
       picks:    p.picks   || {},
-      bracket:  {
-        r16:      (p.bracket?.r16    || []),
-        qf:       (p.bracket?.qf     || []),
-        sf:       (p.bracket?.sf     || []),
-        final:    (p.bracket?.final  || []),
-        winner:   (p.bracket?.winner || ''),
-        r32extra: p.bracket?.r32extra ?? null,
-      },
+      bracket:  p.bracket || { r16:[], qf:[], sf:[], final:[], winner:'' },
       special:  Object.fromEntries(Object.entries(p.special||{winner:'',boot:''}).map(([k,v])=>[k,normalizeSpecialName(v)])),
     }));
   // Detect new results for round summary banner
@@ -351,25 +343,8 @@ function applyDataSnapshot(data) {
       'First Scorer':      results.first_scorer       || null,
     },
   };
-  syncR32ExtraIfAvailable();
   renderAll();
   pollLiveScores();   // data is now loaded — poll ESPN for live scores right away
-}
-
-function syncR32ExtraIfAvailable(){
-  if(!db)return;
-  try{
-    const fs=JSON.parse(localStorage.getItem('wc2026_form_state')||'{}');
-    const extra=fs.stagePicks?.r32extra;
-    if(!Array.isArray(extra)||!extra.length)return;
-    const name=(fs.name||'').trim().toLowerCase();
-    const player=STATE.players.find(p=>p.name.toLowerCase()===name);
-    if(!player)return;
-    if(player.bracket.r32extra!==null)return; // already synced
-    const key=sanitizeName(fs.name);
-    db.ref(`wc2026/picks/${key}/bracket/r32extra`).set(extra);
-    player.bracket.r32extra=extra;
-  }catch(e){}
 }
 
 // ── DEMO DATA ─────────────────────────────────────────────────────────────────
@@ -848,7 +823,7 @@ function resolveSlot(slot,standings,best3rd){
 }
 
 // ── BRACKET SCORING ───────────────────────────────────────────────────────────
-const BRACKET_PTS={r32extra:1,r16:1,qf:2,sf:3,final:5,winner:8,bronze:3};
+const BRACKET_PTS={r16:1,qf:2,sf:3,final:5,winner:8,bronze:3};
 const SPECIAL_PTS={boot:5,bestPlayer:5,bestGoalkeeper:4,topScoringTeam:3,mostCards:2,totalGoals:4,firstScorer:3};
 
 // ── SWEDISH TV BROADCAST LOOKUP ───────────────────────────────────────────────
@@ -926,15 +901,7 @@ function getTV(match){ return tvRegion==='uk' ? getUKTV(match) : getSwedishTV(ma
 
 function calcBracketPoints(player){
   const ko=STATE.knockout||{},bracket=player.bracket||{};
-  const res={r32extra:0,r16:0,qf:0,sf:0,final:0,winner:0,bronze:0,total:0};
-  const allSynced=STATE.players.every(p=>p.bracket?.r32extra!==null&&p.bracket?.r32extra!==undefined);
-  const actualUncertain=ko.r32uncertain||[];
-  if(allSynced&&actualUncertain.length){
-    (bracket.r32extra||[]).forEach(team=>{
-      if(actualUncertain.some(t=>t.toLowerCase().trim()===team.toLowerCase().trim()))res.r32extra+=BRACKET_PTS.r32extra;
-    });
-    res.total+=res.r32extra;
-  }
+  const res={r16:0,qf:0,sf:0,final:0,winner:0,bronze:0,total:0};
   ['r16','qf','sf','final'].forEach(stage=>{
     const actual=ko[stage]||[];if(!actual.length)return;
     (bracket[stage]||[]).forEach(team=>{
@@ -1113,19 +1080,17 @@ function renderPlayerBreakdown(player, goalsWinners){
 
   // ── Bracket ──
   const BSTAGES=[
-    {k:'r32extra',label:'Round of 32 — Uncertain',pts:BRACKET_PTS.r32extra,multi:true,actualK:'r32uncertain'},
     {k:'r16',  label:'Round of 16',     pts:BRACKET_PTS.r16,   multi:true},
     {k:'qf',   label:'Quarter-Finals',  pts:BRACKET_PTS.qf,    multi:true},
     {k:'sf',   label:'Semi-Finals',     pts:BRACKET_PTS.sf,    multi:true},
     {k:'final',label:'Finalists',       pts:BRACKET_PTS.final, multi:true},
-    {k:'winner',label:'Winner',            pts:BRACKET_PTS.winner,multi:false},
-    {k:'bronze',label:'Bronze Medal',      pts:BRACKET_PTS.bronze,multi:false},
+    {k:'winner',label:'Winner',         pts:BRACKET_PTS.winner,multi:false},
+    {k:'bronze',label:'Bronze Medal',   pts:BRACKET_PTS.bronze,multi:false},
   ];
   const bracket=player.bracket||{};
   let bracketHtml='';
-  BSTAGES.forEach(({k,label,pts,multi,actualK})=>{
-    const koK=actualK||k;
-    const actual=k==='winner'?(ko.winner?[ko.winner]:[]):k==='bronze'?(ko.bronze?[ko.bronze]:[]):(ko[koK]||[]);
+  BSTAGES.forEach(({k,label,pts,multi})=>{
+    const actual=k==='winner'?(ko.winner?[ko.winner]:[]):k==='bronze'?(ko.bronze?[ko.bronze]:[]):(ko[k]||[]);
     const predicted=k==='winner'?(bracket.winner?[bracket.winner]:[]):k==='bronze'?(bracket.bronze?[bracket.bronze]:[]):(bracket[k]||[]);
     if(!predicted.length)return;
     const earned=bp[k]||0;
@@ -1863,22 +1828,20 @@ function buildPicksDetailHtml(p){
   let html='';
   const ko=STATE.knockout||{},bracket=p.bracket||{},bp=calcBracketPoints(p);
   const koStages=[
-    {key:'r32extra',label:'Round of 32 — Uncertain Qualifiers',pts:BRACKET_PTS.r32extra,multi:true,actualKey:'r32uncertain'},
-    {key:'r16',     label:'Round of 16',    pts:BRACKET_PTS.r16,   multi:true},
-    {key:'qf',      label:'Quarter-Finals', pts:BRACKET_PTS.qf,    multi:true},
-    {key:'sf',      label:'Semi-Finals',    pts:BRACKET_PTS.sf,    multi:true},
-    {key:'final',   label:'Finalists',      pts:BRACKET_PTS.final, multi:true},
-    {key:'winner',  label:'Winner',                             pts:BRACKET_PTS.winner, multi:false},
-    {key:'bronze',  label:'Bronze Medal',                       pts:BRACKET_PTS.bronze, multi:false},
+    {key:'r16',   label:'Round of 16',    pts:BRACKET_PTS.r16,   multi:true},
+    {key:'qf',    label:'Quarter-Finals', pts:BRACKET_PTS.qf,    multi:true},
+    {key:'sf',    label:'Semi-Finals',    pts:BRACKET_PTS.sf,    multi:true},
+    {key:'final', label:'Finalists',      pts:BRACKET_PTS.final, multi:true},
+    {key:'winner',label:'Winner',         pts:BRACKET_PTS.winner,multi:false},
+    {key:'bronze',label:'Bronze Medal',   pts:BRACKET_PTS.bronze,multi:false},
   ];
   const hasKoPicks=koStages.some(({key,multi})=>multi?(bracket[key]||[]).length>0:!!bracket[key]);
   if(hasKoPicks){
     html+='<div class="picks-section-label" style="margin-top:0">Knockout Predictions</div><div class="adv-stages">';
-    koStages.forEach(({key,label,pts,multi,actualKey})=>{
+    koStages.forEach(({key,label,pts,multi})=>{
       const predicted=multi?(bracket[key]||[]):(bracket[key]?[bracket[key]]:[]);
       if(!predicted.length)return;
-      const koKey=actualKey||key;
-      const actual=multi?(ko[koKey]||[]):(ko[koKey]?[ko[koKey]]:[]);
+      const actual=multi?(ko[key]||[]):(ko[key]?[ko[key]]:[]);
       html+=`<div class="adv-card"><div class="adv-title">${label}<span class="adv-pts-badge">${pts} pt${pts>1?'s':''} each</span></div>`;
       predicted.forEach(team=>{
         let cls='pending';
@@ -2736,13 +2699,12 @@ function handleSubmitPicks(){
 const ADMIN_KEY='wc2026_admin';
 
 // ── ADMIN KNOCKOUT CHIP STATE ─────────────────────────────────────────────────
-let ADMIN_KO={r16:[],qf:[],sf:[],final:[],r32uncertain:[]};
-const KO_MAX={r16:16,qf:8,sf:4,final:2,r32uncertain:20};
+let ADMIN_KO={r16:[],qf:[],sf:[],final:[]};
+const KO_MAX={r16:16,qf:8,sf:4,final:2};
 
 function adminKoInit(){
   const ko=STATE.knockout||{};
   ADMIN_KO={
-    r32uncertain: (ko.r32uncertain||[]).slice(),
     r16:  (ko.r16  ||[]).slice(),
     qf:   (ko.qf   ||[]).slice(),
     sf:   (ko.sf   ||[]).slice(),
@@ -2853,23 +2815,6 @@ function renderAdminContent(cont){
       </div>
     </div>`;
 
-  const r32synced=STATE.players.filter(p=>(p.bracket?.r32extra||null)!==null);
-  const r32notSynced=STATE.players.filter(p=>(p.bracket?.r32extra||null)===null);
-  const r32syncCount=r32synced.length;
-  const r32syncTotal=STATE.players.length;
-  const r32syncAllDone=r32syncCount===r32syncTotal&&r32syncTotal>0;
-  const r32syncRows=STATE.players.map(p=>{
-    const done=(p.bracket?.r32extra||null)!==null;
-    const picks=done?(p.bracket.r32extra||[]):[];
-    return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.3rem 0;font-size:0.82rem">
-      <span style="color:${done?'var(--green)':'var(--red)'}">●</span>
-      <span style="min-width:90px">${p.name}</span>
-      ${done
-        ?`<span style="color:var(--muted)">${picks.length?picks.join(', '):'(no uncertain picks)'}</span>`
-        :`<span style="color:var(--muted)">not synced yet</span>`}
-    </div>`;
-  }).join('');
-
   cont.innerHTML=`
     <datalist id="players-dl-admin">${playerOptsFull}</datalist>
     <datalist id="teams-dl-admin">${teamOptsFull}</datalist>
@@ -2879,16 +2824,6 @@ function renderAdminContent(cont){
       The GitHub Action fetches live data every 30 min during the tournament (Jun 11 – Jul 19).
       Only enter the awards below — these can't be determined from match data alone.
     </div>
-
-    <div class="admin-section" style="margin-bottom:1.5rem">
-      <div class="admin-section-title">Round of 32 — Uncertain Qualifier Picks</div>
-      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">Players' picks are recovered automatically from their browser on first visit. Scoring only activates once everyone has synced AND you enter the actual qualifiers below.</div>
-      <div style="font-size:0.85rem;margin-bottom:0.5rem">Sync status: <strong style="color:${r32syncAllDone?'var(--green)':'var(--gold)'}">${r32syncCount} / ${r32syncTotal} players synced</strong>${r32syncAllDone?' ✓':''}</div>
-      <div style="margin-bottom:1rem;padding:0.5rem 0.75rem;background:var(--card-bg);border-radius:6px;border:1px solid var(--border)">${r32syncRows}</div>
-      ${koChipBlock('r32uncertain','Uncertain teams that actually qualified')}
-    </div>
-    <button class="btn" onclick="saveAdminData()" style="min-width:160px;margin-bottom:1.5rem">Save All Results</button>
-    <span class="save-status" id="admin-save-status-top"></span>
 
     <div class="admin-section">
       <div class="admin-section-title">Award Results</div>
@@ -2929,24 +2864,16 @@ function saveAdminData(){
   if(!db){document.getElementById('admin-save-status').textContent='✗ Not connected.';return;}
   // Only save the awards that can't be auto-imported
   const updates={
-    'results/r32uncertain':     ADMIN_KO.r32uncertain.length?ADMIN_KO.r32uncertain.join(','):null,
     'results/golden_boot':      document.getElementById('ar-gb')?.value.trim()||null,
     'results/golden_ball':      document.getElementById('ar-gball')?.value.trim()||null,
     'results/golden_glove':     document.getElementById('ar-gglove')?.value.trim()||null,
     'results/most_cards_team':  document.getElementById('ar-cards')?.value.trim()||null,
     'results/first_scorer':     document.getElementById('ar-first')?.value.trim()||null,
   };
-  const stTop=document.getElementById('admin-save-status-top');if(stTop)stTop.textContent='Saving…';
   const st=document.getElementById('admin-save-status');st.textContent='Saving…';
   db.ref('wc2026').update(updates)
-    .then(()=>{
-      st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);
-      if(stTop){stTop.textContent='✓ Saved!';setTimeout(()=>{stTop.textContent='';},2500);}
-    })
-    .catch(e=>{
-      st.textContent='✗ '+e.message;
-      if(stTop)stTop.textContent='✗ '+e.message;
-    });
+    .then(()=>{st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);})
+    .catch(e=>{st.textContent='✗ '+e.message;});
 }
 
 
@@ -2985,15 +2912,11 @@ function renderScoringTab(){
     <span style="font-family:'Bebas Neue',sans-serif;font-size:1.2rem;color:var(--gold);margin-left:1rem">${pts}</span>
   </div>`;
   const section=(title,sub,rows)=>`<div style="margin-bottom:2rem"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.4rem;margin-bottom:0.25rem">${title}</div>${sub?`<div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">${sub}</div>`:''}${rows}</div>`;
-  const allSynced=STATE.players.length>0&&STATE.players.every(p=>p.bracket?.r32extra!==null&&p.bracket?.r32extra!==undefined);
-  const r32UncertainKnown=(STATE.knockout?.r32uncertain||[]).length>0;
-  const r32note=allSynced&&r32UncertainKnown?'':(allSynced?'waiting for admin to enter actual qualifiers':'not all players synced yet');
-  const maxGroup=72,maxBracket=(allSynced&&r32UncertainKnown?8:0)+16+16+12+10+8+3,maxSpecial=5+5+4+3+3+2+4+3,maxTotal=maxGroup+maxBracket+maxSpecial;
+  const maxGroup=72,maxBracket=16+16+12+10+8+3,maxSpecial=5+5+4+3+3+2+4+3,maxTotal=maxGroup+maxBracket+maxSpecial;
   cont.innerHTML=`
     ${section('Group Stage','72 matches — pick home win, draw, or away win',
       row('Correct result (H/D/A)','+ 1 pt','per match · max '+maxGroup+' pts'))}
     ${section('Knockout Bracket','Built from your group picks — pick winners round by round',
-      row('Uncertain 3rd-place qualifier correctly predicted','+ 1 pt',r32note||'Round of 32 — up to 8')+
       row('Team correctly reaches Round of 16','+ 1 pt','per team · up to 16')+
       row('Team correctly reaches Quarter-Finals','+ 2 pts','per team · up to 8')+
       row('Team correctly reaches Semi-Finals','+ 3 pts','per team · up to 4')+
