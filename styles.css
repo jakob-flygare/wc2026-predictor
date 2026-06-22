@@ -92,9 +92,9 @@
   .mc-tv-logo-bbc i { font-style:normal; font-family:'Bebas Neue',sans-serif; font-weight:700; font-size:11px; line-height:1; color:#000; background:#fff; padding:2px 2.5px 1px; border-radius:1px; }
   /* ITV wordmark */
   .mc-tv-logo-itv { font-family:'Bebas Neue',sans-serif; font-weight:700; font-size:15px; line-height:1; letter-spacing:0.5px; color:#fff; transform:translateY(-1px); }
-  /* Floating broadcaster-region toggle (Matches tab) */
-  .tv-region-toggle { position:fixed; right:1rem; bottom:1rem; z-index:90; display:flex; gap:0.2rem; background:rgba(19,22,28,0.92); backdrop-filter:blur(6px); border:1px solid var(--border); border-radius:999px; padding:0.25rem; box-shadow:0 6px 20px rgba(0,0,0,0.45); }
-  .trt-opt { font-size:1.1rem; line-height:1; padding:0.35rem 0.5rem; border-radius:999px; cursor:pointer; opacity:0.4; filter:grayscale(0.9); transition:opacity .15s, filter .15s, background .15s; }
+  /* Broadcaster-region toggle (right-aligned in the Matches sort bar) */
+  .tv-region-toggle { margin-left:auto; display:flex; gap:0.2rem; background:var(--card); border:1px solid var(--border); border-radius:999px; padding:0.2rem; }
+  .trt-opt { font-size:1rem; line-height:1; padding:0.3rem 0.45rem; border-radius:999px; cursor:pointer; opacity:0.4; filter:grayscale(0.9); transition:opacity .15s, filter .15s, background .15s; }
   .trt-opt:hover { opacity:0.8; filter:grayscale(0.3); }
   .tv-region-toggle[data-region="se"] .trt-opt[data-r="se"],
   .tv-region-toggle[data-region="uk"] .trt-opt[data-r="uk"] { opacity:1; filter:none; background:rgba(201,168,76,0.18); }
@@ -140,7 +140,7 @@
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
   #matches-sort-bar { position:sticky; top:84px; z-index:90; background:var(--bg); }
-  .sort-bar { display:flex; gap:8px; padding:12px 0; }
+  .sort-bar { display:flex; align-items:center; gap:8px; padding:12px 0; }
   .sort-btn { padding:5px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background 0.15s,color 0.15s; }
   .sort-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }
   .match-time { font-size:0.7rem; color:var(--text-muted); margin-top:2px; }

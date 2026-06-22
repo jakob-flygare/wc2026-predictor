@@ -77,11 +77,6 @@
     <div id="matches-sort-bar"></div>
     <div id="matches-list"></div>
   </div>
-  <!-- Floating broadcaster-region toggle (Swedish ⇄ UK) -->
-  <div id="tv-region-toggle" class="tv-region-toggle" data-region="se" title="Broadcaster &amp; kickoff times">
-    <span class="trt-opt" data-r="se" onclick="setTvRegion('se')">🇸🇪</span>
-    <span class="trt-opt" data-r="uk" onclick="setTvRegion('uk')">🇬🇧</span>
-  </div>
 </div>
 
 <!-- STAKES -->
@@ -696,7 +691,7 @@ function matchTimeStr(m){
   if(!m.kickoff) return '';
   let [h,mi]=m.kickoff.slice(11,16).split(':').map(Number);
   if(tvRegion==='uk') h=(h+23)%24;   // shift -1h (with midnight rollover)
-  return `${String(h).padStart(2,'0')}.${String(mi).padStart(2,'0')}`;
+  return `${String(h).padStart(2,'0')}:${String(mi).padStart(2,'0')}`;
 }
 // "Today" / "Tomorrow" / "Yesterday" when the match falls on those days, else the date label.
 function friendlyDate(m){
@@ -1542,6 +1537,10 @@ function renderMatches(){
   if(sortBar) sortBar.innerHTML=`<div class="sort-bar">
     <button class="sort-btn${matchSortMode==='date'?' active':''}" onclick="setMatchSort('date')">By Date</button>
     <button class="sort-btn${matchSortMode==='group'?' active':''}" onclick="setMatchSort('group')">By Group</button>
+    <div id="tv-region-toggle" class="tv-region-toggle" data-region="${tvRegion}" title="Broadcaster &amp; kickoff times">
+      <span class="trt-opt" data-r="se" onclick="setTvRegion('se')">🇸🇪</span>
+      <span class="trt-opt" data-r="uk" onclick="setTvRegion('uk')">🇬🇧</span>
+    </div>
   </div>`;
 
   const consensus=computeConsensusStandings();
