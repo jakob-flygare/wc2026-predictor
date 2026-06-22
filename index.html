@@ -1651,8 +1651,10 @@ function renderMatches(){
     let mcCenter,mcStateCls;
     if(mStatus==='live'){
       mcStateCls='mc-live';
+      // A kicked-off match is at least 0:0 even before any score data arrives.
+      const liveScoreStr=`${m.score?.home??0}<span class="mc-score-sep">:</span>${m.score?.away??0}`;
       mcCenter=`<div class="mc-when">${whenStr}${tvBadge}</div>
-        <div class="mc-score">${showScore?scoreStr:dashScore}</div>
+        <div class="mc-score">${spoilerMode?dashScore:liveScoreStr}</div>
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live${m.liveClock?' '+m.liveClock:''}</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
