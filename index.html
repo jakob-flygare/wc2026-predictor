@@ -1547,6 +1547,11 @@ function renderMatches(){
   const picksLockedOrPreview=isPreviewMode()||new Date()>=PICK_DEADLINE;
   let html='';
 
+  // "Next up" highlight: only when nothing is live, mark the next upcoming match
+  // so it's easy to spot. getFeaturedMatch() returns the next game when none is live.
+  const anyLive=STATE.matches.some(m=>getMatchStatus(m)==='live');
+  const nextUpId=anyLive?null:(getFeaturedMatch()?.id??null);
+
   // Build HTML for a single match card.
   // inDateMode=true → date header is the date label, so show group abbrev + time in card.
   // inDateMode=false → group header shown, so show date + time in card.
@@ -1559,6 +1564,7 @@ function renderMatches(){
     const hn=shortName(m.home),an=shortName(m.away);
     const fh=flagOf(m.home),fa=flagOf(m.away);
     const mStatus=getMatchStatus(m);
+    const isNextUp=!anyLive&&!m.result&&mStatus!=='live'&&m.id===nextUpId;
     if(mStatus==='live')pill=`<span class="badge-live">🔴 LIVE</span>`;
     else if(mStatus==='today'&&!m.result)pill=`<span class="badge-today">Today</span>`;
     const scoreBox=m.score&&!spoilerMode
@@ -1663,7 +1669,8 @@ function renderMatches(){
     }else{
       mcStateCls='mc-upcoming';
       mcCenter=`<div class="mc-when mc-when-lg">${whenStr}${tvBadge}</div>
-        <div class="mc-vs">VS</div>`;
+        <div class="mc-vs">VS</div>
+        ${isNextUp?'<div class="mc-statusrow"><span class="mc-pill mc-pill-next">▶ Next up</span></div>':''}`;
     }
     const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
     // Winner highlight: gold ring + confetti on the winning team, grey out the loser.
@@ -1677,7 +1684,7 @@ function renderMatches(){
     const winH=m.odds?`<span class="mc-winpct">${Math.round(m.odds.home*100)}%</span>`:'';
     const winA=m.odds?`<span class="mc-winpct">${Math.round(m.odds.away*100)}%</span>`:'';
     let out=`<div class="match-wrap" id="mw-${m.id}">
-      <div class="match-card ${mcStateCls}${hasDetail?' has-scorers':''}">
+      <div class="match-card ${mcStateCls}${isNextUp?' mc-nextup':''}${hasDetail?' has-scorers':''}">
         <div class="mc-clickable" ${clickAttr}>
           <div class="mc-header">
             ${headerLeft}

@@ -195,6 +195,11 @@
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
   /* Mirror the Live-rail card hover (lift + red glow) on the in-list live card */
   .match-card.mc-live:hover { border-color:var(--red); box-shadow:0 0 22px rgba(231,76,60,0.22); transform:translateY(-2px); }
+  /* "Next up" theme — gold-accented, shown only when no game is live */
+  .mc-nextup { border-color:rgba(201,168,76,0.5); box-shadow:0 0 16px rgba(201,168,76,0.14); }
+  .mc-nextup .mc-header { background:rgba(201,168,76,0.1); border-bottom-color:rgba(201,168,76,0.3); }
+  .match-card.mc-nextup:hover { border-color:var(--gold); box-shadow:0 0 22px rgba(201,168,76,0.25); transform:translateY(-2px); }
+  .mc-pill-next { background:rgba(201,168,76,0.18); color:var(--gold-light); }
   /* Played matches are less prominent than live/upcoming; restored on hover or when expanded */
   .match-card.mc-finished { opacity:0.55; transition:opacity .15s; }
   .match-card.mc-finished:hover, .match-card.mc-finished:has(.match-scorers.open) { opacity:1; }
