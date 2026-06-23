@@ -3072,9 +3072,17 @@ function scrollToNextMatch(){
   if(!f) return;
   const el=document.getElementById('mw-'+f.id);
   if(!el) return;
-  // Land the card's top just below the sticky header+tabs (never past its top / too far down).
-  const STICKY=110;
-  const top=Math.max(0, el.getBoundingClientRect().top + window.scrollY - STICKY);
+  // Land the card just below BOTH sticky layers — the top bar (tabs) and the sort bar
+  // (pills + region toggle) — so it isn't partially hidden behind them.
+  const topbar=document.querySelector('.topbar');
+  const sortBar=document.getElementById('matches-sort-bar');
+  let cutoff=topbar?topbar.offsetHeight:84;
+  if(sortBar){
+    const stickTop=parseFloat(getComputedStyle(sortBar).top)||cutoff;
+    cutoff=Math.max(cutoff, stickTop+sortBar.offsetHeight);
+  }
+  const MARGIN=14;
+  const top=Math.max(0, el.getBoundingClientRect().top + window.scrollY - cutoff - MARGIN);
   window.scrollTo({ top, behavior:'smooth' });
 }
 
