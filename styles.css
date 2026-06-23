@@ -16,24 +16,30 @@
   }
   /* Light mode — overrides the core palette; most components are var-driven. */
   [data-theme="light"] {
-    --gold: #B0892A;
-    --gold-light: #8A6A1C;
+    --gold: #9A741B;
+    --gold-light: #7C5C12;
     --bg: #F3F0E8;
     --surface: #FFFFFF;
-    --surface2: #ECE7DB;
-    --border: rgba(0,0,0,0.12);
-    --text: #1C1A15;
-    --muted: #6E6A60;
-    --green: #1E9E57;
-    --red: #D8392B;
-    --draw: #B0851E;
+    --surface2: #EBE6DA;
+    --border: rgba(0,0,0,0.14);
+    --text: #1A1813;
+    --muted: #5C594F;
+    --green: #1B934F;
+    --red: #CF3526;
+    --draw: #9A7318;
   }
   /* Keep white-filled broadcaster logos legible on light backgrounds */
   [data-theme="light"] .mc-tv-logo-svt path,
-  [data-theme="light"] .mc-tv-logo-bbc path { fill:#1C1A15; }
-  [data-theme="light"] .mc-tv-logo-itv path[fill="#fff"] { fill:#1D2232; }
+  [data-theme="light"] .mc-tv-logo-bbc path { fill:#1A1813; }
   /* Fixed translucent-dark toggles → translucent-light in light mode */
-  [data-theme="light"] .spoiler-toggle { background:rgba(255,255,255,0.85); }
+  [data-theme="light"] .spoiler-toggle { background:rgba(255,255,255,0.9); }
+  /* Light-mode header: clean light gradient with the on-light (trophy) logo */
+  [data-theme="light"] header { background:linear-gradient(180deg,#FFFFFF 0%,var(--bg) 100%); }
+  img.wc-logo-light { display:none; }
+  [data-theme="light"] .wc-logo-dark { display:none; }
+  [data-theme="light"] .wc-logo-light { display:block; }
+  /* Live game in the list: inverted LIVE pill (filled red) on light mode, like the Live-section card */
+  [data-theme="light"] .mc-pill-live { background:var(--red); color:#fff; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; scroll-padding-top: 104px; } /* gutter: prevents shift; padding-top: keep scrollIntoView clear of the sticky bar */
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
@@ -145,7 +151,7 @@
   .lbd-pts { font-family:'Bebas Neue',sans-serif; font-size:1rem; }
   .lb-row { display: grid; grid-template-columns: 2.5rem 1fr auto; align-items: center; gap: 1rem; padding: 0.9rem 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s; }
   .lb-eliminated { opacity: 0.4; }
-  .lb-row.rank-1 { background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, var(--surface) 60%); border-color: rgba(201,168,76,0.35); }
+  .lb-row.rank-1 { border-color: rgba(201,168,76,0.35); }
   .lb-row.rank-2 { border-color: rgba(180,180,180,0.25); }
   .lb-row.rank-3 { border-color: rgba(176,110,60,0.3); }
   .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; line-height: 1; color: var(--text); display:flex; flex-direction:column; align-items:center; justify-content:center; }
@@ -221,10 +227,10 @@
   .mc-pill-today { background:rgba(232,184,75,0.18); color:var(--draw); }
   .mc-stars-row { text-align:center; padding:0 0 0.7rem; }
   /* Live state accent */
-  .mc-live { border-color:rgba(231,76,60,0.45); box-shadow:0 0 16px rgba(231,76,60,0.12); }
+  .mc-live { border-color:var(--red); box-shadow:0 0 0 1px rgba(231,76,60,0.4); }
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
   /* Mirror the Live-rail card hover (lift + red glow) on the in-list live card */
-  .match-card.mc-live:hover { border-color:var(--red); box-shadow:0 0 22px rgba(231,76,60,0.22); transform:translateY(-2px); }
+  .match-card.mc-live:hover { border-color:var(--red); box-shadow:0 0 0 1px var(--red), 0 0 22px rgba(231,76,60,0.22); transform:translateY(-2px); }
   /* "Next up" theme — gold accent mirroring the Live theme; shown only when no game is live */
   .mc-nextup { border-color:rgba(201,168,76,0.45); box-shadow:0 0 16px rgba(201,168,76,0.12); }
   .mc-nextup .mc-header { background:rgba(201,168,76,0.12); border-bottom-color:rgba(201,168,76,0.3); }
@@ -260,8 +266,8 @@
      the layout spacing is unchanged. */
   .lv-rail { display:flex; gap:0.75rem; overflow-x:auto; padding:2rem; margin:-2rem; scrollbar-width:none; }
   .lv-rail::-webkit-scrollbar { display:none; }
-  .lv-card { flex:0 0 200px; background:linear-gradient(160deg,#2a1015 0%,var(--surface) 62%); border:1px solid rgba(231,76,60,0.4); border-radius:14px; padding:0.9rem 1rem; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; box-shadow:0 0 18px rgba(231,76,60,0.1); }
-  .lv-card:hover { border-color:var(--red); transform:translateY(-2px); box-shadow:0 0 22px rgba(231,76,60,0.22); }
+  .lv-card { flex:0 0 200px; background:var(--surface); border:1px solid var(--red); border-radius:14px; padding:0.9rem 1rem; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; box-shadow:0 0 0 1px rgba(231,76,60,0.5); }
+  .lv-card:hover { border-color:var(--red); transform:translateY(-2px); box-shadow:0 0 0 1px var(--red), 0 0 20px rgba(231,76,60,0.22); }
   .lv-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.7rem; }
   .lv-pill { display:inline-flex; align-items:center; gap:5px; background:var(--red); color:#fff; font-size:0.6rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; padding:0.2rem 0.55rem; border-radius:999px; }
   .lv-pill .lv-dot { background:#fff; }
