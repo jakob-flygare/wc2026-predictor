@@ -40,6 +40,16 @@
   [data-theme="light"] .wc-logo-light { display:block; }
   /* Live game in the list: inverted LIVE pill (filled red) on light mode, like the Live-section card */
   [data-theme="light"] .mc-pill-live { background:var(--red); color:#fff; }
+  /* Light mode: --gold is intentionally deep for legible accent TEXT, but that makes
+     filled gold buttons low-contrast with dark text. Give those a brighter gold fill. */
+  [data-theme="light"] .btn,
+  [data-theme="light"] .sort-btn.active,
+  [data-theme="light"] .theme-toggle[data-mode="light"] .thm-opt[data-m="light"],
+  [data-theme="light"] .theme-toggle[data-mode="dark"] .thm-opt[data-m="dark"] { background:#D8BA64; color:#1a1409; }
+  [data-theme="light"] .sort-btn.active { border-color:#D8BA64; }
+  [data-theme="light"] .btn:hover { background:#CBA94E; }
+  /* Outline / danger buttons: brighten text and tint a touch for contrast on light */
+  [data-theme="light"] .btn-outline:hover { background:rgba(201,168,76,0.14); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; scroll-padding-top: 104px; } /* gutter: prevents shift; padding-top: keep scrollIntoView clear of the sticky bar */
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }

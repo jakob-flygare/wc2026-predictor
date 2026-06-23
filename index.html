@@ -1476,14 +1476,44 @@ function groupInterestScore(groupMatches){
 
 // ── RENDER MATCHES ────────────────────────────────────────────────────────────
 const CONFETTI_COLORS=['#C9A84C','#E8C96A','#2ECC71','#E74C3C','#E8B84B','#4DA6FF','#FFFFFF'];
+// Flag-derived confetti palettes per team (keyed via normTeam so they match shortName()).
+const FLAG_COLORS=(()=>{
+  const m={}, add=(name,cols)=>{m[normTeam(name)]=cols;};
+  add('Mexico',['#006847','#CE1126','#FFFFFF']);          add('South Africa',['#007A4D','#FFB915','#DE3831','#002395']);
+  add('South Korea',['#CD2E3A','#0047A0','#FFFFFF']);      add('Czechia',['#11457E','#D7141A','#FFFFFF']);
+  add('Canada',['#FF0000','#FFFFFF']);                     add('Bosnia-Herzegovina',['#002395','#FECB00','#FFFFFF']);
+  add('USA',['#3C3B6E','#B22234','#FFFFFF']);              add('Paraguay',['#D52B1E','#0038A8','#FFFFFF']);
+  add('Qatar',['#8A1538','#FFFFFF']);                      add('Switzerland',['#D52B1E','#FFFFFF']);
+  add('Brazil',['#009C3B','#FFDF00','#002776']);           add('Morocco',['#C1272D','#006233']);
+  add('Haiti',['#00209F','#D21034','#FFFFFF']);            add('Scotland',['#005EB8','#FFFFFF']);
+  add('Australia',['#00008B','#FF0000','#FFFFFF']);        add('Turkey',['#E30A17','#FFFFFF']);
+  add('Germany',['#000000','#DD0000','#FFCE00']);          add('Curaçao',['#002B7F','#F9E814','#FFFFFF']);
+  add('Netherlands',['#AE1C28','#FFFFFF','#21468B']);      add('Japan',['#BC002D','#FFFFFF']);
+  add('Ivory Coast',['#FF8200','#FFFFFF','#009A44']);      add('Ecuador',['#FFDD00','#034EA2','#ED1C24']);
+  add('Sweden',['#006AA7','#FECC00']);                     add('Tunisia',['#E70013','#FFFFFF']);
+  add('Spain',['#AA151B','#F1BF00']);                      add('Cape Verde',['#003893','#CF2027','#F7D116','#FFFFFF']);
+  add('Belgium',['#000000','#FDDA24','#EF3340']);          add('Egypt',['#CE1126','#FFFFFF','#000000']);
+  add('Saudi Arabia',['#006C35','#FFFFFF']);               add('Uruguay',['#0038A8','#FCD116','#FFFFFF']);
+  add('Iran',['#239F40','#FFFFFF','#DA0000']);             add('New Zealand',['#00247D','#CC142B','#FFFFFF']);
+  add('France',['#002395','#FFFFFF','#ED2939']);           add('Senegal',['#00853F','#FDEF42','#E31B23']);
+  add('Iraq',['#CE1126','#FFFFFF','#000000','#007A3D']);   add('Norway',['#BA0C2F','#00205B','#FFFFFF']);
+  add('Argentina',['#74ACDF','#FFFFFF','#F6B40E']);        add('Algeria',['#006233','#FFFFFF','#D21034']);
+  add('Austria',['#ED2939','#FFFFFF']);                    add('Jordan',['#007A3D','#CE1126','#000000','#FFFFFF']);
+  add('Portugal',['#006600','#FF0000','#FFD700']);         add('DR Congo',['#007FFF','#F7D618','#CE1021']);
+  add('England',['#CF142B','#FFFFFF']);                    add('Croatia',['#FF0000','#FFFFFF','#171796']);
+  add('Ghana',['#CE1126','#FCD116','#006B3F','#000000']);  add('Panama',['#005293','#DA121A','#FFFFFF']);
+  add('Uzbekistan',['#0099B5','#1EB53A','#CE1126','#FFFFFF']); add('Colombia',['#FCD116','#003893','#CE1126']);
+  return m;
+})();
 // Builds a small burst of confetti pieces shown behind the winning team.
-function confettiHtml(){
+function confettiHtml(teamName){
+  const cols=(teamName&&FLAG_COLORS[normTeam(teamName)])||CONFETTI_COLORS;
   let pieces='';
   for(let i=0;i<14;i++){
     const left=Math.round(Math.random()*100);
     const delay=(Math.random()*1.4).toFixed(2);
     const dur=(1.6+Math.random()*1.4).toFixed(2);
-    const col=CONFETTI_COLORS[i%CONFETTI_COLORS.length];
+    const col=cols[i%cols.length];
     const w=4+Math.round(Math.random()*4);
     const h=6+Math.round(Math.random()*6);
     pieces+=`<span class="mc-confetti-piece" style="left:${left}%;width:${w}px;height:${h}px;background:${col};animation-delay:${delay}s;animation-duration:${dur}s"></span>`;
@@ -1739,8 +1769,8 @@ function renderMatches(){
     // Winner highlight: gold ring + confetti on the winning team, grey out the loser.
     let homeCls='',awayCls='',homeConfetti='',awayConfetti='';
     if(m.result&&m.result!=='draw'&&!spoilerMode){
-      if(m.result==='home'){homeCls=' mc-win';awayCls=' mc-lose';homeConfetti=confettiHtml();}
-      else{awayCls=' mc-win';homeCls=' mc-lose';awayConfetti=confettiHtml();}
+      if(m.result==='home'){homeCls=' mc-win';awayCls=' mc-lose';homeConfetti=confettiHtml(hn);}
+      else{awayCls=' mc-win';homeCls=' mc-lose';awayConfetti=confettiHtml(an);}
     }
     // Single bordered container: the clickable head + (when open) the detail live inside one .match-card.
     // Pre-match win probability shown under each team
