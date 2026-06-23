@@ -744,8 +744,7 @@ function setMatchSort(mode){
   if(mode==='date') setTimeout(scrollToNextMatch, 80);
   else {
     const h=document.querySelector('header');
-    const top=document.body.classList.contains('scrolled')&&h ? h.offsetHeight : 0;
-    window.scrollTo({top, behavior:'instant'});
+    window.scrollTo({top:0, behavior:'instant'});
   }
 }
 function toggleHideFinished(){
@@ -3044,7 +3043,6 @@ function renderScoringTab(){
 
 // ── TABS + RENDER ALL ─────────────────────────────────────────────────────────
 function showTab(id,el){
-  const wasCondensed=document.body.classList.contains('scrolled');
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
@@ -3054,15 +3052,7 @@ function showTab(id,el){
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
   if(id==='matches'&&matchSortMode==='date') setTimeout(scrollToNextMatch, 80);
-  // Land at the top of the new content. If the header was condensed, stay condensed
-  // (scroll the big header off so the section starts just under the sticky bar).
-  if(wasCondensed){
-    document.body.classList.add('scrolled');
-    const h=document.querySelector('header');
-    window.scrollTo(0, h?h.offsetHeight:0);
-  } else {
-    window.scrollTo(0,0);
-  }
+  else window.scrollTo(0,0);
 }
 
 // Jump (instantly) to the next/ongoing match so finished games sit above and
@@ -3122,12 +3112,7 @@ function renderAll(){
   updateSpoilerBtn();
 }
 
-// Condense the bar (show compact brand, hide live rail) once the big header has scrolled away.
-addEventListener('scroll', () => {
-  const h=document.querySelector('header');
-  const trigger=h?Math.max(20,h.offsetHeight-60):60;
-  document.body.classList.toggle('scrolled', window.scrollY > trigger);
-}, { passive: true });
+// Header condensing removed — caused scroll jumping on desktop.
 
 initData();
 </script>
