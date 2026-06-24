@@ -51,7 +51,7 @@
   /* Outline / danger buttons: brighten text and tint a touch for contrast on light */
   [data-theme="light"] .btn-outline:hover { background:rgba(201,168,76,0.14); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  html { scrollbar-gutter: stable; }
+  html { scrollbar-gutter: stable; scroll-padding-top: 96px; }
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
 
@@ -69,7 +69,7 @@
   }
   .trophy-icon { font-size: 2.5rem; margin-bottom: 0.5rem; display: block; filter: drop-shadow(0 0 20px rgba(201,168,76,0.4)); }
   .wc-logo { display:block; height:clamp(130px,24vw,180px); width:auto; margin:0 auto 0.6rem; }
-  .topbar { background: var(--bg); border-bottom: 1px solid var(--border); }
+  .topbar { position: sticky; top: 0; z-index: 100; background: var(--bg); border-bottom: 1px solid var(--border); }
   .compact-brand { display:none; align-items:center; gap:0.5rem; padding:0.5rem 1rem 0; }
   .compact-brand .cb-logo { height:30px; width:auto; }
   .compact-brand .cb-name { font-size:0.72rem; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; color:var(--muted); }
@@ -181,7 +181,7 @@
   .gp-fill { height:100%; background:var(--gold); border-radius:999px; transition:width .3s ease; }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
-  #matches-sort-bar { background:var(--bg); }
+  #matches-sort-bar { position:sticky; top:48px; z-index:90; background:var(--bg); }
   .sort-bar { display:flex; align-items:center; gap:8px; padding:12px 0; }
   .sort-btn { padding:5px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background 0.15s,color 0.15s; }
   .sort-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }

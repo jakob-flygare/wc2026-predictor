@@ -31,12 +31,8 @@
   </button>
 </header>
 
+<div id="global-live"></div>
 <div class="topbar">
-  <div class="compact-brand">
-    <img class="cb-logo" src="logo.png" alt="">
-    <span class="cb-name">Lehman Brothers</span>
-  </div>
-  <div id="global-live"></div>
   <nav>
     <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
     <button class="tab" onclick="showTab('matches',this)">Matches</button>
@@ -3062,8 +3058,12 @@ function scrollToNextMatch(){
   if(!f) return;
   const el=document.getElementById('mw-'+f.id);
   if(!el) return;
+  const topbar=document.querySelector('.topbar');
+  const sortBar=document.getElementById('matches-sort-bar');
+  let cutoff=topbar?topbar.offsetHeight:48;
+  if(sortBar) cutoff+=sortBar.offsetHeight;
   const MARGIN=14;
-  const top=Math.max(0, el.getBoundingClientRect().top + window.scrollY - MARGIN);
+  const top=Math.max(0, el.getBoundingClientRect().top + window.scrollY - cutoff - MARGIN);
   window.scrollTo({ top, behavior:'smooth' });
 }
 
