@@ -1655,6 +1655,7 @@ function renderLeaderboard(){
   const leaderPts=scored.length?scored[0].pts:0;
   const picksKey=p=>JSON.stringify(p.picks||{})+'|'+JSON.stringify(p.bracket||{})+'|'+JSON.stringify(p.special||{});
   scored.forEach(p=>{
+    if(LB_SCORING_MODE!=='official'){p.eliminated=false;return;}
     const cantReachTop=(leaderPts-p.pts)>maxRemainingPoints(p);
     const dominated=scored.some(o=>o!==p&&o.pts>p.pts&&picksKey(o)===picksKey(p));
     p.eliminated=cantReachTop||dominated;
