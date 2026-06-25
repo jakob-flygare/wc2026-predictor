@@ -1372,7 +1372,7 @@ function toggleLbBreakdown(name,e){
   if(el)el.classList.toggle('open');
 }
 
-function renderPlayerBreakdown(player, goalsWinners){
+function renderPlayerBreakdown(player, goalsWinners, badge){
   const score=calcScoreByMode(player,goalsWinners);
   const gp={pts:score.groupPts,correct:score.correct,total:score.total};
   const bp=score._bp;
@@ -1381,6 +1381,11 @@ function renderPlayerBreakdown(player, goalsWinners){
   const picks=player.special||{};
   const streak=calcHotStreak(player);
   let html='';
+
+  // ── Achievement badge description ──
+  if(badge){
+    html+=`<div class="lbd-section"><div class="lbd-row"><span class="lbd-label"><span class="player-badge ${badge.cls}">${badge.icon} ${badge.label}</span></span><span style="color:var(--muted);font-size:0.8rem">${badge.tip}</span></div></div>`;
+  }
 
   // ── Streak ──
   const cold=calcColdStreak(player);
@@ -1799,7 +1804,7 @@ function renderLeaderboard(){
             </div>
             <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div></div>
           </div>
-          <div class="lb-breakdown" id="${id}">${renderPlayerBreakdown(p,goalsWinners)}</div>
+          <div class="lb-breakdown" id="${id}">${renderPlayerBreakdown(p,goalsWinners,bdg)}</div>
         </div>`;
       }).join('')
     :'<div class="loading">No players yet — be the first to submit your picks!</div>';
