@@ -52,6 +52,12 @@
       <div class="section-title">Leaderboard</div>
       <div id="lb-share-area"></div>
     </div>
+    <div class="scoring-mode-bar">
+      <button class="sm-btn active" onclick="setLbMode('official',this)">Official</button>
+      <button class="sm-btn" onclick="setLbMode('copabet',this)">Copabet</button>
+      <button class="sm-btn" onclick="setLbMode('odds',this)">Odds</button>
+    </div>
+    <div class="scoring-mode-note" id="scoring-mode-note" style="display:none"></div>
     <div class="games-progress" id="games-played-sub"></div>
     <div id="lb-error"></div>
     <div class="leaderboard-grid" id="lb-grid"></div>
@@ -1108,6 +1114,92 @@ function calcPoints(player){
   return{pts,correct,total};
 }
 
+// ── ALTERNATIVE SCORING MODES ─────────────────────────────────────────────────
+let LB_SCORING_MODE='official'; // 'official' | 'copabet' | 'odds'
+
+function calcCopabetGroupPoints(player){
+  let pts=0,correct=0,total=0;
+  const N=STATE.players.length;
+  STATE.matches.forEach(m=>{
+    if(!m.result)return;
+    total++;
+    if(player.picks[m.id]!==m.result)return;
+    correct++;
+    const C=STATE.players.filter(p=>p.picks[m.id]===m.result).length;
+    pts+=N<=1?100:Math.round(100-90*(C-1)/(N-1));
+  });
+  return{pts,correct,total};
+}
+
+const COPABET_ROUND_MULT={r16:1,qf:1.25,sf:1.5,final:1.75,winner:2,bronze:1.5};
+function calcCopabetBracketPoints(player){
+  const ko=STATE.knockout||{},bracket=player.bracket||{};
+  const N=STATE.players.length;
+  const res={r16:0,qf:0,sf:0,final:0,winner:0,bronze:0,total:0};
+  const norm=t=>t.toLowerCase().trim();
+  ['r16','qf','sf','final'].forEach(stage=>{
+    const actual=ko[stage]||[];if(!actual.length)return;
+    (bracket[stage]||[]).forEach(team=>{
+      if(!actual.some(t=>norm(t)===norm(team)))return;
+      const C=STATE.players.filter(p=>(p.bracket[stage]||[]).some(t=>norm(t)===norm(team))).length;
+      const base=N<=1?100:Math.round(100-90*(C-1)/(N-1));
+      res[stage]+=Math.round(base*COPABET_ROUND_MULT[stage]);
+    });
+    res.total+=res[stage];
+  });
+  ['winner','bronze'].forEach(key=>{
+    const actual=ko[key];const pick=bracket[key];
+    if(!actual||!pick||norm(actual)!==norm(pick))return;
+    const C=STATE.players.filter(p=>norm(p.bracket[key]||'')===norm(actual)).length;
+    const base=N<=1?100:Math.round(100-90*(C-1)/(N-1));
+    res[key]=Math.round(base*COPABET_ROUND_MULT[key]);
+    res.total+=res[key];
+  });
+  return res;
+}
+
+function calcOddsGroupPoints(player){
+  let pts=0,correct=0,total=0;
+  STATE.matches.forEach(m=>{
+    if(!m.result)return;
+    total++;
+    if(player.picks[m.id]!==m.result)return;
+    correct++;
+    const p=m.odds?m.odds[m.result]:null;
+    pts+=p?Math.round((1/p)*10)/10:1;
+  });
+  return{pts:Math.round(pts*10)/10,correct,total};
+}
+
+function calcScoreByMode(player,goalsWinners){
+  if(LB_SCORING_MODE==='copabet'){
+    const gp=calcCopabetGroupPoints(player),bp=calcCopabetBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
+    return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total,_bp:bp};
+  }
+  if(LB_SCORING_MODE==='odds'){
+    const gp=calcOddsGroupPoints(player),bp=calcBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
+    return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total,_bp:bp};
+  }
+  const gp=calcPoints(player),bp=calcBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
+  return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total,_bp:bp};
+}
+
+function setLbMode(mode,btn){
+  LB_SCORING_MODE=mode;
+  document.querySelectorAll('.sm-btn').forEach(b=>b.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  const note=document.getElementById('scoring-mode-note');
+  if(note){
+    if(mode==='official'){note.style.display='none';}
+    else{
+      const labels={copabet:'Copabet — Friendly Odds™ (rare correct picks score more)',odds:'Odds — points = 1 ÷ probability of the outcome'};
+      note.textContent=`Hypothetical scoring: ${labels[mode]}`;
+      note.style.display='block';
+    }
+  }
+  renderLeaderboard();
+}
+
 // ── LEADERBOARD BREAKDOWN ─────────────────────────────────────────────────────
 function formArrow(name, currentRank){
   const prev=STATE.prevRanks?.[name];
@@ -1124,8 +1216,9 @@ function toggleLbBreakdown(name,e){
 }
 
 function renderPlayerBreakdown(player, goalsWinners){
-  const gp=calcPoints(player);
-  const bp=calcBracketPoints(player);
+  const score=calcScoreByMode(player,goalsWinners);
+  const gp={pts:score.groupPts,correct:score.correct,total:score.total};
+  const bp=score._bp;
   const ko=STATE.knockout||{};
   const sp=STATE.special||{};
   const picks=player.special||{};
@@ -1168,7 +1261,7 @@ function renderPlayerBreakdown(player, goalsWinners){
       right=`<span style="color:var(--muted)">not played yet</span>`;
     } else if(!multi){
       right=earned>0
-        ?`<span class="lbd-pts" style="color:var(--green)">✓ +${pts}</span>`
+        ?`<span class="lbd-pts" style="color:var(--green)">✓ +${earned}</span>`
         :`<span style="color:var(--red)">✗</span>`;
     } else {
       const correct=predicted.filter(t=>actual.some(a=>a.toLowerCase().trim()===t.toLowerCase().trim())).length;
@@ -1368,10 +1461,7 @@ function computeConsensusStandings(){
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
-  const scored=STATE.players.map(p=>{
-    const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p,goalsWinners);
-    return{...p,groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total};
-  }).sort((a,b)=>b.pts-a.pts);
+  const scored=STATE.players.map(p=>({...p,...calcScoreByMode(p,goalsWinners)})).sort((a,b)=>b.pts-a.pts);
   // Eliminated: can't reach the leader even winning everything, or is behind someone with identical picks.
   const leaderPts=scored.length?scored[0].pts:0;
   const picksKey=p=>JSON.stringify(p.picks||{})+'|'+JSON.stringify(p.bracket||{})+'|'+JSON.stringify(p.special||{});
