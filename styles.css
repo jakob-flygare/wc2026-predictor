@@ -631,6 +631,15 @@
   .tp-empty { color:var(--muted); font-size:0.82rem; padding:0.45rem 0.75rem; }
 
 /* ── SCORING MODE SELECTOR ─────────────────────────────────────────────────── */
+/* ── PLAYER BADGES ─────────────────────────────────────────────────────────── */
+.player-badge { display:inline-flex; align-items:center; gap:3px; padding:1px 7px 2px; border-radius:20px; font-size:10px; font-weight:600; margin-left:6px; vertical-align:middle; cursor:default; white-space:nowrap; }
+.badge-upset   { background:rgba(234,179,8,0.12);   color:#facc15; border:1px solid rgba(234,179,8,0.3); }
+.badge-lone    { background:rgba(99,102,241,0.12);  color:#a5b4fc; border:1px solid rgba(99,102,241,0.3); }
+.badge-gambler { background:rgba(239,68,68,0.12);   color:#f87171; border:1px solid rgba(239,68,68,0.3); }
+.badge-safe    { background:rgba(59,130,246,0.12);  color:#93c5fd; border:1px solid rgba(59,130,246,0.3); }
+.badge-maverick{ background:rgba(168,85,247,0.12);  color:#d8b4fe; border:1px solid rgba(168,85,247,0.3); }
+.badge-sheep   { background:rgba(20,184,166,0.12);  color:#5eead4; border:1px solid rgba(20,184,166,0.3); }
+
 /* ── POINTS CHART ──────────────────────────────────────────────────────────── */
 .lb-chart-card { background:var(--surface2); border-radius:10px; padding:14px 16px; margin-top:20px; border:1px solid var(--border); }
 

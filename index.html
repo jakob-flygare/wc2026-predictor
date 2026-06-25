@@ -1647,6 +1647,64 @@ function computeConsensusStandings(){
   return result;
 }
 
+// ── PLAYER BADGES ────────────────────────────────────────────────────────────
+function computeBadges(){
+  const players=STATE.players;
+  const resolved=STATE.matches.filter(m=>m.result);
+  const map=new Map();
+  if(players.length<2||!resolved.length)return map;
+
+  // Helper: assign a badge to the first player in a ranked list not yet badged
+  const assign=(ranked,badge)=>{
+    for(const{idx,val}of ranked){
+      if(!map.has(players[idx].name)){
+        const b={...badge};
+        if(b.tip&&b.tip.includes('__VAL__'))b.tip=b.tip.replace('__VAL__',val);
+        map.set(players[idx].name,b);
+        return;
+      }
+    }
+  };
+
+  // ⚡ Upset King — most correct picks where odds < 35%
+  const upsets=players.map((p,i)=>({idx:i,val:resolved.filter(m=>m.odds&&m.odds[m.result]<0.35&&p.picks[m.id]===m.result).length})).sort((a,b)=>b.val-a.val);
+  if(upsets[0].val>0)assign(upsets,{icon:'⚡',label:'Upset King',tip:'Correctly called __VAL__ upsets (sub-35% odds)',cls:'badge-upset'});
+
+  // 🐺 Lone Wolf — most solo correct picks
+  const lone=players.map((p,i)=>({idx:i,val:resolved.filter(m=>{
+    if(p.picks[m.id]!==m.result)return false;
+    return players.filter(o=>o.picks[m.id]===m.result).length===1;
+  }).length})).sort((a,b)=>b.val-a.val);
+  if(lone[0].val>0)assign(lone,{icon:'🐺',label:'Lone Wolf',tip:'Got __VAL__ picks right that nobody else did',cls:'badge-lone'});
+
+  // 🎲 Gambler / 🛡️ Safety First — by avg implied probability of picks
+  const avgP=players.map((p,i)=>{
+    const ms=resolved.filter(m=>m.odds&&p.picks[m.id]);
+    const val=ms.length?ms.reduce((s,m)=>s+(m.odds[p.picks[m.id]]||0.33),0)/ms.length:null;
+    return{idx:i,val};
+  }).filter(x=>x.val!==null);
+  if(avgP.length>=2){
+    assign([...avgP].sort((a,b)=>a.val-b.val),{icon:'🎲',label:'Gambler',tip:'Picks the longest odds most consistently',cls:'badge-gambler'});
+    assign([...avgP].sort((a,b)=>b.val-a.val),{icon:'🛡️',label:'Safety First',tip:'Always backs the favourite',cls:'badge-safe'});
+  }
+
+  // 🦅 Maverick / 🐑 Crowd Pleaser — by alignment with group consensus
+  const majorities=resolved.map(m=>{
+    const c={home:0,draw:0,away:0};
+    players.forEach(p=>{if(p.picks[m.id])c[p.picks[m.id]]++;});
+    return Object.entries(c).sort((a,b)=>b[1]-a[1])[0][0];
+  });
+  const align=players.map((p,i)=>{
+    const total=resolved.filter(m=>p.picks[m.id]).length;
+    const val=total?resolved.filter((m,j)=>p.picks[m.id]===majorities[j]).length/total:0.5;
+    return{idx:i,val};
+  });
+  assign([...align].sort((a,b)=>a.val-b.val),{icon:'🦅',label:'Maverick',tip:'Bets against the crowd most often',cls:'badge-maverick'});
+  assign([...align].sort((a,b)=>b.val-a.val),{icon:'🐑',label:'Crowd Pleaser',tip:'Bets with the majority most often',cls:'badge-sheep'});
+
+  return map;
+}
+
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
@@ -1701,6 +1759,7 @@ function renderLeaderboard(){
     shareArea.innerHTML=`<button class="share-btn" onclick="shareLeaderboard(this)" title="Share leaderboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg></button>`;
   }else if(shareArea){shareArea.innerHTML='';}
   const rc=['rank-1','rank-2','rank-3'];
+  const badgeMap=computeBadges();
   lbGrid.innerHTML=scored.length
     ?scored.map((p,i)=>{
         const rank=i+1;
@@ -1710,6 +1769,8 @@ function renderLeaderboard(){
         const id=lbId(p.name);
         const streak=calcHotStreak(p);
         const streakBadge=streak>=3?`<span class="streak-badge" title="${streak} correct in a row">🔥${streak}</span>`:'';
+        const bdg=badgeMap.get(p.name);
+        const bdgHtml=bdg?`<span class="player-badge ${bdg.cls}" title="${bdg.tip}">${bdg.icon} ${bdg.label}</span>`:'';
         if(locked){
           return`<div class="lb-wrap" onclick="toggleLbBreakdown('${p.name.replace(/'/g,"\\'")}',event)">
             <div class="lb-row">
@@ -1723,7 +1784,7 @@ function renderLeaderboard(){
           <div class="lb-row ${rc[i]||''}${p.eliminated?' lb-eliminated':''}">
             <div class="rank-num">${rank}${arrow}</div>
             <div>
-              <div class="lb-name">${p.name}${bTag}${streakBadge}</div>
+              <div class="lb-name">${p.name}${bTag}${streakBadge}${bdgHtml}</div>
               <div class="lb-meta"><span class="lb-ok">✓</span> ${p.correct}/${p.total} games correct</div>
               ${(()=>{const w=calcSpecialsWon(p,goalsWinners);return `<div class="lb-meta"><span class="lb-ok">✓</span> ${w} special bet${w!==1?'s':''} won</div>`;})()}
             </div>
