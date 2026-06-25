@@ -39,8 +39,9 @@
     <button class="tab" onclick="showTab('picks',this)">All Picks</button>
     <button class="tab" onclick="showTab('special',this)">Special Bets</button>
     <button class="tab" onclick="showTab('bracket',this)">Standings</button>
+    <button class="tab" onclick="showTab('road',this)">Road to the Cup</button>
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
-    <button class="tab" onclick="showTab('admin',this)">⚙ Settings</button>
+    <button class="tab" onclick="showTab('admin',this)">Settings</button>
   </nav>
 </div>
 
@@ -108,6 +109,17 @@
     </div>
     <div id="bracket-content">
     </div>
+  </div>
+</div>
+
+<!-- ROAD TO THE CUP -->
+<div id="road" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-title">Road to the Cup</div>
+      <div class="section-sub">Pick a team to see its most likely path to the trophy — projected opponents and win odds at every round</div>
+    </div>
+    <div id="road-content"></div>
   </div>
 </div>
 
@@ -700,6 +712,11 @@ const R32_BRACKET=[
   {home:{type:'w', group:'K'},away:{type:'b3',groups:['D','E','I','J','L']}},
   {home:{type:'ru',group:'D'},away:{type:'ru',group:'G'}},
 ];
+// Knockout feed chains (indices into the previous round). R32 idx 0-15 = matches 73-88.
+const R16_FEED=[[1,4],[0,2],[3,5],[6,7],[10,11],[8,9],[13,15],[12,14]]; // R16 0-7 ← R32 idxs
+const QF_FEED=[[0,1],[4,5],[2,3],[6,7]];   // QF 0-3 ← R16 idxs
+const SF_FEED=[[0,1],[2,3]];               // SF 0-1 ← QF idxs
+const FINAL_FEED=[0,1];                    // Final ← SF idxs
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
@@ -2338,10 +2355,224 @@ function renderPathsTab(){  // kept as no-op for safety
 }
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
+let bracketView='groups';   // 'groups' | 'bracket'
+function setBracketView(v){ bracketView=v; renderBracketTab(); }
+
 function renderBracketTab(){
   const cont=document.getElementById('bracket-content');
   if(!cont)return;
+  const toggle=`<div class="bracket-view-toggle">
+    <button class="bvt-btn${bracketView==='groups'?' active':''}" onclick="setBracketView('groups')">Groups</button>
+    <button class="bvt-btn${bracketView==='bracket'?' active':''}" onclick="setBracketView('bracket')">Bracket</button>
+  </div>`;
+  cont.innerHTML=toggle+(bracketView==='bracket'?renderKnockoutBracket():renderGroupStandings());
+  applyFlags('bracket-content');
+  if(bracketView==='bracket'){
+    requestAnimationFrame(drawBracketLines);
+    setTimeout(drawBracketLines,250);   // re-measure after twemoji flags settle
+    if(!window.__kbResize){ window.__kbResize=true; addEventListener('resize',()=>{ if(bracketView==='bracket'&&document.getElementById('bracket')?.classList.contains('active')) drawBracketLines(); }); }
+  }
+}
 
+// ── KNOCKOUT BRACKET ──────────────────────────────────────────────────────────
+function kbGroupComplete(rows){ return rows.length>=4 && rows.every(t=>(t.pld||0)>=3); }
+function kbTeamMax(t){ return (t.pts||0)+3*Math.max(0,3-(t.pld||0)); }
+// Teams that can still finish in the top `n` of their group (guaranteed-ahead < n).
+function kbContenders(rows,n){ return rows.filter(t=>rows.filter(o=>o!==t&&(o.pts||0)>kbTeamMax(t)).length<n); }
+// Resolve one R32 slot to a clinched team or a list of still-possible teams.
+function resolveBracketSlot(slot,standings,best3rd,allComplete){
+  if(slot.type==='w'||slot.type==='ru'){
+    const rows=standings[slot.group]||[], pos=slot.type==='w'?0:1;
+    if(kbGroupComplete(rows)) return {team:rows[pos]?.team||null,candidates:[]};
+    let cont=kbContenders(rows,pos+1);
+    if(slot.type==='ru'){ const w=kbContenders(rows,1); if(w.length===1) cont=cont.filter(t=>t!==w[0]); }
+    if(cont.length===1) return {team:cont[0].team,candidates:[]};
+    return {team:null,candidates:cont.map(t=>t.team)};
+  }
+  if(slot.type==='b3'){
+    if(allComplete&&best3rd){ const t=best3rd.find(t=>slot.groups.includes(t.group)); return {team:t?t.team:null,candidates:[]}; }
+    return {team:null,candidates:slot.groups.map(g=>standings[g]?.[2]?.team).filter(Boolean)};
+  }
+  return {team:null,candidates:[]};
+}
+function renderKnockoutBracket(){
+  const official=STATE.standings&&Object.keys(STATE.standings).length>0;
+  const standings=official?STATE.standings:computeActualStandings();
+  const best3rd=getBest3rdPlace(standings);
+  const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const descFor=s=> s.type==='w'?('1'+s.group): s.type==='ru'?('2'+s.group): ('3·'+s.groups.join(''));
+  const slotCell=(res,desc)=>{
+    if(res.team) return `<div class="kb-team">${withFlag(res.team)}</div>`;
+    const c=res.candidates||[];
+    const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}" onclick="toggleFlagTip(this,event)">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
+    return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:'<span class="kb-tbd-txt">TBD</span>'}</div>`;
+  };
+  const r32Cell=idx=>{
+    const m=R32_BRACKET[idx];
+    return `<div class="kb-match kb-r32">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete),descFor(m.away))}</div>`;
+  };
+  const tbd=cls=>`<div class="kb-match ${cls}"><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div></div>`;
+  const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
+  const many=(n,cls)=>Array.from({length:n},()=>tbd(cls)).join('');
+  const leftR32=[1,4,0,2,10,11,8,9], rightR32=[3,5,6,7,13,15,12,14];
+  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('',many(4,'kb-r16'))}${col('',many(2,'kb-qf'))}${col('',tbd('kb-sf'))}</div>`;
+  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final')}<div class="kb-trophy">🏆</div></div>`;
+  const right=`<div class="kb-side">${col('',tbd('kb-sf'))}${col('',many(2,'kb-qf'))}${col('',many(4,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
+  const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place · flags = teams that could still take a TBD spot</div>`;
+  return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;
+}
+
+// Draw bracket connector lines as an SVG overlay (measured from the live DOM, so it
+// works regardless of the variable cell heights). Lines sit behind the opaque cells.
+function drawBracketLines(){
+  const wrap=document.querySelector('.kbracket'); if(!wrap)return;
+  const svg=wrap.querySelector('.kb-lines'); if(!svg)return;
+  const W=wrap.offsetWidth, H=wrap.offsetHeight;
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`); svg.setAttribute('width',W); svg.setAttribute('height',H);
+  const base=wrap.getBoundingClientRect();
+  const box=el=>{const r=el.getBoundingClientRect();return{left:r.left-base.left,right:r.right-base.left,cy:(r.top+r.bottom)/2-base.top};};
+  const matches=col=>[...col.querySelectorAll('.kb-match')];
+  let d='';
+  const elbow=(f,p,side)=>{
+    const fx=side==='left'?f.right:f.left, px=side==='left'?p.left:p.right, midx=(fx+px)/2;
+    d+=`M ${fx} ${f.cy} H ${midx} V ${p.cy} H ${px} `;
+  };
+  // Connect each adjacent pair of feeder matches into the next-round match between them.
+  const link=(feeders,parents,side)=>{
+    parents.forEach((p,k)=>{ const a=feeders[2*k],b=feeders[2*k+1]; if(!a||!b||!p)return;
+      const pm=box(p); elbow(box(a),pm,side); elbow(box(b),pm,side); });
+  };
+  const sides=wrap.querySelectorAll('.kb-side');
+  if(sides.length<2)return;
+  const L=sides[0].querySelectorAll('.kb-col'), R=sides[1].querySelectorAll('.kb-col');
+  const fin=wrap.querySelector('.kb-final-col .kb-match');
+  // Left half: r32→r16→qf→sf  (cols 0..3)
+  link(matches(L[0]),matches(L[1]),'left');
+  link(matches(L[1]),matches(L[2]),'left');
+  link(matches(L[2]),matches(L[3]),'left');
+  // Right half: r32→r16→qf→sf  (cols 3→2→1→0)
+  link(matches(R[3]),matches(R[2]),'right');
+  link(matches(R[2]),matches(R[1]),'right');
+  link(matches(R[1]),matches(R[0]),'right');
+  // Semi-finals → final
+  const lsf=matches(L[3])[0], rsf=matches(R[0])[0];
+  if(lsf&&fin) elbow(box(lsf),box(fin),'left');
+  if(rsf&&fin) elbow(box(rsf),box(fin),'right');
+  svg.innerHTML=`<path d="${d}"/>`;
+}
+
+// ── PATH TO GLORY (most-likely run for a chosen team) ─────────────────────────
+let pathTeam='';
+function setPathTeam(v){ pathTeam=v; renderRoadTab(); }
+// A team is eliminated if it can no longer reach the knockout stage (can't make top 3 in
+// its group, or — once groups are done — finished 4th / missed the best-third cut).
+function isEliminated(team,standings){
+  standings=standings||(STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings());
+  const G=teamGroupOf(team); if(!G)return false;
+  const rows=standings[G]||[]; const t=rows.find(r=>r.team===team); if(!t)return false;
+  const maxPts=(t.pts||0)+3*Math.max(0,3-(t.pld||0));
+  const guaranteedAhead=rows.filter(o=>o.team!==team && (o.pts||0)>maxPts).length;
+  if(guaranteedAhead>=3) return true;  // can't even finish 3rd
+  const allComplete=Object.values(standings).every(r=>r.length>=4 && r.every(x=>(x.pld||0)>=3));
+  if(allComplete){
+    const pos=rows.findIndex(r=>r.team===team);
+    if(pos>=3) return true;            // finished 4th
+    if(pos===2 && !getBest3rdPlace(standings).map(x=>x.team).includes(team)) return true; // 3rd, missed best-8
+  }
+  return false;
+}
+// ── ROAD TO THE CUP TAB (most-likely path for a chosen team) ──────────────────
+function renderRoadTab(){
+  const cont=document.getElementById('road-content'); if(!cont)return;
+  const official=STATE.standings&&Object.keys(STATE.standings).length>0;
+  const standings=official?STATE.standings:computeActualStandings();
+  const str=computeStrengths();
+  const teams=[...new Set(STATE.matches.flatMap(m=>[shortName(m.home),shortName(m.away)]))].sort();
+  const opts=['<option value="">— pick a team —</option>'].concat(teams.map(t=>{
+    const e=isEliminated(t,standings);
+    return `<option value="${t.replace(/"/g,'&quot;')}"${e?' disabled':''}${t===pathTeam?' selected':''}>${t}${e?' — eliminated':''}</option>`;
+  })).join('');
+  const picker=`<div class="kb-path-picker"><span class="kb-path-label">Pick a team</span><select class="kb-path-select" onchange="setPathTeam(this.value)">${opts}</select></div>`;
+  const body=pathTeam ? renderTeamPath(pathTeam,standings,str)
+    : '<div class="kb-path-none" style="margin-top:0.25rem">Select a team above to see its projected route to the final — most likely opponents and win probability at every round.</div>';
+  cont.innerHTML=picker+body;
+  applyFlags('road-content');
+}
+// Team strength 0.05–0.95: average pre-match win odds where available, else from points.
+function computeStrengths(){
+  const standings=STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings();
+  const odds={}, s={}, teams=new Set();
+  STATE.matches.forEach(m=>{ const h=shortName(m.home),a=shortName(m.away); teams.add(h); teams.add(a);
+    if(m.odds){ (odds[h]=odds[h]||[]).push(m.odds.home); (odds[a]=odds[a]||[]).push(m.odds.away); } });
+  teams.forEach(t=>{
+    let str;
+    if(odds[t]&&odds[t].length){ str=odds[t].reduce((x,y)=>x+y,0)/odds[t].length; }
+    else { let row=null; Object.values(standings).forEach(rows=>{const r=rows.find(x=>x.team===t); if(r)row=r;});
+      str=(row&&row.pld)?0.15+0.7*(row.pts/(row.pld*3)):0.4; }
+    s[t]=Math.min(0.95,Math.max(0.05,str));
+  });
+  return s;
+}
+function teamGroupOf(team){ const m=STATE.matches.find(x=>shortName(x.home)===team||shortName(x.away)===team); return m?m.group.replace('Group ',''):null; }
+// Project a group's order: results first (points), strength as tiebreak / when no results.
+function projOrder(G,standings,str){ return (standings[G]||[]).slice().sort((a,b)=>(b.pts-a.pts)||((str[b.team]||0)-(str[a.team]||0))); }
+function pickStronger(a,b,str){ if(!a)return b; if(!b)return a; return (str[a]||0)>=(str[b]||0)?a:b; }
+function slotTeam(slot,standings,str){
+  if(slot.type==='w')  return projOrder(slot.group,standings,str)[0]?.team||null;
+  if(slot.type==='ru') return projOrder(slot.group,standings,str)[1]?.team||null;
+  if(slot.type==='b3'){ const c=slot.groups.map(g=>projOrder(g,standings,str)[2]?.team).filter(Boolean); return c.sort((a,b)=>(str[b]||0)-(str[a]||0))[0]||null; }
+  return null;
+}
+function renderTeamPath(team,standings,str){
+  const G=teamGroupOf(team); if(!G) return '';
+  if(isEliminated(team,standings)) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Eliminated — no longer able to reach the knockout stage.</div></div>`;
+  const rows=projOrder(G,standings,str);
+  const pos=rows.findIndex(r=>r.team===team);
+  if(pos<0) return '';
+  if(pos>2) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Projected to finish ${pos+1}${['','st','nd','rd'][pos+1]||'th'} in Group ${G} — unlikely to reach the knockout stage.</div></div>`;
+  // Find the R32 match + opponent slot for the projected finish.
+  let ti=-1, oppSlot=null;
+  if(pos<2){ const type=pos===0?'w':'ru';
+    ti=R32_BRACKET.findIndex(m=>(m.home.type===type&&m.home.group===G)||(m.away.type===type&&m.away.group===G));
+    const m=R32_BRACKET[ti]; oppSlot=(m.home.type===type&&m.home.group===G)?m.away:m.home;
+  } else { ti=R32_BRACKET.findIndex(m=>(m.home.type==='b3'&&m.home.groups.includes(G))||(m.away.type==='b3'&&m.away.groups.includes(G)));
+    if(ti>=0){ const m=R32_BRACKET[ti]; oppSlot=(m.home.type==='b3'&&m.home.groups.includes(G))?m.away:m.home; } }
+  if(ti<0) return '';
+  // Most-likely survivor of any subtree.
+  const r32W=i=>{const m=R32_BRACKET[i];return pickStronger(slotTeam(m.home,standings,str),slotTeam(m.away,standings,str),str);};
+  const r16W=i=>pickStronger(r32W(R16_FEED[i][0]),r32W(R16_FEED[i][1]),str);
+  const qfW =i=>pickStronger(r16W(QF_FEED[i][0]),r16W(QF_FEED[i][1]),str);
+  const sfW =i=>pickStronger(qfW(SF_FEED[i][0]),qfW(SF_FEED[i][1]),str);
+  const r16i=R16_FEED.findIndex(f=>f.includes(ti)), sibR32=R16_FEED[r16i].find(x=>x!==ti);
+  const qfi =QF_FEED.findIndex(f=>f.includes(r16i)), sibR16=QF_FEED[qfi].find(x=>x!==r16i);
+  const sfi =SF_FEED.findIndex(f=>f.includes(qfi)), sibQf=SF_FEED[sfi].find(x=>x!==qfi);
+  const otherSf=FINAL_FEED.find(x=>x!==sfi);
+  const rounds=[
+    {label:'Round of 32',  opp:slotTeam(oppSlot,standings,str)},
+    {label:'Round of 16',  opp:r32W(sibR32)},
+    {label:'Quarter-final',opp:r16W(sibR16)},
+    {label:'Semi-final',   opp:qfW(sibQf)},
+    {label:'Final',        opp:sfW(otherSf)},
+  ];
+  const sT=str[team]||0.4; let cum=1;
+  const rowsHtml=rounds.map(r=>{
+    const sO=r.opp?(str[r.opp]||0.4):0;
+    const p=r.opp? sT/(sT+sO) : 0.99; cum*=p;
+    const pct=Math.round(p*100);
+    return `<div class="kb-path-row">
+      <div class="kb-path-round">${r.label}</div>
+      <div class="kb-path-opp">${r.opp?'vs '+withFlag(r.opp):'<span class="kb-tbd-txt">TBD</span>'}</div>
+      <div class="kb-path-prob"><div class="kb-pp-bar"><span style="width:${pct}%"></span></div><div class="kb-pp-nums">${pct}%${r.opp?` · ${100-pct}%`:''}</div></div>
+    </div>`;
+  }).join('');
+  const note=pos===2?'<div class="kb-path-note">Assumes qualification as one of the best third-placed teams.</div>':'';
+  return `<div class="kb-path">
+    <div class="kb-path-head">${withFlag(team)} — projected run <span class="kb-path-win">${(cum*100).toFixed(1)}% to lift the trophy</span></div>
+    ${rowsHtml}${note}
+  </div>`;
+}
+
+function renderGroupStandings(){
   const official=STATE.standings&&Object.keys(STATE.standings).length>0;
   const standings=official?STATE.standings:computeActualStandings();
   const anyResults=STATE.matches.some(m=>m.result);
@@ -2386,8 +2617,18 @@ function renderBracketTab(){
   });
   html+='</div>';
   if(!anyResults) html+='<div class="no-bracket-msg" style="margin-top:1rem">No results yet — standings update after each match</div>';
-  cont.innerHTML=html;
-  applyFlags('bracket-content');
+  return html;
+}
+
+// Tap a candidate flag (mobile) to show/hide its team-name tooltip. Desktop uses :hover.
+function toggleFlagTip(el,ev){
+  ev.stopPropagation();
+  const open=el.classList.contains('show');
+  document.querySelectorAll('.kb-cand.show').forEach(x=>x.classList.remove('show'));
+  if(!open) el.classList.add('show');
+}
+if(!window.__kbTipBound){ window.__kbTipBound=true;
+  document.addEventListener('click',()=>document.querySelectorAll('.kb-cand.show').forEach(x=>x.classList.remove('show')));
 }
 
 function toggleBracketGroup(g){
@@ -3047,6 +3288,7 @@ function showTab(id,el){
   if(id==='admin')  renderAdminTab();
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
+  if(id==='road')   renderRoadTab();
   if(id==='matches'&&matchSortMode==='date') setTimeout(scrollToNextMatch, 80);
   else window.scrollTo(0,0);
 }
@@ -3099,6 +3341,7 @@ function renderAll(){
   const active=document.querySelector('.section.active');
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
+  if(active?.id==='road')  renderRoadTab();
   renderLiveRail();
   updateSpoilerBtn();
 }

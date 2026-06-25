@@ -179,6 +179,55 @@
   .gp-label { font-size:0.78rem; color:var(--muted); margin-bottom:0.5rem; }
   .gp-bar { height:6px; background:var(--surface2); border-radius:999px; overflow:hidden; }
   .gp-fill { height:100%; background:var(--gold); border-radius:999px; transition:width .3s ease; }
+  /* Groups / Bracket view toggle */
+  .bracket-view-toggle { display:flex; gap:8px; margin-bottom:1.1rem; }
+  .bvt-btn { padding:6px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background .15s,color .15s; }
+  .bvt-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }
+  [data-theme="light"] .bvt-btn.active { background:#C9A84C; }
+  /* Classic two-sided playoff bracket */
+  .kbracket-scroll { overflow-x:auto; padding:1.6rem 0 0.5rem; }
+  .kbracket { display:flex; align-items:stretch; gap:16px; min-width:1080px; position:relative; }
+  .kb-lines { position:absolute; inset:0; z-index:0; pointer-events:none; overflow:visible; }
+  .kb-lines path { fill:none; stroke:var(--muted); stroke-width:1.5; opacity:0.45; }
+  .kb-side { display:flex; gap:16px; position:relative; z-index:1; }
+  .kb-final-col { position:relative; z-index:1; }
+  .kb-col { display:flex; flex-direction:column; justify-content:space-around; gap:6px; min-width:106px; }
+  .kb-final-col { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.5rem; min-width:120px; }
+  .kb-final-label { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.08em; color:var(--gold); }
+  .kb-trophy { font-size:1.4rem; }
+  .kb-match { background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+  .kb-match.kb-final { border-color:var(--gold); box-shadow:0 0 0 1px rgba(201,168,76,0.4); min-width:118px; }
+  .kb-team { display:flex; align-items:center; gap:4px; padding:5px 8px; font-size:0.72rem; font-weight:600; color:var(--text); white-space:nowrap; min-height:30px; }
+  .kb-team+.kb-team { border-top:1px solid var(--border); }
+  .kb-team.kb-tbd { color:var(--muted); font-weight:500; gap:4px; flex-wrap:wrap; white-space:normal; }
+  .kb-tag { font-size:0.58rem; font-weight:700; letter-spacing:0.02em; color:var(--gold); flex-shrink:0; }
+  .kb-cands { display:inline-flex; flex-wrap:wrap; gap:2px; opacity:0.9; }
+  .kb-cands img.emoji { height:0.95em; }
+  .kb-more { font-size:0.58rem; color:var(--muted); align-self:center; }
+  /* Candidate flag tooltip — hover on desktop, tap on mobile */
+  .kb-cand { position:relative; display:inline-flex; cursor:pointer; }
+  .kb-cand::after { content:attr(data-name); position:absolute; left:50%; bottom:calc(100% + 5px); transform:translateX(-50%); background:var(--surface2); color:var(--text); border:1px solid var(--border); padding:2px 7px; border-radius:5px; font-size:0.66rem; font-weight:600; white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .12s; z-index:40; box-shadow:0 4px 12px rgba(0,0,0,0.35); }
+  @media (hover:hover){ .kb-cand:hover::after { opacity:1; } }
+  .kb-cand.show::after { opacity:1; }
+  .kb-tbd-txt { font-size:0.66rem; letter-spacing:0.04em; }
+  .kb-legend { font-size:0.7rem; color:var(--muted); margin-top:0.6rem; line-height:1.4; }
+  /* Path to glory */
+  .kb-path-picker { display:flex; align-items:center; gap:0.6rem; margin-bottom:1rem; flex-wrap:wrap; }
+  .kb-path-label { font-family:'Bebas Neue',sans-serif; font-size:1.05rem; letter-spacing:0.05em; color:var(--gold); }
+  .kb-path-select { background:var(--surface2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:0.4rem 0.7rem; font-family:'DM Sans',sans-serif; font-size:0.85rem; cursor:pointer; }
+  .kb-path { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem 1.1rem; margin-bottom:1.25rem; }
+  .kb-path-head { font-size:0.95rem; font-weight:700; color:var(--text); margin-bottom:0.8rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:0.5rem; }
+  .kb-path-win { font-size:0.78rem; font-weight:600; color:var(--gold-light); background:rgba(201,168,76,0.14); padding:0.15rem 0.55rem; border-radius:999px; }
+  .kb-path-none { font-size:0.82rem; color:var(--muted); }
+  .kb-path-note { font-size:0.7rem; color:var(--muted); margin-top:0.7rem; font-style:italic; }
+  .kb-path-row { display:grid; grid-template-columns:96px 1fr 120px; align-items:center; gap:0.6rem; padding:0.5rem 0; border-top:1px solid var(--border); }
+  .kb-path-row:first-of-type { border-top:none; }
+  .kb-path-round { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--gold); }
+  .kb-path-opp { font-size:0.85rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .kb-pp-bar { height:6px; background:var(--surface2); border-radius:999px; overflow:hidden; }
+  .kb-pp-bar span { display:block; height:100%; background:var(--gold); border-radius:999px; }
+  .kb-pp-nums { font-size:0.66rem; color:var(--muted); margin-top:3px; text-align:right; }
+  @media (max-width:600px){ .kb-path-row { grid-template-columns:74px 1fr 84px; gap:0.4rem; } }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
   #matches-sort-bar { position:sticky; top:48px; z-index:90; background:var(--bg); }
@@ -246,9 +295,6 @@
   .match-card.mc-nextup:hover { border-color:var(--gold); box-shadow:0 0 22px rgba(201,168,76,0.22); transform:translateY(-2px); }
   .mc-pill-next { background:rgba(201,168,76,0.2); color:var(--gold-light); white-space:nowrap; }
   .mc-nextup .mc-statusrow { position:relative; z-index:2; }
-  /* Played matches are less prominent than live/upcoming; restored on hover or when expanded */
-  .match-card.mc-finished { opacity:0.55; transition:opacity .15s; }
-  .match-card.mc-finished:hover, .match-card.mc-finished:has(.match-scorers.open) { opacity:1; }
   .match-wrap { margin-bottom: 0.4rem; }
   /* Detail lives inside the card now — no own border; a top line separates it from the head. */
   .match-scorers { display:none; border-top:1px solid var(--border); padding:0.2rem 1.2rem 0.7rem; }
