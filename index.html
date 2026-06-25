@@ -2562,7 +2562,7 @@ function renderTeamPath(team,standings,str){
     return `<div class="kb-path-row">
       <div class="kb-path-round">${r.label}</div>
       <div class="kb-path-opp">${r.opp?'vs '+withFlag(r.opp):'<span class="kb-tbd-txt">TBD</span>'}</div>
-      <div class="kb-path-prob"><div class="kb-pp-bar"><span style="width:${pct}%"></span></div><div class="kb-pp-nums">${pct}%${r.opp?` · ${100-pct}%`:''}</div></div>
+      <div class="kb-path-prob"><div class="kb-pp-bar"><span style="width:${pct}%"></span></div><div class="kb-pp-nums">${pct}%</div></div>
     </div>`;
   }).join('');
   const note=pos===2?'<div class="kb-path-note">Assumes qualification as one of the best third-placed teams.</div>':'';

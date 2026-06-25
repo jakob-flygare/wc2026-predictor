@@ -91,7 +91,7 @@
   .spoiler-toggle.on .spoiler-knob { transform:translateX(16px); background:#0A0C0F; }
   @media (max-width:600px){ .spoiler-toggle-label { display:none; } }
 
-  nav { display: flex; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
+  nav { display: flex; justify-content: safe center; border-bottom: 1px solid var(--border); overflow-x: auto; scrollbar-width: none; }
   nav::-webkit-scrollbar { display: none; }
   .tab { flex-shrink: 0; padding: 0.9rem 1.5rem; font-size: 0.82rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; background: none; border-top: none; border-left: none; border-right: none; white-space: nowrap; font-family: 'DM Sans', sans-serif; }
   .tab:hover { color: var(--text); }
