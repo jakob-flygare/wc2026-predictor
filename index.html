@@ -1306,6 +1306,41 @@ function renderPlayerBreakdown(player, goalsWinners){
     html+=`<div class="lbd-section"><div class="lbd-title">Special Bets</div>${sbHtml}</div>`;
   }
 
+  // ── Top / Worst picks vs group ──
+  const N2=STATE.players.length;
+  if(N2>1){
+    const resolved=STATE.matches.filter(m=>m.result&&player.picks[m.id]);
+    if(resolved.length>0){
+      const deltas=resolved.map(m=>{
+        const myPick=player.picks[m.id];
+        const correct=myPick===m.result;
+        const correctCount=STATE.players.filter(p=>p.picks[m.id]===m.result).length;
+        const delta=correct?1-correctCount/N2:-correctCount/N2;
+        return{m,myPick,correct,correctCount,delta};
+      }).sort((a,b)=>b.delta-a.delta);
+      const top=deltas.filter(d=>d.delta>0).slice(0,3);
+      const worst=[...deltas].reverse().filter(d=>d.delta<0).slice(0,3);
+      const pickName=d=>d.myPick==='draw'?'Draw':d.myPick==='home'?d.m.home:d.m.away;
+      const matchStr=m=>`${m.home} vs ${m.away}`;
+      let twHtml='';
+      if(top.length){
+        twHtml+=`<div class="lbd-title" style="color:var(--green)">Top picks vs group</div>`;
+        top.forEach(d=>{
+          const lbl=d.correctCount===1?'Only you got this!':d.correctCount===N2?`Everyone got this`:`${d.correctCount}/${N2} got this right`;
+          twHtml+=`<div class="lbd-row"><span class="lbd-label" style="font-size:0.8rem">${matchStr(d.m)}<br><span style="color:var(--green)">${pickName(d)} ✓  ·  ${lbl}</span></span></div>`;
+        });
+      }
+      if(worst.length){
+        twHtml+=`<div class="lbd-title" style="color:var(--red);${top.length?'margin-top:8px':''}">Worst picks vs group</div>`;
+        worst.forEach(d=>{
+          const lbl=d.correctCount===N2?'Everyone else got this':d.correctCount===0?'Nobody got this right':`${d.correctCount}/${N2} got this right`;
+          twHtml+=`<div class="lbd-row"><span class="lbd-label" style="font-size:0.8rem">${matchStr(d.m)}<br><span style="color:var(--red)">${pickName(d)} ✗  ·  ${lbl}</span></span></div>`;
+        });
+      }
+      if(twHtml) html+=`<div class="lbd-section">${twHtml}</div>`;
+    }
+  }
+
   return html;
 }
 
@@ -1397,16 +1432,13 @@ function buildRoundSummary(newMatches){
 // ── FEATURE: SHARE CARD ───────────────────────────────────────────────────────
 function generateShareText(){
   const goalsWinners=calcGoalsWinners();
-  const scored=STATE.players.map(p=>{
-    const gp=calcPoints(p),bp=calcBracketPoints(p),sp=calcSpecialPoints(p,goalsWinners);
-    return{...p,pts:gp.pts+bp.total+sp};
-  }).sort((a,b)=>b.pts-a.pts);
+  const scored=STATE.players.map(p=>({...p,...calcScoreByMode(p,goalsWinners)})).sort((a,b)=>b.pts-a.pts);
 
   const medals=['🥇','🥈','🥉'];
-  const arrows={up:'↑',down:'↓',same:'→'};
   const played=STATE.matches.filter(m=>m.result).length;
+  const modeLabels={official:'',copabet:' · Copabet scoring',odds:' · Odds scoring'};
 
-  let lines=['🏆 WC2026 — Lehman Brothers','─'.repeat(26)];
+  let lines=[`🏆 WC2026 — Lehman Brothers${modeLabels[LB_SCORING_MODE]}`,'─'.repeat(26)];
   scored.forEach((p,i)=>{
     const medal=medals[i]||'  ';
     const rank=i+1;
@@ -1414,7 +1446,8 @@ function generateShareText(){
     const arrow=!prev||prev===rank?'':prev>rank?`↑${prev-rank}`:`↓${rank-prev}`;
     const streak=calcHotStreak(p);
     const fire=streak>=3?` 🔥${streak}`:'';
-    lines.push(`${rank}. ${medal} ${p.name.padEnd(10)} ${String(p.pts).padStart(3)} pts ${arrow}${fire}`.trimEnd());
+    const pts=typeof p.pts==='number'?p.pts.toFixed(LB_SCORING_MODE==='odds'?1:0):p.pts;
+    lines.push(`${rank}. ${medal} ${p.name.padEnd(10)} ${String(pts).padStart(5)} pts ${arrow}${fire}`.trimEnd());
   });
   lines.push('','After '+played+'/104 matches played');
   lines.push('jakob-flygare.github.io/wc2026-predictor/');
