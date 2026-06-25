@@ -53,14 +53,15 @@
       <div id="lb-share-area"></div>
     </div>
     <div class="scoring-mode-bar">
-      <button class="sm-btn active" onclick="setLbMode('official',this)">Official</button>
-      <button class="sm-btn" onclick="setLbMode('copabet',this)">Copabet</button>
-      <button class="sm-btn" onclick="setLbMode('odds',this)">Odds</button>
+      <button class="sm-btn score-mode-btn active" onclick="setLbMode('official',this)">Official</button>
+      <button class="sm-btn score-mode-btn" onclick="setLbMode('copabet',this)">Copabet</button>
+      <button class="sm-btn score-mode-btn" onclick="setLbMode('odds',this)">Odds</button>
     </div>
     <div class="scoring-mode-note" id="scoring-mode-note" style="display:none"></div>
     <div class="games-progress" id="games-played-sub"></div>
     <div id="lb-error"></div>
     <div class="leaderboard-grid" id="lb-grid"></div>
+    <div id="lb-chart-area"></div>
   </div>
 </div>
 
@@ -1116,6 +1117,7 @@ function calcPoints(player){
 
 // ── ALTERNATIVE SCORING MODES ─────────────────────────────────────────────────
 let LB_SCORING_MODE='official'; // 'official' | 'copabet' | 'odds'
+let LB_CHART_MODE='normalized';  // 'normalized' | 'actual'
 
 function calcCopabetGroupPoints(player){
   let pts=0,correct=0,total=0;
@@ -1171,6 +1173,137 @@ function calcOddsGroupPoints(player){
   return{pts:Math.round(pts*10)/10,correct,total};
 }
 
+// ── POINTS PROGRESSION CHART ─────────────────────────────────────────────────
+function niceStep(range,n){
+  const r=range/n,mag=Math.pow(10,Math.floor(Math.log10(r))),f=r/mag;
+  if(f<1.5)return mag;if(f<3.5)return 2*mag;if(f<7.5)return 5*mag;return 10*mag;
+}
+
+function buildLbChartData(){
+  const N=STATE.players.length;
+  if(!N)return null;
+  const ms=[...STATE.matches].filter(m=>m.result).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||a.id-b.id);
+  if(ms.length<2)return null;
+  const pScores=STATE.players.map(p=>ms.map(m=>{
+    if(p.picks[m.id]!==m.result)return 0;
+    if(LB_SCORING_MODE==='copabet'){
+      const C=STATE.players.filter(q=>q.picks[m.id]===m.result).length;
+      return N<=1?100:Math.round(100-90*(C-1)/(N-1));
+    }
+    if(LB_SCORING_MODE==='odds')return m.odds?Math.round((1/m.odds[m.result])*10)/10:1;
+    return 1;
+  }));
+  const cum=pScores.map(s=>{let c=0;return s.map(v=>c+=v);});
+  const avg=ms.map((_,i)=>cum.reduce((s,c)=>s+c[i],0)/N);
+  const norm=cum.map(c=>c.map((v,i)=>v-avg[i]));
+  return{ms,cum,norm};
+}
+
+function setChartMode(mode){
+  LB_CHART_MODE=mode;
+  document.querySelectorAll('.chart-mode-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.chart-mode-btn').forEach(b=>{if(b.dataset.mode===mode)b.classList.add('active');});
+  renderLbChart();
+}
+
+function renderLbChart(){
+  const el=document.getElementById('lb-chart-area');
+  if(!el)return;
+  const data=buildLbChartData();
+  if(!data){el.innerHTML='';return;}
+  const{ms,cum,norm}=data;
+  const series=LB_CHART_MODE==='normalized'?norm:cum;
+  const M=ms.length,N=STATE.players.length;
+
+  const W=700,H=200,ml=42,mr=10,mt=14,mb=24;
+  const iW=W-ml-mr,iH=H-mt-mb;
+
+  const allV=series.flat();
+  let yMin=Math.min(...allV),yMax=Math.max(...allV);
+  if(LB_CHART_MODE==='normalized'){yMin=Math.min(yMin,0);yMax=Math.max(yMax,0);}
+  const yPad=Math.max((yMax-yMin)*0.08,0.5);
+  yMin-=yPad;yMax+=yPad;
+
+  const step=niceStep(yMax-yMin,5);
+  const t0=Math.ceil(yMin/step)*step;
+  const ticks=[];
+  for(let t=t0;t<=yMax+step*0.01;t+=step)ticks.push(+(t.toFixed(6)));
+
+  const xS=i=>ml+(M>1?i/(M-1)*iW:iW/2);
+  const yS=v=>mt+(1-(v-yMin)/(yMax-yMin))*iH;
+
+  let svg='';
+  // Gridlines
+  ticks.forEach(t=>{
+    const y=yS(t);
+    if(y<mt-2||y>mt+iH+2)return;
+    const isZ=LB_CHART_MODE==='normalized'&&Math.abs(t)<step*0.01;
+    svg+=`<line x1="${ml}" x2="${ml+iW}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="${isZ?'rgba(255,255,255,0.2)':'rgba(255,255,255,0.06)'}" stroke-width="${isZ?1.5:1}"/>`;
+    const lbl=LB_SCORING_MODE==='odds'?t.toFixed(1):Math.round(t);
+    svg+=`<text x="${(ml-5).toFixed(0)}" y="${(y+3.5).toFixed(1)}" text-anchor="end" font-size="10" fill="rgba(255,255,255,0.3)">${lbl}</text>`;
+  });
+  svg+=`<line x1="${ml}" x2="${ml+iW}" y1="${(mt+iH).toFixed(1)}" y2="${(mt+iH).toFixed(1)}" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>`;
+
+  // Lines (draw bottom-ranked first so leaders are on top)
+  const order=[...STATE.players.map((_,i)=>i)].sort((a,b)=>series[a][M-1]-series[b][M-1]);
+  order.forEach(pi=>{
+    const p=STATE.players[pi];
+    const pts=series[pi];
+    const coords=pts.map((v,i)=>`${xS(i).toFixed(1)},${yS(v).toFixed(1)}`).join(' ');
+    svg+=`<polyline data-pi="${pi}" points="${coords}" fill="none" stroke="${p.color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" opacity="0.85"/>`;
+    svg+=`<circle cx="${xS(M-1).toFixed(1)}" cy="${yS(pts[M-1]).toFixed(1)}" r="3" fill="${p.color}"/>`;
+  });
+
+  svg+=`<line id="lbc-vline" x1="0" x2="0" y1="${mt}" y2="${mt+iH}" stroke="rgba(255,255,255,0.3)" stroke-width="1" stroke-dasharray="3,3" display="none"/>`;
+  svg+=`<rect id="lbc-overlay" x="${ml}" y="${mt}" width="${iW}" height="${iH}" fill="transparent" style="cursor:crosshair"/>`;
+
+  const legend=STATE.players.map(p=>`<span style="display:inline-flex;align-items:center;gap:5px;margin:2px 10px 2px 0;font-size:11px;color:var(--muted)"><span style="width:14px;height:2px;background:${p.color};display:inline-block;border-radius:1px;flex-shrink:0"></span>${p.name}</span>`).join('');
+
+  el.innerHTML=`<div class="lb-chart-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:0.72rem;font-weight:600;color:var(--muted);letter-spacing:.06em;text-transform:uppercase">Points over time</div>
+      <div style="display:flex;gap:4px">
+        <button class="sm-btn chart-mode-btn${LB_CHART_MODE==='normalized'?' active':''}" data-mode="normalized" onclick="setChartMode('normalized')">vs avg</button>
+        <button class="sm-btn chart-mode-btn${LB_CHART_MODE==='actual'?' active':''}" data-mode="actual" onclick="setChartMode('actual')">Actual</button>
+      </div>
+    </div>
+    <div id="lbc-wrap" style="position:relative">
+      <svg id="lb-chart-svg" viewBox="0 0 ${W} ${H}" style="width:100%;display:block">${svg}</svg>
+      <div id="lbc-tooltip" style="position:absolute;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;pointer-events:none;display:none;z-index:20;min-width:130px;box-shadow:0 4px 16px rgba(0,0,0,0.4)"></div>
+    </div>
+    <div style="margin-top:8px;display:flex;flex-wrap:wrap">${legend}</div>
+  </div>`;
+
+  const svgEl=el.querySelector('#lb-chart-svg');
+  const overlay=el.querySelector('#lbc-overlay');
+  const vline=el.querySelector('#lbc-vline');
+  const tooltip=el.querySelector('#lbc-tooltip');
+  const wrap=el.querySelector('#lbc-wrap');
+
+  overlay.addEventListener('mousemove',e=>{
+    const rect=svgEl.getBoundingClientRect();
+    const svgX=(e.clientX-rect.left)/rect.width*W;
+    const idx=Math.max(0,Math.min(M-1,Math.round((svgX-ml)/iW*(M-1))));
+    const x=xS(idx);
+    vline.setAttribute('x1',x);vline.setAttribute('x2',x);vline.setAttribute('display','block');
+
+    const m=ms[idx];
+    const vals=STATE.players.map((p,pi)=>({name:p.name,color:p.color,val:series[pi][idx]})).sort((a,b)=>b.val-a.val);
+    const fmt=v=>LB_SCORING_MODE==='odds'?v.toFixed(1):Math.round(v);
+    const sign=v=>LB_CHART_MODE==='normalized'&&v>0?'+':'';
+    const rows=vals.map(v=>`<div style="display:flex;justify-content:space-between;gap:14px;margin-top:2px"><span style="color:${v.color}">${v.name}</span><span style="font-weight:600;color:var(--text)">${sign(v.val)}${fmt(v.val)}</span></div>`).join('');
+    tooltip.innerHTML=`<div style="color:var(--muted);font-size:10px;margin-bottom:5px">#${m.id} · ${m.home} vs ${m.away}</div>${rows}`;
+    tooltip.style.display='block';
+
+    const wRect=wrap.getBoundingClientRect();
+    const tx=e.clientX-wRect.left;
+    const tipW=tooltip.offsetWidth||150;
+    tooltip.style.left=(tx+12+tipW>wRect.width?tx-tipW-8:tx+12)+'px';
+    tooltip.style.top='8px';
+  });
+  overlay.addEventListener('mouseleave',()=>{vline.setAttribute('display','none');tooltip.style.display='none';});
+}
+
 function calcMatchDeltaByMode(player){
   const N=STATE.players.length;
   if(N<=1) return[];
@@ -1210,7 +1343,7 @@ function calcScoreByMode(player,goalsWinners){
 
 function setLbMode(mode,btn){
   LB_SCORING_MODE=mode;
-  document.querySelectorAll('.sm-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.score-mode-btn').forEach(b=>b.classList.remove('active'));
   if(btn)btn.classList.add('active');
   const note=document.getElementById('scoring-mode-note');
   if(note){
@@ -1600,6 +1733,7 @@ function renderLeaderboard(){
       }).join('')
     :'<div class="loading">No players yet — be the first to submit your picks!</div>';
   applyFlags('lb-grid');
+  renderLbChart();
 }
 
 // ── GROUP INTEREST SCORE ──────────────────────────────────────────────────────

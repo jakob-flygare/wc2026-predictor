@@ -631,6 +631,9 @@
   .tp-empty { color:var(--muted); font-size:0.82rem; padding:0.45rem 0.75rem; }
 
 /* ── SCORING MODE SELECTOR ─────────────────────────────────────────────────── */
+/* ── POINTS CHART ──────────────────────────────────────────────────────────── */
+.lb-chart-card { background:var(--surface2); border-radius:10px; padding:14px 16px; margin-top:20px; border:1px solid var(--border); }
+
 .scoring-mode-bar { display:flex; gap:6px; margin-bottom:10px; flex-wrap:wrap; }
 .sm-btn { padding:4px 14px; border-radius:20px; border:1px solid var(--border); background:var(--surface2); color:var(--muted); font-size:12px; cursor:pointer; transition:background .15s,color .15s,border-color .15s; }
 .sm-btn:hover { color:var(--text); border-color:rgba(255,255,255,0.15); }
