@@ -1171,6 +1171,30 @@ function calcOddsGroupPoints(player){
   return{pts:Math.round(pts*10)/10,correct,total};
 }
 
+function calcMatchDeltaByMode(player){
+  const N=STATE.players.length;
+  if(N<=1) return[];
+  return STATE.matches.filter(m=>m.result&&player.picks[m.id]).map(m=>{
+    const myPick=player.picks[m.id];
+    const correct=myPick===m.result;
+    const C=STATE.players.filter(p=>p.picks[m.id]===m.result).length;
+    let myPts,avgPts;
+    if(LB_SCORING_MODE==='copabet'){
+      const cPts=N<=1?100:Math.round(100-90*(C-1)/(N-1));
+      myPts=correct?cPts:0;
+      avgPts=C*cPts/N;
+    } else if(LB_SCORING_MODE==='odds'){
+      const oPts=m.odds?Math.round((1/m.odds[m.result])*10)/10:1;
+      myPts=correct?oPts:0;
+      avgPts=C/N*oPts;
+    } else {
+      myPts=correct?1:0;
+      avgPts=C/N;
+    }
+    return{m,myPick,correct,C,myPts,avgPts,delta:myPts-avgPts};
+  }).sort((a,b)=>b.delta-a.delta);
+}
+
 function calcScoreByMode(player,goalsWinners){
   if(LB_SCORING_MODE==='copabet'){
     const gp=calcCopabetGroupPoints(player),bp=calcCopabetBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
@@ -1306,35 +1330,34 @@ function renderPlayerBreakdown(player, goalsWinners){
     html+=`<div class="lbd-section"><div class="lbd-title">Special Bets</div>${sbHtml}</div>`;
   }
 
-  // ── Top / Worst picks vs group ──
+  // ── Top / Worst picks vs group (mode-aware) ──
   const N2=STATE.players.length;
   if(N2>1){
-    const resolved=STATE.matches.filter(m=>m.result&&player.picks[m.id]);
-    if(resolved.length>0){
-      const deltas=resolved.map(m=>{
-        const myPick=player.picks[m.id];
-        const correct=myPick===m.result;
-        const correctCount=STATE.players.filter(p=>p.picks[m.id]===m.result).length;
-        const delta=correct?1-correctCount/N2:-correctCount/N2;
-        return{m,myPick,correct,correctCount,delta};
-      }).sort((a,b)=>b.delta-a.delta);
+    const deltas=calcMatchDeltaByMode(player);
+    if(deltas.length>0){
       const top=deltas.filter(d=>d.delta>0).slice(0,3);
       const worst=[...deltas].reverse().filter(d=>d.delta<0).slice(0,3);
       const pickName=d=>d.myPick==='draw'?'Draw':d.myPick==='home'?d.m.home:d.m.away;
       const matchStr=m=>`${m.home} vs ${m.away}`;
+      const deltaLbl=(d,positive)=>{
+        if(LB_SCORING_MODE==='official'){
+          if(positive) return d.C===1?'Only you got this!':d.C===N2?'Everyone got this':`${d.C}/${N2} got this right`;
+          return d.C===N2?'Everyone else got this':d.C===0?'Nobody got this right':`${d.C}/${N2} got this right`;
+        }
+        const fmt=LB_SCORING_MODE==='copabet'?Math.round(Math.abs(d.delta)):+(Math.abs(d.delta).toFixed(1));
+        return (positive?'+':'−')+fmt+' pts vs group avg';
+      };
       let twHtml='';
       if(top.length){
         twHtml+=`<div class="lbd-title" style="color:var(--green)">Top picks vs group</div>`;
         top.forEach(d=>{
-          const lbl=d.correctCount===1?'Only you got this!':d.correctCount===N2?`Everyone got this`:`${d.correctCount}/${N2} got this right`;
-          twHtml+=`<div class="lbd-row"><span class="lbd-label" style="font-size:0.8rem">${matchStr(d.m)}<br><span style="color:var(--green)">${pickName(d)} ✓  ·  ${lbl}</span></span></div>`;
+          twHtml+=`<div class="lbd-row"><span class="lbd-label" style="font-size:0.8rem">${matchStr(d.m)}<br><span style="color:var(--green)">${pickName(d)} ✓  ·  ${deltaLbl(d,true)}</span></span></div>`;
         });
       }
       if(worst.length){
         twHtml+=`<div class="lbd-title" style="color:var(--red);${top.length?'margin-top:8px':''}">Worst picks vs group</div>`;
         worst.forEach(d=>{
-          const lbl=d.correctCount===N2?'Everyone else got this':d.correctCount===0?'Nobody got this right':`${d.correctCount}/${N2} got this right`;
-          twHtml+=`<div class="lbd-row"><span class="lbd-label" style="font-size:0.8rem">${matchStr(d.m)}<br><span style="color:var(--red)">${pickName(d)} ✗  ·  ${lbl}</span></span></div>`;
+          twHtml+=`<div class="lbd-row"><span class="lbd-label" style="font-size:0.8rem">${matchStr(d.m)}<br><span style="color:var(--red)">${pickName(d)} ✗  ·  ${deltaLbl(d,false)}</span></span></div>`;
         });
       }
       if(twHtml) html+=`<div class="lbd-section">${twHtml}</div>`;
