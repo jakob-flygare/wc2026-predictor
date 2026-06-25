@@ -1383,9 +1383,11 @@ function renderPlayerBreakdown(player, goalsWinners){
   let html='';
 
   // ── Streak ──
-  if(streak>0){
-    const label=streak>=3?`🔥 ${streak} correct in a row!`:`${streak} correct in a row`;
-    html+=`<div class="lbd-section"><div class="lbd-row"><span class="lbd-label">Current streak</span><span style="color:${streak>=3?'#F97316':'var(--text)'};font-weight:500">${label}</span></div></div>`;
+  const cold=calcColdStreak(player);
+  if(streak>0||cold>=2){
+    const label=streak>0?(streak>=3?`🔥 ${streak} correct in a row!`:`${streak} correct in a row`):`🧊 ${cold} incorrect in a row`;
+    const color=streak>0?(streak>=3?'#F97316':'var(--text)'):'#60a5fa';
+    html+=`<div class="lbd-section"><div class="lbd-row"><span class="lbd-label">Current streak</span><span style="color:${color};font-weight:500">${label}</span></div></div>`;
   }
 
   // ── Group stage ──
@@ -1500,16 +1502,22 @@ function renderPlayerBreakdown(player, goalsWinners){
   return html;
 }
 
-// ── FEATURE: HOT STREAK ───────────────────────────────────────────────────────
+// ── FEATURE: HOT / COLD STREAK ───────────────────────────────────────────────
 function calcHotStreak(player){
-  const finished=[...STATE.matches].filter(m=>m.result).sort((a,b)=>{
-    // sort by match id (proxy for chronological order within same date)
-    return a.id - b.id;
-  });
+  const finished=[...STATE.matches].filter(m=>m.result).sort((a,b)=>a.id-b.id);
   let streak=0;
   for(let i=finished.length-1;i>=0;i--){
-    const m=finished[i];
-    if(player.picks[m.id]===m.result)streak++;
+    if(player.picks[finished[i].id]===finished[i].result)streak++;
+    else break;
+  }
+  return streak;
+}
+
+function calcColdStreak(player){
+  const finished=[...STATE.matches].filter(m=>m.result).sort((a,b)=>a.id-b.id);
+  let streak=0;
+  for(let i=finished.length-1;i>=0;i--){
+    if(player.picks[finished[i].id]!==finished[i].result)streak++;
     else break;
   }
   return streak;
@@ -1768,7 +1776,8 @@ function renderLeaderboard(){
         const arrow=formArrow(p.name,rank);
         const id=lbId(p.name);
         const streak=calcHotStreak(p);
-        const streakBadge=streak>=3?`<span class="streak-badge" title="${streak} correct in a row">🔥${streak}</span>`:'';
+        const cold=calcColdStreak(p);
+        const streakBadge=streak>=3?`<span class="streak-badge" title="${streak} correct in a row">🔥${streak}</span>`:cold>=2?`<span class="streak-badge cold-streak" title="${cold} incorrect in a row">🧊${cold}</span>`:'';
         const bdg=badgeMap.get(p.name);
         const bdgHtml=bdg?`<span class="player-badge ${bdg.cls}" title="${bdg.tip}">${bdg.icon} ${bdg.label}</span>`:'';
         if(locked){

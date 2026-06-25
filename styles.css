@@ -117,6 +117,7 @@
   .share-btn:hover { border-color:var(--gold); color:var(--gold); }
   /* Streak badge */
   .streak-badge { font-size:0.75rem; margin-left:0.35rem; }
+  .cold-streak { opacity:0.85; }
   /* Settings page blocks + theme toggle */
   .settings-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1.25rem; }
   .settings-block-title { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.04em; color:var(--text); }
