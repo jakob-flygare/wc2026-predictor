@@ -40,6 +40,7 @@
     <button class="tab" onclick="showTab('special',this)">Special Bets</button>
     <button class="tab" onclick="showTab('bracket',this)">Standings</button>
     <button class="tab" onclick="showTab('road',this)">Road to the Cup</button>
+    <button class="tab" onclick="showTab('stats',this)">Stats</button>
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" onclick="showTab('admin',this)">Settings</button>
   </nav>
@@ -127,6 +128,17 @@
       <div class="section-sub">Pick a team to see its most likely path to the trophy — projected opponents and win odds at every round</div>
     </div>
     <div id="road-content"></div>
+  </div>
+</div>
+
+<!-- STATS -->
+<div id="stats" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-title">Stats</div>
+      <div class="section-sub">How often each player backed the favourite vs. a clear underdog</div>
+    </div>
+    <div id="stats-content"></div>
   </div>
 </div>
 
@@ -2072,12 +2084,24 @@ function renderMatches(){
       if(tot>0){
         const divergence=1-Math.max(hv.length,dv.length,av.length)/tot;
         const hasStakes=stakeLines.length>0;
+        // Bold pick: someone backed an outcome well below the favourite's probability
+        // (e.g. a draw at 21% when the favourite is 59% → a 38pt gap against the grain).
+        let maxBold=0;
+        if(m.odds){
+          const probOf=o=>o==='home'?(m.odds.home||0):o==='draw'?(m.odds.draw||0):(m.odds.away||0);
+          const fav=Math.max(m.odds.home||0,m.odds.draw||0,m.odds.away||0);
+          STATE.players.forEach(p=>{const o=p.picks[m.id]; if(!o)return; const b=fav-probOf(o); if(b>maxBold)maxBold=b;});
+        }
+        const bold=maxBold>=0.25;
         if(divergence>=0.2) score++;   // at least one dissenter
         if(divergence>=0.4) score++;   // genuine split
         if(hasStakes)       score++;   // special money on the table
+        if(bold)            score++;   // someone going hard against the odds
+        score=Math.min(3,score);
         if(divergence>=0.4) reasons.push('Picks heavily split');
         else if(divergence>=0.2) reasons.push('Picks divided');
         if(hasStakes) reasons.push('Special bets riding on it');
+        if(bold) reasons.push('Bold pick against the odds');
       }
       const filled='<span class="star filled">★</span>';
       const empty='<span class="star empty">★</span>';
@@ -2712,7 +2736,9 @@ function renderPathsTab(){  // kept as no-op for safety
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
 let bracketView='groups';   // 'groups' | 'bracket'
+let bracketLive=false;      // bracket: fill R32 from current standings as if final
 function setBracketView(v){ bracketView=v; renderBracketTab(); }
+function setBracketLive(v){ bracketLive=v; renderBracketTab(); }
 
 function renderBracketTab(){
   const cont=document.getElementById('bracket-content');
@@ -2720,6 +2746,7 @@ function renderBracketTab(){
   const toggle=`<div class="bracket-view-toggle">
     <button class="bvt-btn${bracketView==='groups'?' active':''}" onclick="setBracketView('groups')">Groups</button>
     <button class="bvt-btn${bracketView==='bracket'?' active':''}" onclick="setBracketView('bracket')">Bracket</button>
+    ${bracketView==='bracket'?`<button class="bvt-live${bracketLive?' active':''}" onclick="setBracketLive(${!bracketLive})" title="Fill the Round of 32 from current standings as if the group stage were final">⚡ Live fill</button>`:''}
   </div>`;
   cont.innerHTML=toggle+(bracketView==='bracket'?renderKnockoutBracket():renderGroupStandings());
   applyFlags('bracket-content');
@@ -2735,17 +2762,41 @@ function kbGroupComplete(rows){ return rows.length>=4 && rows.every(t=>(t.pld||0
 function kbTeamMax(t){ return (t.pts||0)+3*Math.max(0,3-(t.pld||0)); }
 // Teams that can still finish in the top `n` of their group (guaranteed-ahead < n).
 function kbContenders(rows,n){ return rows.filter(t=>rows.filter(o=>o!==t&&(o.pts||0)>kbTeamMax(t)).length<n); }
+// Assign the current best-third-placed teams to the eight 3rd-place R32 slots,
+// respecting each slot's allowed group-set (bipartite matching). Returns a map
+// keyed by the slot's groups (joined) → team. Used by the "Live fill" view.
+function assignLiveThirds(standings,best3rd){
+  const slots=[]; const seen=new Set();
+  R32_BRACKET.forEach(m=>[m.home,m.away].forEach(s=>{ if(s.type==='b3'){ const k=s.groups.join(''); if(!seen.has(k)){seen.add(k); slots.push({key:k,groups:s.groups});} } }));
+  const groups=best3rd.map(t=>t.group);
+  const matchSlot=new Array(slots.length).fill(-1);   // slot → group index
+  const matchGroup=new Array(groups.length).fill(-1); // group → slot index
+  const aug=(si,visited)=>{
+    for(let gi=0;gi<groups.length;gi++){
+      if(visited.has(gi)||!slots[si].groups.includes(groups[gi])) continue;
+      visited.add(gi);
+      if(matchGroup[gi]===-1||aug(matchGroup[gi],visited)){ matchSlot[si]=gi; matchGroup[gi]=si; return true; }
+    }
+    return false;
+  };
+  for(let si=0;si<slots.length;si++) aug(si,new Set());
+  const map={};
+  slots.forEach((s,si)=>{ const gi=matchSlot[si]; if(gi>=0){ const g=groups[gi]; map[s.key]=standings[g]?.[2]?.team||null; } });
+  return map;
+}
 // Resolve one R32 slot to a clinched team or a list of still-possible teams.
-function resolveBracketSlot(slot,standings,best3rd,allComplete){
+// In live mode, fill from current standings as if the group stage were final.
+function resolveBracketSlot(slot,standings,best3rd,allComplete,live,liveB3){
   if(slot.type==='w'||slot.type==='ru'){
     const rows=standings[slot.group]||[], pos=slot.type==='w'?0:1;
-    if(kbGroupComplete(rows)) return {team:rows[pos]?.team||null,candidates:[]};
+    if(live||kbGroupComplete(rows)) return {team:rows[pos]?.team||null,candidates:[]};
     let cont=kbContenders(rows,pos+1);
     if(slot.type==='ru'){ const w=kbContenders(rows,1); if(w.length===1) cont=cont.filter(t=>t!==w[0]); }
     if(cont.length===1) return {team:cont[0].team,candidates:[]};
     return {team:null,candidates:cont.map(t=>t.team)};
   }
   if(slot.type==='b3'){
+    if(live) return {team:(liveB3&&liveB3[slot.groups.join('')])||null,candidates:[]};
     if(allComplete&&best3rd){ const t=best3rd.find(t=>slot.groups.includes(t.group)); return {team:t?t.team:null,candidates:[]}; }
     return {team:null,candidates:slot.groups.map(g=>standings[g]?.[2]?.team).filter(Boolean)};
   }
@@ -2756,16 +2807,18 @@ function renderKnockoutBracket(){
   const standings=official?STATE.standings:computeActualStandings();
   const best3rd=getBest3rdPlace(standings);
   const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const live=bracketLive;
+  const liveB3=live?assignLiveThirds(standings,best3rd):null;
   const descFor=s=> s.type==='w'?('1'+s.group): s.type==='ru'?('2'+s.group): ('3·'+s.groups.join(''));
   const slotCell=(res,desc)=>{
-    if(res.team) return `<div class="kb-team">${withFlag(res.team)}</div>`;
+    if(res.team) return `<div class="kb-team">${live?`<span class="kb-tag kb-tag-live">${desc}</span> `:''}${withFlag(res.team)}</div>`;
     const c=res.candidates||[];
-    const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}" onclick="toggleFlagTip(this,event)">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
+    const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
     return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:'<span class="kb-tbd-txt">TBD</span>'}</div>`;
   };
   const r32Cell=idx=>{
     const m=R32_BRACKET[idx];
-    return `<div class="kb-match kb-r32">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete),descFor(m.away))}</div>`;
+    return `<div class="kb-match kb-r32">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,live,liveB3),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,live,liveB3),descFor(m.away))}</div>`;
   };
   const tbd=cls=>`<div class="kb-match ${cls}"><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div></div>`;
   const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
@@ -2774,7 +2827,9 @@ function renderKnockoutBracket(){
   const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('',many(4,'kb-r16'))}${col('',many(2,'kb-qf'))}${col('',tbd('kb-sf'))}</div>`;
   const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final')}<div class="kb-trophy">🏆</div></div>`;
   const right=`<div class="kb-side">${col('',tbd('kb-sf'))}${col('',many(2,'kb-qf'))}${col('',many(4,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
-  const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place · flags = teams that could still take a TBD spot</div>`;
+  const legend=live
+    ? `<div class="kb-legend">⚡ Live fill — Round of 32 filled from current standings <em>as if the group stage were final</em>. Later rounds depend on knockout results.</div>`
+    : `<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place · flags = teams that could still take a TBD spot</div>`;
   return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;
 }
 
@@ -2853,6 +2908,35 @@ function renderRoadTab(){
     : '<div class="kb-path-none" style="margin-top:0.25rem">Select a team above to see its projected route to the final — most likely opponents and win probability at every round.</div>';
   cont.innerHTML=picker+body;
   applyFlags('road-content');
+}
+
+// ── STATS TAB (favourite vs underdog picks) ───────────────────────────────────
+function renderStatsTab(){
+  const cont=document.getElementById('stats-content'); if(!cont)return;
+  const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
+  const matches=STATE.matches.filter(m=>m.odds);
+  if(!picksVisible){ cont.innerHTML='<div class="no-bracket-msg">Stats unlock once picks are locked.</div>'; return; }
+  if(!STATE.players.length||!matches.length){ cont.innerHTML='<div class="no-bracket-msg">No pick or odds data yet.</div>'; return; }
+  const favOf=m=>{ const o={home:m.odds.home||0,draw:m.odds.draw||0,away:m.odds.away||0}; return Object.keys(o).sort((a,b)=>o[b]-o[a])[0]; };
+  const probOf=(m,o)=>o==='home'?(m.odds.home||0):o==='draw'?(m.odds.draw||0):(m.odds.away||0);
+  const pct=(n,t)=>t?Math.round(n/t*1000)/10:0;
+  // Per-match tally of how many players chose each outcome (for the "alone" stat).
+  const tally={};
+  STATE.matches.forEach(m=>{ const t={home:0,draw:0,away:0}; STATE.players.forEach(p=>{const o=p.picks[m.id]; if(o&&t[o]!==undefined)t[o]++;}); tally[m.id]=t; });
+  const rows=STATE.players.map(p=>{
+    let fav=0,dog=0,tot=0,alone=0,aloneTot=0;
+    matches.forEach(m=>{ const pick=p.picks[m.id]; if(!pick)return; tot++;
+      if(pick===favOf(m)) fav++;
+      if((pick==='home'||pick==='away') && probOf(m,pick)<=0.25) dog++;
+    });
+    STATE.matches.forEach(m=>{ const pick=p.picks[m.id]; if(!pick)return; aloneTot++; if(tally[m.id][pick]===1) alone++; });
+    return {name:p.name,fav,dog,tot,alone,aloneTot};
+  }).sort((a,b)=>(b.tot?b.fav/b.tot:0)-(a.tot?a.fav/a.tot:0));
+  let html=`<div class="stats-note"><b>Favorite</b> = picked the most likely outcome incl. draws · <b>Underdog</b> = backed a team to win at ≤25% (across ${matches.length} matches with odds) · <b>Alone</b> = only player with that pick (all group matches).</div>`;
+  html+=`<div class="stats-table"><div class="st-row st-head"><span class="st-player">Player</span><span class="st-num">Favorite picks</span><span class="st-num">Underdog picks</span><span class="st-num">Unique picks</span></div>`;
+  rows.forEach(r=>{ html+=`<div class="st-row"><span class="st-player">${r.name}</span><span class="st-num">${r.fav}<span class="st-pct">${pct(r.fav,r.tot)}%</span></span><span class="st-num">${r.dog}<span class="st-pct">${pct(r.dog,r.tot)}%</span></span><span class="st-num">${r.alone}<span class="st-pct">${pct(r.alone,r.aloneTot)}%</span></span></div>`; });
+  html+='</div>';
+  cont.innerHTML=html;
 }
 // Team strength 0.05–0.95: average pre-match win odds where available, else from points.
 function computeStrengths(){
@@ -2976,15 +3060,33 @@ function renderGroupStandings(){
   return html;
 }
 
-// Tap a candidate flag (mobile) to show/hide its team-name tooltip. Desktop uses :hover.
-function toggleFlagTip(el,ev){
-  ev.stopPropagation();
-  const open=el.classList.contains('show');
-  document.querySelectorAll('.kb-cand.show').forEach(x=>x.classList.remove('show'));
-  if(!open) el.classList.add('show');
+// Candidate-flag team-name tooltip. Rendered as a single fixed element on <body> and
+// clamped to the viewport, so it's never clipped by the bracket's scroll container.
+// Desktop: hover. Mobile: tap to pin (tap again / elsewhere to dismiss).
+function kbFlagTipEl(){
+  let t=document.getElementById('kb-flagtip');
+  if(!t){ t=document.createElement('div'); t.id='kb-flagtip'; t.className='kb-flagtip'; document.body.appendChild(t); }
+  return t;
 }
+function showFlagTip(el){
+  const t=kbFlagTipEl();
+  t.textContent=el.dataset.name||'';
+  t.style.display='block';
+  const r=el.getBoundingClientRect(), tw=t.offsetWidth, th=t.offsetHeight;
+  let left=Math.max(6, Math.min(r.left+r.width/2-tw/2, innerWidth-tw-6));
+  let top=r.top-th-7; if(top<6) top=r.bottom+7;   // flip below if no room above
+  t.style.left=left+'px'; t.style.top=top+'px'; t.classList.add('show');
+}
+function hideFlagTip(){ const t=document.getElementById('kb-flagtip'); if(t){ t.classList.remove('show'); t.style.display='none'; } }
 if(!window.__kbTipBound){ window.__kbTipBound=true;
-  document.addEventListener('click',()=>document.querySelectorAll('.kb-cand.show').forEach(x=>x.classList.remove('show')));
+  document.addEventListener('pointerover',e=>{ const c=e.target.closest?.('.kb-cand'); if(c) showFlagTip(c); });
+  document.addEventListener('pointerout',e=>{ const c=e.target.closest?.('.kb-cand'); if(!c)return; if(c.contains(e.relatedTarget))return; if(!c.classList.contains('pinned')) hideFlagTip(); });
+  document.addEventListener('click',e=>{ const c=e.target.closest?.('.kb-cand');
+    const wasPinned=c&&c.classList.contains('pinned');
+    document.querySelectorAll('.kb-cand.pinned').forEach(x=>x.classList.remove('pinned'));
+    if(c&&!wasPinned){ e.stopPropagation(); c.classList.add('pinned'); showFlagTip(c); } else hideFlagTip();
+  });
+  addEventListener('scroll',hideFlagTip,true); addEventListener('resize',hideFlagTip);
 }
 
 function toggleBracketGroup(g){
@@ -3645,6 +3747,7 @@ function showTab(id,el){
   if(id==='scoring')renderScoringTab();
   if(id==='bracket')renderBracketTab();
   if(id==='road')   renderRoadTab();
+  if(id==='stats')  renderStatsTab();
   if(id==='matches'&&matchSortMode==='date') setTimeout(scrollToNextMatch, 80);
   else window.scrollTo(0,0);
 }
@@ -3698,6 +3801,7 @@ function renderAll(){
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
   if(active?.id==='road')  renderRoadTab();
+  if(active?.id==='stats') renderStatsTab();
   renderLiveRail();
   updateSpoilerBtn();
 }
