@@ -2941,38 +2941,29 @@ function renderStatsTab(){
   cont.innerHTML=html;
 }
 
-// 2D map of pick similarity: players who pick alike sit close, those who disagree far apart.
+// Pick-similarity matrix: every exact pairwise agreement %, colour-coded (no distortion).
 function renderPickSimilarity(){
   const players=STATE.players, n=players.length;
-  if(n<3) return '';
+  if(n<2) return '';
   const sim=(a,b)=>{ let same=0,common=0; STATE.matches.forEach(m=>{const pa=a.picks[m.id],pb=b.picks[m.id]; if(pa&&pb){common++; if(pa===pb)same++;}}); return common?same/common:0; };
   const S=players.map((a,i)=>players.map((b,j)=>i===j?1:sim(a,b)));
-  // distance = sqrt(1-similarity) so close-but-not-identical players still separate a bit
-  const D=S.map(row=>row.map(s=>Math.sqrt(Math.max(0,1-s))));
-  const spread=320;
-  const pts=players.map((_,i)=>({x:Math.cos(2*Math.PI*i/n)*spread*0.4, y:Math.sin(2*Math.PI*i/n)*spread*0.4}));
-  for(let it=0;it<450;it++){ const lr=0.2*(1-it/450)+0.02;
-    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
-      let dx=pts[j].x-pts[i].x, dy=pts[j].y-pts[i].y, dist=Math.hypot(dx,dy);
-      if(dist<0.001){dx=1;dy=(i-j)||1;dist=Math.hypot(dx,dy);}
-      const target=D[i][j]*spread, adj=(dist-target)/dist*lr*0.5;
-      pts[i].x+=adj*dx; pts[i].y+=adj*dy; pts[j].x-=adj*dx; pts[j].y-=adj*dy;
-    }
-  }
-  const W=640,H=420,PAD=58;
-  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
-  const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
-  const sx=(maxx-minx)||1, sy=(maxy-miny)||1, sc=Math.min((W-2*PAD)/sx,(H-2*PAD)/sy);
-  const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
-  const F=pts.map(p=>({x:W/2+(p.x-cx)*sc, y:H/2+(p.y-cy)*sc}));
-  const PAL=PLAYER_COLORS;
-  const dots=F.map((p,i)=>{ const c=players[i].color||PAL[i%PAL.length]||'#888';
-    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7" fill="${c}" stroke="var(--bg)" stroke-width="2"/><text x="${p.x.toFixed(1)}" y="${(p.y-13).toFixed(1)}" text-anchor="middle" class="sim-label">${players[i].name}</text>`;
-  }).join('');
+  // Colour scale across the off-diagonal range so contrast is meaningful for this group.
+  let mn=1,mx=0; for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){ mn=Math.min(mn,S[i][j]); mx=Math.max(mx,S[i][j]); }
+  const ab=name=>name.length<=4?name:name.slice(0,3);
+  let head=`<div class="sm-cell sm-corner"></div>`+players.map(p=>`<div class="sm-cell sm-colhead" title="${p.name}">${ab(p.name)}</div>`).join('');
+  let body='';
+  players.forEach((p,i)=>{
+    body+=`<div class="sm-cell sm-rowhead">${p.name}</div>`;
+    players.forEach((q,j)=>{
+      if(i===j){ body+=`<div class="sm-cell sm-diag">·</div>`; return; }
+      const s=S[i][j], t=(mx>mn)?(s-mn)/(mx-mn):0.5, op=(0.08+t*0.82).toFixed(2);
+      body+=`<div class="sm-cell sm-val" style="background:rgba(201,168,76,${op})" title="${p.name} &amp; ${q.name}: ${Math.round(s*100)}% agree">${Math.round(s*100)}</div>`;
+    });
+  });
   let best=null,worst=null;
   for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){ const s=S[i][j]; if(!best||s>best.s)best={i,j,s}; if(!worst||s<worst.s)worst={i,j,s}; }
   const note=(best&&worst)?`<div class="sim-note">Most alike: <b>${players[best.i].name} &amp; ${players[best.j].name}</b> (${Math.round(best.s*100)}% agree) · Most different: <b>${players[worst.i].name} &amp; ${players[worst.j].name}</b> (${Math.round(worst.s*100)}%)</div>`:'';
-  return `<div class="sim-section"><div class="sim-title">Pick similarity map</div><div class="sim-sub">Players who pick alike sit close together; those far apart disagree most — distance ≈ how often their picks differ.</div><svg class="sim-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${dots}</svg>${note}</div>`;
+  return `<div class="sim-section"><div class="sim-title">Pick similarity</div><div class="sim-sub">Each cell is the % of matches where the two players made the same pick. Brighter = more alike.</div><div class="sim-scroll"><div class="sim-matrix" style="grid-template-columns:auto repeat(${n},40px)">${head}${body}</div></div>${note}</div>`;
 }
 // Team strength 0.05–0.95: average pre-match win odds where available, else from points.
 function computeStrengths(){

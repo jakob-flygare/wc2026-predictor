@@ -234,8 +234,14 @@
   .sim-section { margin-top:1.75rem; }
   .sim-title { font-family:'Bebas Neue',sans-serif; font-size:1.4rem; letter-spacing:0.04em; color:var(--text); }
   .sim-sub { font-size:0.78rem; color:var(--muted); margin:0.15rem 0 0.8rem; line-height:1.45; }
-  .sim-svg { width:100%; height:auto; background:var(--surface); border:1px solid var(--border); border-radius:12px; display:block; }
-  .sim-label { font-size:13px; font-weight:600; fill:var(--text); font-family:'DM Sans',sans-serif; }
+  .sim-scroll { overflow-x:auto; }
+  .sim-matrix { display:grid; gap:3px; width:max-content; }
+  .sm-cell { display:flex; align-items:center; justify-content:center; height:34px; font-size:0.72rem; border-radius:3px; }
+  .sm-colhead { font-size:0.62rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em; color:var(--gold); }
+  .sm-rowhead { justify-content:flex-end; padding-right:8px; white-space:nowrap; font-size:0.8rem; font-weight:600; color:var(--text); }
+  .sm-val { font-family:'Bebas Neue',sans-serif; font-size:1rem; color:var(--text); }
+  .sm-diag { color:var(--border); }
+  [data-theme="light"] .sm-val { color:#1a1409; }
   .sim-note { font-size:0.8rem; color:var(--muted); margin-top:0.7rem; }
   .sim-note b { color:var(--text); }
   /* Path to glory */
