@@ -2932,11 +2932,47 @@ function renderStatsTab(){
     STATE.matches.forEach(m=>{ const pick=p.picks[m.id]; if(!pick)return; aloneTot++; if(tally[m.id][pick]===1) alone++; });
     return {name:p.name,fav,dog,tot,alone,aloneTot};
   }).sort((a,b)=>(b.tot?b.fav/b.tot:0)-(a.tot?a.fav/a.tot:0));
+  const maxLen=Math.max(6,...STATE.players.map(p=>p.name.length));
   let html=`<div class="stats-note"><b>Favorite</b> = picked the most likely outcome incl. draws · <b>Underdog</b> = backed a team to win at ≤25% (across ${matches.length} matches with odds) · <b>Alone</b> = only player with that pick (all group matches).</div>`;
-  html+=`<div class="stats-table"><div class="st-row st-head"><span class="st-player">Player</span><span class="st-num">Favorite picks</span><span class="st-num">Underdog picks</span><span class="st-num">Unique picks</span></div>`;
+  html+=`<div class="stats-scroll"><div class="stats-table" style="--stp:calc(${maxLen}ch + 1.5rem)"><div class="st-row st-head"><span class="st-player">Player</span><span class="st-num">Favorite picks</span><span class="st-num">Underdog picks</span><span class="st-num">Unique picks</span></div>`;
   rows.forEach(r=>{ html+=`<div class="st-row"><span class="st-player">${r.name}</span><span class="st-num">${r.fav}<span class="st-pct">${pct(r.fav,r.tot)}%</span></span><span class="st-num">${r.dog}<span class="st-pct">${pct(r.dog,r.tot)}%</span></span><span class="st-num">${r.alone}<span class="st-pct">${pct(r.alone,r.aloneTot)}%</span></span></div>`; });
-  html+='</div>';
+  html+='</div></div>';
+  html+=renderPickSimilarity();
   cont.innerHTML=html;
+}
+
+// 2D map of pick similarity: players who pick alike sit close, those who disagree far apart.
+function renderPickSimilarity(){
+  const players=STATE.players, n=players.length;
+  if(n<3) return '';
+  const sim=(a,b)=>{ let same=0,common=0; STATE.matches.forEach(m=>{const pa=a.picks[m.id],pb=b.picks[m.id]; if(pa&&pb){common++; if(pa===pb)same++;}}); return common?same/common:0; };
+  const S=players.map((a,i)=>players.map((b,j)=>i===j?1:sim(a,b)));
+  // distance = sqrt(1-similarity) so close-but-not-identical players still separate a bit
+  const D=S.map(row=>row.map(s=>Math.sqrt(Math.max(0,1-s))));
+  const spread=320;
+  const pts=players.map((_,i)=>({x:Math.cos(2*Math.PI*i/n)*spread*0.4, y:Math.sin(2*Math.PI*i/n)*spread*0.4}));
+  for(let it=0;it<450;it++){ const lr=0.2*(1-it/450)+0.02;
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){
+      let dx=pts[j].x-pts[i].x, dy=pts[j].y-pts[i].y, dist=Math.hypot(dx,dy);
+      if(dist<0.001){dx=1;dy=(i-j)||1;dist=Math.hypot(dx,dy);}
+      const target=D[i][j]*spread, adj=(dist-target)/dist*lr*0.5;
+      pts[i].x+=adj*dx; pts[i].y+=adj*dy; pts[j].x-=adj*dx; pts[j].y-=adj*dy;
+    }
+  }
+  const W=640,H=420,PAD=58;
+  const xs=pts.map(p=>p.x), ys=pts.map(p=>p.y);
+  const minx=Math.min(...xs),maxx=Math.max(...xs),miny=Math.min(...ys),maxy=Math.max(...ys);
+  const sx=(maxx-minx)||1, sy=(maxy-miny)||1, sc=Math.min((W-2*PAD)/sx,(H-2*PAD)/sy);
+  const cx=(minx+maxx)/2, cy=(miny+maxy)/2;
+  const F=pts.map(p=>({x:W/2+(p.x-cx)*sc, y:H/2+(p.y-cy)*sc}));
+  const PAL=PLAYER_COLORS;
+  const dots=F.map((p,i)=>{ const c=players[i].color||PAL[i%PAL.length]||'#888';
+    return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="7" fill="${c}" stroke="var(--bg)" stroke-width="2"/><text x="${p.x.toFixed(1)}" y="${(p.y-13).toFixed(1)}" text-anchor="middle" class="sim-label">${players[i].name}</text>`;
+  }).join('');
+  let best=null,worst=null;
+  for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){ const s=S[i][j]; if(!best||s>best.s)best={i,j,s}; if(!worst||s<worst.s)worst={i,j,s}; }
+  const note=(best&&worst)?`<div class="sim-note">Most alike: <b>${players[best.i].name} &amp; ${players[best.j].name}</b> (${Math.round(best.s*100)}% agree) · Most different: <b>${players[worst.i].name} &amp; ${players[worst.j].name}</b> (${Math.round(worst.s*100)}%)</div>`:'';
+  return `<div class="sim-section"><div class="sim-title">Pick similarity map</div><div class="sim-sub">Players who pick alike sit close together; those far apart disagree most — distance ≈ how often their picks differ.</div><svg class="sim-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" aria-hidden="true">${dots}</svg>${note}</div>`;
 }
 // Team strength 0.05–0.95: average pre-match win odds where available, else from points.
 function computeStrengths(){
