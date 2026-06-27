@@ -681,3 +681,76 @@
 .sm-btn:hover { color:var(--text); border-color:rgba(255,255,255,0.15); }
 .sm-btn.active { background:var(--gold); color:#000; border-color:var(--gold); font-weight:600; }
 .scoring-mode-note { font-size:12px; color:var(--muted); padding:6px 12px; background:var(--surface2); border-radius:6px; border-left:3px solid var(--gold); margin-bottom:10px; }
+
+/* ── FANTASY LEAGUE ─────────────────────────────────────────────────────────── */
+.fant-window-banner { display:flex; align-items:center; gap:8px; background:rgba(201,168,76,0.1); border:1px solid rgba(201,168,76,0.3); border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:0.85rem; }
+.fant-window-dot { width:8px; height:8px; border-radius:50%; background:var(--gold); box-shadow:0 0 6px var(--gold); flex-shrink:0; animation:pulse 1.5s ease-in-out infinite; }
+.fant-identity { display:flex; align-items:center; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+
+/* Budget bar */
+.fant-budget-bar { display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:10px 14px; background:var(--surface2); border-radius:8px; margin-bottom:12px; flex-wrap:wrap; }
+.fant-budget-num { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; color:var(--gold); line-height:1; }
+
+/* Draft builder */
+.fant-builder { display:flex; flex-direction:column; gap:0; }
+.fant-slots-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:6px; margin-bottom:12px; }
+.fant-slot { display:flex; align-items:center; gap:6px; padding:7px 10px; border-radius:6px; font-size:0.82rem; min-height:36px; }
+.fant-slot.empty { background:var(--surface2); border:1px dashed var(--border); color:var(--muted); }
+.fant-slot.filled { background:var(--surface2); border:1px solid var(--border); }
+.fant-slot-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fant-slot-x { background:none; border:none; color:var(--muted); cursor:pointer; font-size:1rem; line-height:1; padding:0 2px; margin-left:auto; }
+.fant-slot-x:hover { color:var(--red,#f87171); }
+
+/* Position badge */
+.fant-pos { font-size:0.65rem; font-weight:700; padding:2px 5px; border-radius:3px; flex-shrink:0; letter-spacing:0.03em; }
+.fant-pos-gk  { background:rgba(201,168,76,0.2);   color:var(--gold); }
+.fant-pos-def { background:rgba(59,130,246,0.15);   color:#93c5fd; }
+.fant-pos-mid { background:rgba(20,184,166,0.15);   color:#5eead4; }
+.fant-pos-fwd { background:rgba(239,68,68,0.15);    color:#f87171; }
+
+/* Player picker */
+.fant-picker { border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.fant-filters { display:flex; align-items:center; gap:6px; padding:8px 10px; background:var(--surface2); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+.fant-player-list { max-height:360px; overflow-y:auto; }
+.fant-player-row { display:flex; align-items:center; gap:6px; padding:7px 10px; border-bottom:1px solid var(--border); font-size:0.8rem; }
+.fant-player-row:last-child { border-bottom:none; }
+.fant-player-row.fant-disabled { opacity:0.4; }
+.fant-player-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fant-player-team { font-size:0.72rem; color:var(--muted); min-width:60px; }
+.fant-player-val  { font-size:0.75rem; color:var(--muted); min-width:36px; text-align:right; }
+.fant-player-pts  { font-size:0.78rem; color:var(--gold); min-width:36px; text-align:right; }
+.fant-add-btn { background:var(--gold); color:#000; border:none; border-radius:4px; width:22px; height:22px; font-size:1rem; line-height:1; cursor:pointer; font-weight:700; flex-shrink:0; }
+.fant-add-btn:disabled { background:var(--border); color:var(--muted); cursor:not-allowed; }
+
+/* My squad view */
+.fant-squad-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+.fant-total-pts { font-family:'Bebas Neue',sans-serif; font-size:2rem; color:var(--gold); }
+.fant-squad-list { display:flex; flex-direction:column; gap:5px; }
+.fant-squad-row { display:flex; align-items:center; gap:8px; padding:8px 12px; background:var(--surface2); border-radius:6px; font-size:0.82rem; }
+.fant-squad-row.fant-elim { opacity:0.5; }
+.fant-squad-name { flex:1; display:flex; align-items:center; gap:4px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fant-pts { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; color:var(--gold); min-width:28px; text-align:right; }
+.fant-elim-tag { font-size:0.65rem; background:rgba(239,68,68,0.15); color:#f87171; border-radius:3px; padding:2px 5px; margin-left:4px; }
+.fant-elim-notice { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:6px; padding:8px 12px; font-size:0.82rem; color:#f87171; margin-bottom:10px; }
+
+/* Leaderboard */
+.fant-lb-row { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border); }
+.fant-lb-row:last-child { border-bottom:none; }
+.fant-lb-rank { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; color:var(--muted); min-width:24px; }
+.fant-lb-preview { font-size:0.72rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fant-lb-pts { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--gold); min-width:40px; text-align:right; }
+
+/* Players stats view */
+.fant-players-header { display:flex; gap:6px; padding:6px 10px; font-size:0.7rem; color:var(--muted); background:var(--surface2); border-radius:6px 6px 0 0; border:1px solid var(--border); border-bottom:none; }
+.fant-players-header span:nth-child(1) { width:36px; }
+.fant-players-header span:nth-child(2) { flex:1; }
+.fant-players-header span:nth-child(3) { min-width:60px; }
+.fant-players-header span:nth-child(4) { min-width:36px; text-align:right; }
+.fant-players-header span:nth-child(5) { min-width:36px; text-align:right; }
+.fant-players-header span:nth-child(6) { min-width:60px; }
+
+@media(max-width:600px){
+  .fant-slots-grid { grid-template-columns:1fr; }
+  .fant-player-team { display:none; }
+  .fant-lb-preview { max-width:160px; }
+}

@@ -43,6 +43,7 @@
     <button class="tab" onclick="showTab('stats',this)">Stats</button>
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" onclick="showTab('admin',this)">Settings</button>
+    <button class="tab" onclick="showTab('fantasy',this)">⚽ Fantasy</button>
   </nav>
 </div>
 
@@ -181,6 +182,17 @@
       <div class="settings-block-sub">Enter match results &amp; manage data.</div>
       <div id="admin-content"><div class="loading">Loading…</div></div>
     </div>
+  </div>
+</div>
+
+<!-- FANTASY LEAGUE -->
+<div id="fantasy" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-title">⚽ Fantasy League</div>
+      <div class="section-sub">Draft 11 knockout players · 100M budget · scoring starts from R32</div>
+    </div>
+    <div id="fantasy-content"><div class="loading">Loading…</div></div>
   </div>
 </div>
 
@@ -403,6 +415,10 @@ function applyDataSnapshot(data) {
       'Most Cards Team':   results.most_cards_team    || null,
       'Total Goals':       results.total_goals        || null,
       'First Scorer':      results.first_scorer       || null,
+    },
+    fantasy: {
+      window: data.fantasy?.config?.window || null,
+      squads: data.fantasy?.squads || {},
     },
   };
   renderAll();
@@ -712,6 +728,214 @@ const ALL_PLAYERS=[
 ];
 
 
+
+// ── FANTASY LEAGUE DATA ───────────────────────────────────────────────────────
+const FANTASY_BUDGET = 100;
+const FANTASY_SCORING = {
+  GK:  {goal:10, assist:6, cs:10, gc:-2, yc:-3, rc:-6, htBonus:0},
+  DEF: {goal:10, assist:6, cs:8,  gc:-2, yc:-3, rc:-6, htBonus:0},
+  MID: {goal:8,  assist:6, cs:2,  gc:0,  yc:-3, rc:-6, htBonus:8},
+  FWD: {goal:6,  assist:6, cs:0,  gc:0,  yc:-3, rc:-6, htBonus:8},
+};
+const FANTASY_TEAM_TIERS = {
+  1: ['Argentina','France','Brazil','England','Spain','Germany','Portugal'],
+  2: ['Netherlands','Belgium','Uruguay','Morocco','USA','Switzerland','Croatia','Colombia','Norway','Mexico'],
+};
+const FANTASY_DEFAULT_VALUES = {
+  1: {GK:5.0, DEF:5.0, MID:6.0, FWD:7.0},
+  2: {GK:4.5, DEF:4.5, MID:5.0, FWD:5.5},
+  3: {GK:4.0, DEF:4.0, MID:4.5, FWD:5.0},
+};
+const FANTASY_CATALOG = {
+  // ARGENTINA
+  'Lionel Messi':           {pos:'FWD', team:'Argentina',   value:14},
+  'Lautaro Martínez':       {pos:'FWD', team:'Argentina',   value:11},
+  'Julián Álvarez':         {pos:'FWD', team:'Argentina',   value:11},
+  'Emiliano Martínez':      {pos:'GK',  team:'Argentina',   value:9},
+  'Alexis Mac Allister':    {pos:'MID', team:'Argentina',   value:9},
+  'Rodrigo De Paul':        {pos:'MID', team:'Argentina',   value:8},
+  'Enzo Fernández':         {pos:'MID', team:'Argentina',   value:8},
+  // FRANCE
+  'Kylian Mbappé':          {pos:'FWD', team:'France',      value:14},
+  'Marcus Thuram':          {pos:'FWD', team:'France',      value:10},
+  'Ousmane Dembélé':        {pos:'FWD', team:'France',      value:9},
+  'Mike Maignan':           {pos:'GK',  team:'France',      value:8},
+  'William Saliba':         {pos:'DEF', team:'France',      value:8},
+  'Theo Hernández':         {pos:'DEF', team:'France',      value:9},
+  'Aurélien Tchouaméni':    {pos:'MID', team:'France',      value:8},
+  'Adrien Rabiot':          {pos:'MID', team:'France',      value:7},
+  'Désiré Doué':            {pos:'FWD', team:'France',      value:7},
+  // BRAZIL
+  'Vinícius Júnior':        {pos:'FWD', team:'Brazil',      value:13},
+  'Raphinha':               {pos:'FWD', team:'Brazil',      value:10},
+  'Neymar':                 {pos:'FWD', team:'Brazil',      value:10},
+  'Endrick':                {pos:'FWD', team:'Brazil',      value:9},
+  'Gabriel Martinelli':     {pos:'FWD', team:'Brazil',      value:9},
+  'Alisson':                {pos:'GK',  team:'Brazil',      value:9},
+  'Marquinhos':             {pos:'DEF', team:'Brazil',      value:9},
+  'Bruno Guimarães':        {pos:'MID', team:'Brazil',      value:8},
+  'Lucas Paquetá':          {pos:'MID', team:'Brazil',      value:8},
+  // ENGLAND
+  'Jude Bellingham':        {pos:'MID', team:'England',     value:12},
+  'Harry Kane':             {pos:'FWD', team:'England',     value:12},
+  'Bukayo Saka':            {pos:'MID', team:'England',     value:10},
+  'Declan Rice':            {pos:'MID', team:'England',     value:9},
+  'Jordan Pickford':        {pos:'GK',  team:'England',     value:8},
+  'Eberechi Eze':           {pos:'MID', team:'England',     value:8},
+  'Marcus Rashford':        {pos:'FWD', team:'England',     value:8},
+  'Ollie Watkins':          {pos:'FWD', team:'England',     value:7},
+  'John Stones':            {pos:'DEF', team:'England',     value:7},
+  // SPAIN
+  'Lamine Yamal':           {pos:'FWD', team:'Spain',       value:12},
+  'Rodri':                  {pos:'MID', team:'Spain',       value:11},
+  'Pedri':                  {pos:'MID', team:'Spain',       value:10},
+  'Nico Williams':          {pos:'FWD', team:'Spain',       value:9},
+  'Dani Olmo':              {pos:'MID', team:'Spain',       value:9},
+  'Gavi':                   {pos:'MID', team:'Spain',       value:8},
+  'Fabián Ruiz':            {pos:'MID', team:'Spain',       value:8},
+  'Mikel Oyarzabal':        {pos:'FWD', team:'Spain',       value:8},
+  'Unai Simón':             {pos:'GK',  team:'Spain',       value:7},
+  // GERMANY
+  'Jamal Musiala':          {pos:'MID', team:'Germany',     value:12},
+  'Florian Wirtz':          {pos:'MID', team:'Germany',     value:11},
+  'Kai Havertz':            {pos:'FWD', team:'Germany',     value:9},
+  'Leroy Sané':             {pos:'FWD', team:'Germany',     value:9},
+  'Joshua Kimmich':         {pos:'MID', team:'Germany',     value:8},
+  'Manuel Neuer':           {pos:'GK',  team:'Germany',     value:8},
+  'Antonio Rüdiger':        {pos:'DEF', team:'Germany',     value:7},
+  // PORTUGAL
+  'Cristiano Ronaldo':      {pos:'FWD', team:'Portugal',    value:12},
+  'Bruno Fernandes':        {pos:'MID', team:'Portugal',    value:11},
+  'Bernardo Silva':         {pos:'MID', team:'Portugal',    value:10},
+  'Rafael Leão':            {pos:'FWD', team:'Portugal',    value:9},
+  'Gonçalo Ramos':          {pos:'FWD', team:'Portugal',    value:8},
+  'Rúben Dias':             {pos:'DEF', team:'Portugal',    value:8},
+  'João Cancelo':           {pos:'DEF', team:'Portugal',    value:8},
+  'Pedro Neto':             {pos:'MID', team:'Portugal',    value:8},
+  // NORWAY
+  'Erling Haaland':         {pos:'FWD', team:'Norway',      value:14},
+  'Martin Ødegaard':        {pos:'MID', team:'Norway',      value:11},
+  'Alexander Sørloth':      {pos:'FWD', team:'Norway',      value:8},
+  'Oscar Bobb':             {pos:'MID', team:'Norway',      value:7},
+  // NETHERLANDS
+  'Cody Gakpo':             {pos:'FWD', team:'Netherlands', value:9},
+  'Memphis Depay':          {pos:'FWD', team:'Netherlands', value:8},
+  'Virgil van Dijk':        {pos:'DEF', team:'Netherlands', value:9},
+  'Frenkie de Jong':        {pos:'MID', team:'Netherlands', value:8},
+  'Teun Koopmeiners':       {pos:'MID', team:'Netherlands', value:8},
+  'Ryan Gravenberch':       {pos:'MID', team:'Netherlands', value:7},
+  'Brian Brobbey':          {pos:'FWD', team:'Netherlands', value:7},
+  // BELGIUM
+  'Kevin De Bruyne':        {pos:'MID', team:'Belgium',     value:11},
+  'Romelu Lukaku':          {pos:'FWD', team:'Belgium',     value:10},
+  'Thibaut Courtois':       {pos:'GK',  team:'Belgium',     value:9},
+  'Charles De Ketelaere':   {pos:'MID', team:'Belgium',     value:8},
+  'Jérémy Doku':            {pos:'FWD', team:'Belgium',     value:8},
+  'Leandro Trossard':       {pos:'FWD', team:'Belgium',     value:7},
+  // URUGUAY
+  'Darwin Núñez':           {pos:'FWD', team:'Uruguay',     value:10},
+  'Federico Valverde':      {pos:'MID', team:'Uruguay',     value:9},
+  'Rodrigo Bentancur':      {pos:'MID', team:'Uruguay',     value:8},
+  'Ronald Araújo':          {pos:'DEF', team:'Uruguay',     value:8},
+  'Giorgian De Arrascaeta': {pos:'MID', team:'Uruguay',     value:8},
+  // COLOMBIA
+  'Luis Díaz':              {pos:'FWD', team:'Colombia',    value:10},
+  'James Rodríguez':        {pos:'MID', team:'Colombia',    value:9},
+  'Jhon Arias':             {pos:'MID', team:'Colombia',    value:7},
+  'Richard Rios':           {pos:'MID', team:'Colombia',    value:7},
+  'Davinson Sánchez':       {pos:'DEF', team:'Colombia',    value:7},
+  // MOROCCO
+  'Achraf Hakimi':          {pos:'DEF', team:'Morocco',     value:9},
+  'Brahim Díaz':            {pos:'MID', team:'Morocco',     value:8},
+  'Bilal El Khannouss':     {pos:'MID', team:'Morocco',     value:7},
+  'Sofyan Amrabat':         {pos:'MID', team:'Morocco',     value:7},
+  'Ayoub El Kaabi':         {pos:'FWD', team:'Morocco',     value:7},
+  'Soufiane Rahimi':        {pos:'FWD', team:'Morocco',     value:7},
+  // USA
+  'Christian Pulisic':      {pos:'MID', team:'USA',         value:10},
+  'Folarin Balogun':        {pos:'FWD', team:'USA',         value:9},
+  'Giovanni Reyna':         {pos:'MID', team:'USA',         value:8},
+  'Weston McKennie':        {pos:'MID', team:'USA',         value:7},
+  'Antonee Robinson':       {pos:'DEF', team:'USA',         value:7},
+  // MEXICO
+  'Santiago Giménez':       {pos:'FWD', team:'Mexico',      value:9},
+  'Raúl Jiménez':           {pos:'FWD', team:'Mexico',      value:8},
+  'Edson Álvarez':          {pos:'MID', team:'Mexico',      value:7},
+  'Guillermo Ochoa':        {pos:'GK',  team:'Mexico',      value:7},
+  'Orbelín Pineda':         {pos:'MID', team:'Mexico',      value:7},
+  // SWITZERLAND
+  'Granit Xhaka':           {pos:'MID', team:'Switzerland', value:8},
+  'Breel Embolo':           {pos:'FWD', team:'Switzerland', value:8},
+  'Dan Ndoye':              {pos:'FWD', team:'Switzerland', value:7},
+  'Noah Okafor':            {pos:'FWD', team:'Switzerland', value:7},
+  'Fabian Rieder':          {pos:'MID', team:'Switzerland', value:7},
+  // CROATIA
+  'Luka Modrić':            {pos:'MID', team:'Croatia',     value:9},
+  'Mateo Kovačić':          {pos:'MID', team:'Croatia',     value:8},
+  'Ivan Perišić':           {pos:'FWD', team:'Croatia',     value:8},
+  'Andrej Kramarić':        {pos:'FWD', team:'Croatia',     value:8},
+  'Joško Gvardiol':         {pos:'DEF', team:'Croatia',     value:9},
+  // CANADA
+  'Alphonso Davies':        {pos:'DEF', team:'Canada',      value:10},
+  'Jonathan David':         {pos:'FWD', team:'Canada',      value:9},
+  'Cyle Larin':             {pos:'FWD', team:'Canada',      value:7},
+  'Stephen Eustáquio':      {pos:'MID', team:'Canada',      value:7},
+  'Tajon Buchanan':         {pos:'FWD', team:'Canada',      value:7},
+  // ECUADOR
+  'Enner Valencia':         {pos:'FWD', team:'Ecuador',     value:8},
+  'Moisés Caicedo':         {pos:'MID', team:'Ecuador',     value:9},
+  'Kendry Páez':            {pos:'MID', team:'Ecuador',     value:8},
+  'Piero Hincapié':         {pos:'DEF', team:'Ecuador',     value:7},
+  // TÜRKIYE
+  'Arda Güler':             {pos:'MID', team:'Türkiye',     value:8},
+  'Kenan Yıldız':           {pos:'MID', team:'Türkiye',     value:8},
+  'Ferdi Kadıoğlu':         {pos:'MID', team:'Türkiye',     value:8},
+  'Hakan Çalhanoğlu':       {pos:'MID', team:'Türkiye',     value:8},
+  // SENEGAL
+  'Sadio Mané':             {pos:'FWD', team:'Senegal',     value:9},
+  'Nicolas Jackson':        {pos:'FWD', team:'Senegal',     value:8},
+  'Ismaila Sarr':           {pos:'FWD', team:'Senegal',     value:7},
+  'Pape Matar Sarr':        {pos:'MID', team:'Senegal',     value:7},
+  // EGYPT
+  'Mohamed Salah':          {pos:'FWD', team:'Egypt',       value:12},
+  'Omar Marmoush':          {pos:'FWD', team:'Egypt',       value:9},
+  'Mahmoud Trezeguet':      {pos:'MID', team:'Egypt',       value:7},
+  // SWEDEN
+  'Viktor Gyökeres':        {pos:'FWD', team:'Sweden',      value:11},
+  'Alexander Isak':         {pos:'FWD', team:'Sweden',      value:10},
+  'Anthony Elanga':         {pos:'FWD', team:'Sweden',      value:8},
+  'Lucas Bergvall':         {pos:'MID', team:'Sweden',      value:7},
+  // SOUTH KOREA
+  'Son Heung-Min':          {pos:'FWD', team:'South Korea', value:10},
+  'Lee Kang-In':            {pos:'MID', team:'South Korea', value:8},
+  'Hwang Hee-Chan':         {pos:'FWD', team:'South Korea', value:7},
+  // JAPAN
+  'Takefusa Kubo':          {pos:'MID', team:'Japan',       value:9},
+  'Daichi Kamada':          {pos:'MID', team:'Japan',       value:8},
+  'Ritsu Doan':             {pos:'MID', team:'Japan',       value:7},
+  'Ayase Ueda':             {pos:'FWD', team:'Japan',       value:7},
+  // ALGERIA
+  'Riyad Mahrez':           {pos:'MID', team:'Algeria',     value:9},
+  'Amine Gouiri':           {pos:'FWD', team:'Algeria',     value:8},
+  'Rayan Ait Nouri':        {pos:'DEF', team:'Algeria',     value:8},
+  // AUSTRIA
+  'David Alaba':            {pos:'DEF', team:'Austria',     value:8},
+  'Marcel Sabitzer':        {pos:'MID', team:'Austria',     value:7},
+  'Marko Arnautović':       {pos:'FWD', team:'Austria',     value:7},
+  // IVORY COAST
+  'Amad Diallo':            {pos:'FWD', team:'Ivory Coast', value:8},
+  'Seko Fofana':            {pos:'MID', team:'Ivory Coast', value:7},
+  'Elye Wahi':              {pos:'FWD', team:'Ivory Coast', value:7},
+  // SCOTLAND
+  'Scott McTominay':        {pos:'MID', team:'Scotland',    value:8},
+  'Andy Robertson':         {pos:'DEF', team:'Scotland',    value:8},
+  'Lawrence Shankland':     {pos:'FWD', team:'Scotland',    value:7},
+  // DR CONGO
+  'Yoane Wissa':            {pos:'FWD', team:'DR Congo',    value:7},
+  'Aaron Wan-Bissaka':      {pos:'DEF', team:'DR Congo',    value:7},
+  // AUSTRALIA
+  'Mathew Leckie':          {pos:'MID', team:'Australia',   value:7},
+};
 
 const R32_BRACKET=[
   {home:{type:'ru',group:'A'},away:{type:'ru',group:'B'}},
@@ -3671,6 +3895,20 @@ function renderAdminContent(cont){
       <div class="admin-section-title">Players (${STATE.players.length})</div>
       ${playersHtml}
     </div>
+
+    <div class="admin-section" style="margin-top:2.5rem">
+      <div class="admin-section-title">Fantasy — Transfer Window</div>
+      <div style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem">
+        Open a window to let participants draft/edit their squad. Close it before the round's first game.
+        Current: <strong>${STATE.fantasy?.window?(FROUND_LABELS[STATE.fantasy.window]||STATE.fantasy.window)+' open':'closed'}</strong>
+      </div>
+      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.5rem">
+        ${['r32','r16','qf','sf','final'].map(r=>`<button class="btn${STATE.fantasy?.window===r?' active-filter':''}" onclick="saveFantasyWindow('${r}')" style="font-size:0.8rem;padding:0.4rem 0.8rem">${FROUND_LABELS[r]}</button>`).join('')}
+        <button class="btn-outline" onclick="saveFantasyWindow(null)" style="font-size:0.8rem;padding:0.4rem 0.8rem;border-color:var(--red);color:var(--red)">Close window</button>
+      </div>
+      <span id="fantasy-window-status" style="font-size:0.8rem;color:var(--muted)"></span>
+    </div>
+
     <div style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--border);display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
       <button class="btn-outline" onclick="adminLock()" style="font-size:0.8rem">🔒 Lock session</button>
       ${isPreviewMode()
@@ -3763,18 +4001,454 @@ function renderScoringTab(){
     </div>`;
 }
 
+// ── FANTASY LEAGUE LOGIC ──────────────────────────────────────────────────────
+let _fDraft = loadFantasyDraft();
+let _fView = 'squad';
+let _fFilter = {pos:'', team:'', search:''};
+let _fNameMap = null;
+
+function loadFantasyDraft(){
+  try{const s=localStorage.getItem('wc2026_fantasy_draft');return s?JSON.parse(s):{squad:[],round:null};}
+  catch(e){return{squad:[],round:null};}
+}
+function saveFantasyDraft(d){try{localStorage.setItem('wc2026_fantasy_draft',JSON.stringify(d));}catch(e){}}
+
+function fantasyNorm(n){
+  return (n||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[-']/g,'').replace(/\s+/g,' ').trim();
+}
+function buildFantasyNameMap(){
+  _fNameMap={};
+  Object.keys(FANTASY_CATALOG).forEach(name=>{_fNameMap[fantasyNorm(name)]=name;});
+}
+function getCatalogKey(espnName){
+  if(!_fNameMap)buildFantasyNameMap();
+  return _fNameMap[fantasyNorm(espnName)]||null;
+}
+
+function getTeamTier(team){
+  if(FANTASY_TEAM_TIERS[1].includes(team))return 1;
+  if(FANTASY_TEAM_TIERS[2].includes(team))return 2;
+  return 3;
+}
+
+// Teams still active in the draft for a given round
+// r16 draft → need teams in STATE.knockout.r32 (teams that won R32)
+// qf draft  → teams in STATE.knockout.r16
+// sf draft  → teams in STATE.knockout.qf
+// final draft → teams in STATE.knockout.sf
+// r32 draft → no filter (all teams)
+function getFantasyActiveTeams(round){
+  const ko=STATE.knockout||{};
+  const map={r16:ko.r32, qf:ko.r16, sf:ko.qf, final:ko.sf};
+  const list=map[round];
+  return list&&list.length?list:null;
+}
+
+function isTeamActive(team, round){
+  const active=getFantasyActiveTeams(round);
+  if(!active)return true;
+  const tn=t=>fantasyNorm(t);
+  return active.some(t=>tn(t)===tn(team)||tn(t).includes(tn(team).slice(0,4))||tn(team).includes(tn(t).slice(0,4)));
+}
+
+function getCurrentFantasySquad(playerName){
+  const key=sanitizeName(playerName);
+  const squads=(STATE.fantasy?.squads||{})[key]||{};
+  const rounds=['r32','r16','qf','sf','final'];
+  for(let i=rounds.length-1;i>=0;i--){
+    const s=squads[rounds[i]];
+    if(s&&s.length)return{squad:s,round:rounds[i]};
+  }
+  return null;
+}
+
+// Compute fantasy points for a player across all completed knockout matches
+function calcFantasyPoints(catalogKey){
+  const entry=FANTASY_CATALOG[catalogKey];
+  if(!entry)return{total:0,matches:[]};
+  const pos=entry.pos, team=entry.team, s=FANTASY_SCORING[pos];
+  let total=0;
+  const matchBreakdown=[];
+  const normKey=fantasyNorm(catalogKey);
+
+  STATE.matches.forEach(m=>{
+    if(m.group)return;           // skip group stage
+    if(!m.result)return;         // not played
+    const ht=shortName(m.home), at=shortName(m.away);
+    const isHome=ht===team, isAway=at===team;
+    if(!isHome&&!isAway)return;  // player's team not in this match
+
+    let pts=0;
+    const events=[];
+    const scorers=m.scorers||[], cards=m.cards||[];
+
+    // Goals
+    const goals=scorers.filter(sc=>fantasyNorm(sc.player)===normKey);
+    if(goals.length){
+      pts+=goals.length*s.goal;
+      events.push(`${goals.length>1?goals.length+'× ':''}Goal (+${goals.length*s.goal})`);
+      if(goals.length>=3&&s.htBonus>0){pts+=s.htBonus;events.push(`Hat trick (+${s.htBonus})`);}
+    }
+    // Assists
+    const assists=scorers.filter(sc=>sc.assist&&fantasyNorm(sc.assist)===normKey);
+    if(assists.length){
+      pts+=assists.length*s.assist;
+      events.push(`${assists.length>1?assists.length+'× ':''}Assist (+${assists.length*s.assist})`);
+    }
+    // Cards
+    cards.filter(c=>fantasyNorm(c.player)===normKey).forEach(c=>{
+      const isRed=c.type==='Red Card'||c.type==='Yellow Red Card';
+      const cp=isRed?s.rc:s.yc;
+      pts+=cp;events.push(`${c.type} (${cp})`);
+    });
+    // Clean sheet / goals conceded (GK + DEF; MID partial cs)
+    if(m.score){
+      const ga=isHome?(m.score.away||0):(m.score.home||0);
+      if(pos==='GK'||pos==='DEF'){
+        if(ga===0){pts+=s.cs;events.push(`Clean sheet (+${s.cs})`);}
+        else{const gcp=s.gc*ga;pts+=gcp;events.push(`${ga} goal${ga>1?'s':''} conceded (${gcp})`);}
+      } else if(pos==='MID'&&ga===0&&s.cs>0){
+        pts+=s.cs;events.push(`Clean sheet (+${s.cs})`);
+      }
+    }
+    // Team win bonus = round(1/prob)
+    const myTeamWon=(isHome&&m.result==='home')||(isAway&&m.result==='away');
+    if(myTeamWon){
+      let wb=1;
+      if(m.odds){const p=isHome?m.odds.home:m.odds.away;if(p&&p>0)wb=Math.max(1,Math.round(1/p));}
+      pts+=wb;events.push(`Win bonus (+${wb})`);
+    }
+    if(pts!==0||events.length){matchBreakdown.push({id:m.id,home:ht,away:at,pts,events});}
+    total+=pts;
+  });
+  return{total,matches:matchBreakdown};
+}
+
+function squadCost(squad){
+  return squad.reduce((s,n)=>s+(FANTASY_CATALOG[n]?.value||0),0);
+}
+
+// ── FANTASY UI ────────────────────────────────────────────────────────────────
+const FROUND_LABELS={r32:'Round of 32',r16:'Round of 16',qf:'Quarter-Finals',sf:'Semi-Finals',final:'Final'};
+
+function setFView(v){_fView=v;renderFantasyTab();}
+
+function renderFantasyTab(){
+  const cont=document.getElementById('fantasy-content');if(!cont)return;
+  const fw=STATE.fantasy?.window||null;
+  const myName=FORM_STATE.name||'';
+
+  // Transfer window banner
+  let banner='';
+  if(fw)banner=`<div class="fant-window-banner"><span class="fant-window-dot"></span><strong>Transfer window open</strong> · Build your ${FROUND_LABELS[fw]||fw} squad</div>`;
+
+  // Identity selector
+  let identity='';
+  if(!myName&&STATE.players.length){
+    const opts=STATE.players.map(p=>`<option value="${p.name}">${p.name}</option>`).join('');
+    identity=`<div class="fant-identity"><span style="color:var(--muted);font-size:0.85rem">Who are you?</span>
+      <select class="result-select" onchange="FORM_STATE.name=this.value;saveFormState();renderFantasyTab()">
+        <option value="">— select name —</option>${opts}
+      </select></div>`;
+  }
+
+  // View tabs
+  const tabs=`<div class="scoring-mode-bar" style="margin-bottom:1rem">
+    <button class="sm-btn${_fView==='squad'?' active':''}" onclick="setFView('squad')">My Squad</button>
+    <button class="sm-btn${_fView==='leaderboard'?' active':''}" onclick="setFView('leaderboard')">Leaderboard</button>
+    <button class="sm-btn${_fView==='players'?' active':''}" onclick="setFView('players')">Player Stats</button>
+  </div>`;
+
+  let view='';
+  if(_fView==='squad')view=buildFSquadView(myName,fw);
+  else if(_fView==='leaderboard')view=buildFLeaderboardView();
+  else view=buildFPlayersView(fw);
+
+  cont.innerHTML=banner+identity+tabs+view;
+}
+
+function buildFSquadView(myName,fw){
+  if(!myName)return`<div style="text-align:center;padding:3rem;color:var(--muted)">Select your name above to see your squad.</div>`;
+
+  const current=getCurrentFantasySquad(myName);
+  const hasDraftedWindow=current&&current.round===fw;
+
+  // Determine if draft builder should be shown
+  const localDraft=_fDraft;
+  const showBuilder=fw&&localDraft.round===fw&&localDraft.squad.length>=0;
+
+  if(showBuilder&&(localDraft.round===fw)){
+    return buildDraftBuilderHTML(localDraft.squad,fw);
+  }
+
+  // View mode
+  if(!current){
+    if(fw){
+      return`<div style="text-align:center;padding:3rem">
+        <div style="font-size:2rem;margin-bottom:0.5rem">⚽</div>
+        <div style="font-size:1.1rem;font-weight:600;margin-bottom:0.5rem">No squad yet</div>
+        <div style="color:var(--muted);margin-bottom:1.5rem">Transfer window is open for ${FROUND_LABELS[fw]||fw}.</div>
+        <button class="btn" onclick="startDraftEdit()">Draft Your Squad →</button>
+      </div>`;
+    }
+    return`<div style="text-align:center;padding:3rem;color:var(--muted)">No squad submitted yet. Wait for the transfer window to open.</div>`;
+  }
+
+  const squad=current.squad;
+  const totalPts=squad.reduce((s,n)=>s+(calcFantasyPoints(n)?.total||0),0);
+  const cost=squadCost(squad);
+  const rows=squad.map(pName=>{
+    const e=FANTASY_CATALOG[pName]||{pos:'?',team:'?',value:0};
+    const pts=calcFantasyPoints(pName)?.total||0;
+    const emoji=TEAM_EMOJI[e.team]||'';
+    const elim=fw?!isTeamActive(e.team,fw):false;
+    return`<div class="fant-squad-row${elim?' fant-elim':''}">
+      <span class="fant-pos fant-pos-${e.pos.toLowerCase()}">${e.pos}</span>
+      <span class="fant-squad-name">${emoji} <span${elim?' style="text-decoration:line-through;opacity:0.5"':''}>${pName}</span>${elim?'<span class="fant-elim-tag">eliminated</span>':''}</span>
+      <span style="color:var(--muted);font-size:0.75rem">${e.value}M</span>
+      <span class="fant-pts">${pts>0?'+'+pts:pts}</span>
+    </div>`;
+  }).join('');
+
+  const elimCount=fw?squad.filter(n=>{const e=FANTASY_CATALOG[n];return e&&!isTeamActive(e.team,fw);}).length:0;
+
+  return`<div>
+    <div class="fant-squad-header">
+      <div><span class="fant-total-pts">${totalPts}</span><span style="color:var(--muted);font-size:0.8rem"> pts</span></div>
+      <div style="text-align:right;font-size:0.8rem;color:var(--muted)">Cost: ${cost.toFixed(1)}M · Budget: ${(FANTASY_BUDGET-cost).toFixed(1)}M left</div>
+    </div>
+    ${elimCount>0?`<div class="fant-elim-notice">⚠ ${elimCount} player${elimCount>1?'s have':' has'} been eliminated — update your squad!</div>`:''}
+    <div class="fant-squad-list">${rows}</div>
+    ${fw?`<button class="btn" style="margin-top:1rem" onclick="startDraftEdit()">Edit Squad for ${FROUND_LABELS[fw]||fw}</button>`:''}
+  </div>`;
+}
+
+function startDraftEdit(){
+  const round=STATE.fantasy?.window;
+  if(!round)return;
+  const current=getCurrentFantasySquad(FORM_STATE.name);
+  let pre=current?.squad?[...current.squad]:[];
+  // keep only surviving players
+  pre=pre.filter(n=>{const e=FANTASY_CATALOG[n];return e&&isTeamActive(e.team,round);});
+  _fDraft={squad:pre,round};
+  saveFantasyDraft(_fDraft);
+  renderFantasyTab();
+}
+
+function buildDraftBuilderHTML(squad,round){
+  const cost=squadCost(squad);
+  const budget=FANTASY_BUDGET-cost;
+  const gkOk=squad.some(n=>FANTASY_CATALOG[n]?.pos==='GK');
+  const canSubmit=squad.length===11&&budget>=0&&gkOk;
+  const {pos:fp,team:ft,search:fs}=_fFilter;
+
+  // Squad slots
+  let slots='';
+  const posOrder=['GK','DEF','DEF','DEF','DEF','MID','MID','MID','FWD','FWD','FWD'];
+  for(let i=0;i<11;i++){
+    const pName=squad[i];
+    if(pName){
+      const e=FANTASY_CATALOG[pName]||{pos:'?',team:'?',value:0};
+      const pts=calcFantasyPoints(pName)?.total||0;
+      const emoji=TEAM_EMOJI[e.team]||'';
+      slots+=`<div class="fant-slot filled">
+        <span class="fant-pos fant-pos-${e.pos.toLowerCase()}">${e.pos}</span>
+        <span class="fant-slot-name">${emoji} ${pName}</span>
+        <span style="font-size:0.75rem;color:var(--muted)">${e.value}M</span>
+        <span style="font-size:0.75rem;color:var(--gold)">${pts>0?'+'+pts:pts}</span>
+        <button class="fant-slot-x" data-player="${pName.replace(/"/g,'&quot;')}" onclick="removeDraftPlayer(this.dataset.player)">×</button>
+      </div>`;
+    } else {
+      const hint=posOrder[i]||'';
+      slots+=`<div class="fant-slot empty"><span>${hint||`Slot ${i+1}`}</span></div>`;
+    }
+  }
+
+  // Available players filtered
+  const allAvail=Object.entries(FANTASY_CATALOG)
+    .filter(([n,e])=>{
+      if(squad.includes(n))return false;
+      if(!isTeamActive(e.team,round))return false;
+      if(fp&&e.pos!==fp)return false;
+      if(ft&&e.team!==ft)return false;
+      if(fs&&!fantasyNorm(n).includes(fantasyNorm(fs)))return false;
+      return true;
+    })
+    .map(([n,e])=>({name:n,...e,pts:calcFantasyPoints(n).total}))
+    .sort((a,b)=>b.pts-a.pts||b.value-a.value);
+
+  const playerRows=allAvail.slice(0,80).map(p=>{
+    const emoji=TEAM_EMOJI[p.team]||'';
+    const canAdd=budget>=p.value;
+    return`<div class="fant-player-row${!canAdd?' fant-disabled':''}">
+      <span class="fant-pos fant-pos-${p.pos.toLowerCase()}">${p.pos}</span>
+      <span class="fant-player-name">${emoji} ${p.name}</span>
+      <span class="fant-player-team">${p.team}</span>
+      <span class="fant-player-val">${p.value}M</span>
+      <span class="fant-player-pts">${p.pts>0?'+'+p.pts:p.pts}</span>
+      <button class="fant-add-btn" data-player="${p.name.replace(/"/g,'&quot;')}" onclick="addDraftPlayer(this.dataset.player)"${!canAdd?' disabled':''}>+</button>
+    </div>`;
+  }).join('');
+
+  const teams=[...new Set(Object.values(FANTASY_CATALOG).map(e=>e.team))]
+    .filter(t=>isTeamActive(t,round)).sort();
+  const teamOpts=teams.map(t=>`<option value="${t}"${ft===t?' selected':''}>${TEAM_EMOJI[t]||''} ${t}</option>`).join('');
+
+  const submitLabel=canSubmit?'Submit Squad ✓':`Submit (${squad.length<11?squad.length+'/11':!gkOk?'need GK':'ready'})`;
+
+  return`<div class="fant-builder">
+    <div class="fant-budget-bar">
+      <div>
+        <span class="fant-budget-num">${budget.toFixed(1)}M</span>
+        <span style="color:var(--muted);font-size:0.8rem"> remaining · ${squad.length}/11</span>
+      </div>
+      <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+        <button class="btn" onclick="confirmSubmitSquad()"${!canSubmit?' disabled style="opacity:0.4;cursor:not-allowed"':''}>${submitLabel}</button>
+        <button class="btn-outline" onclick="cancelDraft()" style="font-size:0.8rem">Cancel</button>
+      </div>
+    </div>
+    <div class="fant-slots-grid">${slots}</div>
+    <div class="fant-picker">
+      <div class="fant-filters">
+        <input class="ko-input" style="flex:1;min-width:130px" placeholder="Search…"
+          value="${fs||''}" oninput="_fFilter.search=this.value;renderFantasyTab()">
+        <div class="scoring-mode-bar" style="margin:0">
+          ${['','GK','DEF','MID','FWD'].map(p=>`<button class="sm-btn${fp===p?' active':''}" onclick="_fFilter.pos='${p}';renderFantasyTab()" style="padding:3px 7px">${p||'All'}</button>`).join('')}
+        </div>
+        <select class="result-select" style="font-size:0.8rem" onchange="_fFilter.team=this.value;renderFantasyTab()">
+          <option value="">All teams</option>${teamOpts}
+        </select>
+      </div>
+      <div style="font-size:0.72rem;color:var(--muted);margin:0.4rem 0 0.5rem">
+        ${allAvail.length} players${allAvail.length>80?' · top 80 shown':''} · sorted by pts
+      </div>
+      <div class="fant-player-list">${playerRows}</div>
+    </div>
+  </div>`;
+}
+
+function addDraftPlayer(name){
+  if(_fDraft.squad.length>=11)return;
+  const e=FANTASY_CATALOG[name];if(!e)return;
+  const remaining=FANTASY_BUDGET-squadCost(_fDraft.squad);
+  if(e.value>remaining)return;
+  _fDraft.squad.push(name);
+  saveFantasyDraft(_fDraft);
+  renderFantasyTab();
+}
+
+function removeDraftPlayer(name){
+  _fDraft.squad=_fDraft.squad.filter(p=>p!==name);
+  saveFantasyDraft(_fDraft);
+  renderFantasyTab();
+}
+
+function cancelDraft(){_fDraft={squad:[],round:null};saveFantasyDraft(_fDraft);renderFantasyTab();}
+
+async function confirmSubmitSquad(){
+  const myName=FORM_STATE.name;
+  const round=STATE.fantasy?.window;
+  if(!myName||!round||_fDraft.squad.length!==11)return;
+  const gkOk=_fDraft.squad.some(n=>FANTASY_CATALOG[n]?.pos==='GK');
+  if(!gkOk){alert('Squad must include at least one goalkeeper.');return;}
+  if(!db){alert('Not connected to database.');return;}
+  const key=sanitizeName(myName);
+  const btn=document.querySelector('.fant-builder .btn');
+  if(btn){btn.textContent='Saving…';btn.disabled=true;}
+  try{
+    await db.ref(`wc2026/fantasy/squads/${key}/${round}`).set(_fDraft.squad);
+    _fDraft={squad:[],round:null};saveFantasyDraft(_fDraft);
+  }catch(e){alert('Error: '+e.message);}
+  renderFantasyTab();
+}
+
+function buildFLeaderboardView(){
+  const players=STATE.players;
+  if(!players.length)return`<div style="padding:2rem;text-align:center;color:var(--muted)">No players yet.</div>`;
+
+  const rows=players.map(p=>{
+    const current=getCurrentFantasySquad(p.name);
+    const squad=current?.squad||[];
+    const pts=squad.reduce((s,n)=>s+(calcFantasyPoints(n)?.total||0),0);
+    return{player:p,squad,pts};
+  }).sort((a,b)=>b.pts-a.pts);
+
+  return`<div>${rows.map((row,i)=>{
+    const {player,squad,pts}=row;
+    const preview=squad.length
+      ?squad.slice(0,5).map(n=>{const e=FANTASY_CATALOG[n];return`${e?TEAM_EMOJI[e.team]||'':''} ${n.split(' ').pop()}`;}).join(' · ')+(squad.length>5?` +${squad.length-5}`:'')
+      :'No squad submitted';
+    return`<div class="fant-lb-row">
+      <span class="fant-lb-rank">${i+1}</span>
+      <div class="lb-avatar" style="background:${player.color}">${player.initials}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600">${player.name}</div>
+        <div class="fant-lb-preview">${preview}</div>
+      </div>
+      <span class="fant-lb-pts">${pts}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+
+function buildFPlayersView(fw){
+  const players=Object.entries(FANTASY_CATALOG)
+    .map(([name,e])=>({name,...e,pts:calcFantasyPoints(name).total}))
+    .sort((a,b)=>b.pts-a.pts||b.value-a.value);
+
+  // Ownership map
+  const owned={};
+  STATE.players.forEach(p=>{
+    const c=getCurrentFantasySquad(p.name);
+    if(c?.squad)c.squad.forEach(n=>{owned[n]=owned[n]||[];owned[n].push(p);});
+  });
+
+  return`<div>
+    <div class="fant-players-header">
+      <span>Pos</span><span>Player</span><span>Team</span><span>Val</span><span>Pts</span><span>Owned</span>
+    </div>
+    ${players.map(p=>{
+      const emoji=TEAM_EMOJI[p.team]||'';
+      const active=fw?isTeamActive(p.team,fw):true;
+      const owners=(owned[p.name]||[]).map(o=>`<div class="lb-avatar" style="background:${o.color};width:18px;height:18px;font-size:0.45rem;flex-shrink:0" title="${o.name}">${o.initials}</div>`).join('');
+      return`<div class="fant-player-row${!active?' fant-disabled':''}">
+        <span class="fant-pos fant-pos-${p.pos.toLowerCase()}">${p.pos}</span>
+        <span class="fant-player-name">${emoji} ${p.name}</span>
+        <span class="fant-player-team">${p.team}</span>
+        <span class="fant-player-val">${p.value}M</span>
+        <span class="fant-player-pts" style="color:${p.pts>0?'var(--gold)':'var(--text)'}">${p.pts>0?'+'+p.pts:p.pts}</span>
+        <span style="display:flex;gap:2px;flex-wrap:wrap">${owners}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+async function saveFantasyWindow(val){
+  // Update local state immediately so the UI responds without needing Firebase
+  if(!STATE.fantasy)STATE.fantasy={window:null,squads:{}};
+  STATE.fantasy.window=val||null;
+  renderAll();
+  const st=document.getElementById('fantasy-window-status');
+  if(!db){if(st)st.textContent='(local only — not persisted)';return;}
+  if(st)st.textContent='Saving…';
+  try{
+    await db.ref('wc2026/fantasy/config/window').set(val||null);
+    if(st){st.textContent='✓ Saved!';setTimeout(()=>{st.textContent='';},2500);}
+  }catch(e){if(st)st.textContent='✗ '+e.message;}
+}
+
 // ── TABS + RENDER ALL ─────────────────────────────────────────────────────────
 function showTab(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
   if(el)el.classList.add('active');
-  if(id==='submit') renderSubmitTab();
-  if(id==='admin')  renderAdminTab();
-  if(id==='scoring')renderScoringTab();
-  if(id==='bracket')renderBracketTab();
-  if(id==='road')   renderRoadTab();
-  if(id==='stats')  renderStatsTab();
+  if(id==='submit')  renderSubmitTab();
+  if(id==='admin')   renderAdminTab();
+  if(id==='scoring') renderScoringTab();
+  if(id==='bracket') renderBracketTab();
+  if(id==='road')    renderRoadTab();
+  if(id==='stats')   renderStatsTab();
+  if(id==='fantasy') renderFantasyTab();
   if(id==='matches'&&matchSortMode==='date') setTimeout(scrollToNextMatch, 80);
   else window.scrollTo(0,0);
 }
@@ -3796,7 +4470,7 @@ function scrollToNextMatch(){
 }
 
 function loadDemo(){
-  STATE={matches:DEMO_MATCHES,players:DEMO_PLAYERS,source:'demo',special:DEMO_SPECIAL,knockout:DEMO_KNOCKOUT};
+  STATE={matches:DEMO_MATCHES,players:DEMO_PLAYERS,source:'demo',special:DEMO_SPECIAL,knockout:DEMO_KNOCKOUT,fantasy:{window:null,squads:{}}};
   renderAll();
 }
 function loadDemoWithScores(){
@@ -3814,7 +4488,7 @@ function loadDemoWithScores(){
   // Fake prevRanks for demo — reversed so arrows show movement
   const demoPrevRanks={};
   [...DEMO_PLAYERS].reverse().forEach((p,i)=>{demoPrevRanks[p.name]=i+1;});
-  STATE={matches,players:DEMO_PLAYERS,source:'demo',special,knockout:DEMO_KNOCKOUT,prevRanks:demoPrevRanks};
+  STATE={matches,players:DEMO_PLAYERS,source:'demo',special,knockout:DEMO_KNOCKOUT,prevRanks:demoPrevRanks,fantasy:{window:null,squads:{}}};
   renderAll();
 }
 
@@ -3827,8 +4501,9 @@ function renderAll(){
   const active=document.querySelector('.section.active');
   if(active?.id==='submit')renderSubmitTab();
   if(active?.id==='admin') renderAdminTab();
-  if(active?.id==='road')  renderRoadTab();
-  if(active?.id==='stats') renderStatsTab();
+  if(active?.id==='road')    renderRoadTab();
+  if(active?.id==='stats')   renderStatsTab();
+  if(active?.id==='fantasy') renderFantasyTab();
   renderLiveRail();
   updateSpoilerBtn();
 }
