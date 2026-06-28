@@ -196,7 +196,8 @@
   .kb-final-col { display:flex; flex-direction:column; justify-content:center; align-items:center; gap:0.5rem; min-width:120px; }
   .kb-final-label { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.08em; color:var(--gold); }
   .kb-trophy { font-size:1.4rem; }
-  .kb-match { background:var(--surface); border:1px solid var(--border); border-radius:8px; }
+  .kb-match { background:var(--surface); border:1px solid var(--border); border-radius:8px; cursor:pointer; transition:border-color .12s; }
+  .kb-match:hover { border-color:rgba(201,168,76,0.55); }
   .kb-match.kb-final { border-color:var(--gold); box-shadow:0 0 0 1px rgba(201,168,76,0.4); min-width:118px; }
   /* Third-place play-off — bronze accent, under the final */
   .kb-third-label { font-family:'Bebas Neue',sans-serif; font-size:0.8rem; letter-spacing:0.06em; color:#CD7F32; margin-top:0.4rem; }

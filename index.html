@@ -960,6 +960,45 @@ const R16_FEED=[[1,4],[0,2],[3,5],[6,7],[10,11],[8,9],[13,15],[12,14]]; // R16 0
 const QF_FEED=[[0,1],[4,5],[2,3],[6,7]];   // QF 0-3 ← R16 idxs
 const SF_FEED=[[0,1],[2,3]];               // SF 0-1 ← QF idxs
 const FINAL_FEED=[0,1];                    // Final ← SF idxs
+// Knockout schedule (CEST) keyed by official match number 73–104. Source: FIFA / Wikipedia.
+const KNOCKOUT_SCHEDULE={
+  73:['2026-06-28','21:00'],74:['2026-06-29','22:30'],75:['2026-06-30','03:00'],76:['2026-06-29','19:00'],
+  77:['2026-06-30','23:00'],78:['2026-06-30','19:00'],79:['2026-07-01','03:00'],80:['2026-07-01','18:00'],
+  81:['2026-07-02','02:00'],82:['2026-07-01','22:00'],83:['2026-07-03','01:00'],84:['2026-07-02','21:00'],
+  85:['2026-07-03','05:00'],86:['2026-07-04','00:00'],87:['2026-07-04','03:30'],88:['2026-07-03','20:00'],
+  89:['2026-07-04','23:00'],90:['2026-07-04','19:00'],91:['2026-07-05','22:00'],92:['2026-07-06','02:00'],
+  93:['2026-07-06','21:00'],94:['2026-07-07','02:00'],95:['2026-07-07','18:00'],96:['2026-07-07','22:00'],
+  97:['2026-07-09','22:00'],98:['2026-07-10','21:00'],99:['2026-07-11','23:00'],100:['2026-07-12','03:00'],
+  101:['2026-07-14','21:00'],102:['2026-07-15','21:00'],103:['2026-07-18','23:00'],104:['2026-07-19','21:00'],
+};
+const KO_ROUND_OF=n=> n<=88?'Round of 32': n<=96?'Round of 16': n<=100?'Quarter-final': n<=102?'Semi-final': n===103?'Third place':'Final';
+// Match-number layout per bracket column (used for both the knockout match cards and bracket links).
+const KO_NUMS={ leftR32:[74,77,73,75,83,84,81,82], leftR16:[89,90,93,94], leftQF:[97,98], leftSF:[101],
+  rightSF:[102], rightQF:[99,100], rightR16:[91,92,95,96], rightR32:[76,78,79,80,86,88,85,87] };
+// Resolve the two teams for a knockout match number (R32 from the bracket, later rounds TBD).
+function koTeams(num,standings,best3rd,allComplete,b3map){
+  if(num>88) return {home:'TBD',away:'TBD'};
+  const m=R32_BRACKET[num-73];
+  const fmt=t=>t?((TEAM_EMOJI[t]?TEAM_EMOJI[t]+' ':'')+t):'TBD';
+  return { home:fmt(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map).team),
+           away:fmt(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map).team) };
+}
+// Build knockout match objects (id 73–104) for the Matches list, in cardHtml shape.
+function buildKnockoutMatches(){
+  const standings=STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings();
+  const best3rd=getBest3rdPlace(standings);
+  const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
+  const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const out=[];
+  for(let num=73;num<=104;num++){
+    const sch=KNOCKOUT_SCHEDULE[num]; const t=koTeams(num,standings,best3rd,allComplete,b3map);
+    const d=sch?new Date(sch[0]+'T00:00'):null;
+    out.push({ id:num, knockout:true, group:KO_ROUND_OF(num), home:t.home, away:t.away,
+      date: d?MO[d.getMonth()]+' '+d.getDate():'', kickoff: sch?sch[0]+'T'+sch[1]:null, result:null, score:null });
+  }
+  return out;
+}
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
@@ -2267,7 +2306,7 @@ function renderMatches(){
     const sortedScorers=m.scorers?[...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute):[];
     const sortedCards=m.cards?[...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute):[];
     let picksHtml='',stakesHtml='',starsHtml='';
-    if(picksVisible&&STATE.players.length){
+    if(picksVisible&&STATE.players.length&&!m.knockout){
       const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
       const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
       const av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
@@ -2343,7 +2382,7 @@ function renderMatches(){
     // ── Light card (visual redesign): header strip + round flags + 3 states ──
     const isGroupStage=/^Group /.test(m.group||'');
     const stageLabel=isGroupStage?'Group Stage':(m.group||'');
-    let metaRight=m.group||'';
+    let metaRight=m.knockout?'':(m.group||'');
     if(isGroupStage){
       const gm=STATE.matches.filter(x=>x.group===m.group).sort((a,b)=>matchSortKey(a)-matchSortKey(b));
       const pos=gm.findIndex(x=>x.id===m.id);
@@ -2479,7 +2518,7 @@ function renderMatches(){
 
   if(matchSortMode==='date'){
     // Sort all matches chronologically, then group by date label
-    const sorted=[...STATE.matches].sort((a,b)=>matchSortKey(a)-matchSortKey(b));
+    const sorted=[...STATE.matches,...buildKnockoutMatches()].sort((a,b)=>matchSortKey(a)-matchSortKey(b));
     const visible=sorted;
     const byDate={};
     const dateOrder=[];
@@ -2516,6 +2555,12 @@ function renderMatches(){
         }
       }
       STATE.matches.filter(m=>m.group===g).forEach(m=>{ html+=cardHtml(m,false); });
+    });
+    // Knockout rounds appended after the groups
+    const ko=buildKnockoutMatches();
+    ['Round of 32','Round of 16','Quarter-final','Semi-final','Third place','Final'].forEach(rd=>{
+      const rms=ko.filter(m=>m.group===rd);
+      if(rms.length){ html+=`<div class="group-label">${rd}</div>`; rms.forEach(m=>{ html+=cardHtml(m,false); }); }
     });
   }
 
@@ -3051,15 +3096,15 @@ function renderKnockoutBracket(){
   };
   const r32Cell=idx=>{
     const m=R32_BRACKET[idx];
-    return `<div class="kb-match kb-r32">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map),descFor(m.away))}</div>`;
+    return `<div class="kb-match kb-r32" onclick="goToMatch(${73+idx})">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map),descFor(m.away))}</div>`;
   };
-  const tbd=cls=>`<div class="kb-match ${cls}"><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div></div>`;
+  const tbd=(cls,num)=>`<div class="kb-match ${cls}" onclick="goToMatch(${num})"><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div></div>`;
   const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
-  const many=(n,cls)=>Array.from({length:n},()=>tbd(cls)).join('');
+  const tbds=(nums,cls)=>nums.map(n=>tbd(cls,n)).join('');
   const leftR32=[1,4,0,2,10,11,8,9], rightR32=[3,5,6,7,13,15,12,14];
-  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',many(4,'kb-r16'))}${col('kb-col-tbd',many(2,'kb-qf'))}${col('kb-col-tbd',tbd('kb-sf'))}</div>`;
-  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final')}<div class="kb-trophy">🏆</div><div class="kb-third-label">3rd place</div>${tbd('kb-third')}</div>`;
-  const right=`<div class="kb-side">${col('kb-col-tbd',tbd('kb-sf'))}${col('kb-col-tbd',many(2,'kb-qf'))}${col('kb-col-tbd',many(4,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
+  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',tbds(KO_NUMS.leftR16,'kb-r16'))}${col('kb-col-tbd',tbds(KO_NUMS.leftQF,'kb-qf'))}${col('kb-col-tbd',tbds(KO_NUMS.leftSF,'kb-sf'))}</div>`;
+  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final',104)}<div class="kb-trophy">🏆</div><div class="kb-third-label">3rd place</div>${tbd('kb-third',103)}</div>`;
+  const right=`<div class="kb-side">${col('kb-col-tbd',tbds(KO_NUMS.rightSF,'kb-sf'))}${col('kb-col-tbd',tbds(KO_NUMS.rightQF,'kb-qf'))}${col('kb-col-tbd',tbds(KO_NUMS.rightR16,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
   const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place${allComplete?'':' · flags = teams that could still take a TBD spot'}</div>`;
   return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;
 }
@@ -3222,22 +3267,21 @@ function slotTeam(slot,standings,str){
   return null;
 }
 function renderTeamPath(team,standings,str){
-  const G=teamGroupOf(team); if(!G) return '';
+  if(!teamGroupOf(team)) return '';
   if(isEliminated(team,standings)) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Eliminated — no longer able to reach the knockout stage.</div></div>`;
-  const rows=projOrder(G,standings,str);
-  const pos=rows.findIndex(r=>r.team===team);
-  if(pos<0) return '';
-  if(pos>2) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Projected to finish ${pos+1}${['','st','nd','rd'][pos+1]||'th'} in Group ${G} — unlikely to reach the knockout stage.</div></div>`;
-  // Find the R32 match + opponent slot for the projected finish.
-  let ti=-1, oppSlot=null;
-  if(pos<2){ const type=pos===0?'w':'ru';
-    ti=R32_BRACKET.findIndex(m=>(m.home.type===type&&m.home.group===G)||(m.away.type===type&&m.away.group===G));
-    const m=R32_BRACKET[ti]; oppSlot=(m.home.type===type&&m.home.group===G)?m.away:m.home;
-  } else { ti=R32_BRACKET.findIndex(m=>(m.home.type==='b3'&&m.home.groups.includes(G))||(m.away.type==='b3'&&m.away.groups.includes(G)));
-    if(ti>=0){ const m=R32_BRACKET[ti]; oppSlot=(m.home.type==='b3'&&m.home.groups.includes(G))?m.away:m.home; } }
-  if(ti<0) return '';
-  // Most-likely survivor of any subtree.
-  const r32W=i=>{const m=R32_BRACKET[i];return pickStronger(slotTeam(m.home,standings,str),slotTeam(m.away,standings,str),str);};
+  // Use the actual playoff bracket: resolve every R32 match's two teams.
+  const best3rd=getBest3rdPlace(standings);
+  const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
+  const r32=R32_BRACKET.map(m=>({
+    home:resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map).team,
+    away:resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map).team }));
+  // Locate the selected team in the bracket; its opponent is the other side.
+  let ti=-1, opp=null;
+  r32.forEach((x,i)=>{ if(x.home===team){ti=i;opp=x.away;} else if(x.away===team){ti=i;opp=x.home;} });
+  if(ti<0) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Projected outside the Round of 32 on current standings.</div></div>`;
+  // Most-likely survivor of any subtree, from the bracket's resolved R32 teams.
+  const r32W=i=>pickStronger(r32[i].home,r32[i].away,str);
   const r16W=i=>pickStronger(r32W(R16_FEED[i][0]),r32W(R16_FEED[i][1]),str);
   const qfW =i=>pickStronger(r16W(QF_FEED[i][0]),r16W(QF_FEED[i][1]),str);
   const sfW =i=>pickStronger(qfW(SF_FEED[i][0]),qfW(SF_FEED[i][1]),str);
@@ -3246,7 +3290,7 @@ function renderTeamPath(team,standings,str){
   const sfi =SF_FEED.findIndex(f=>f.includes(qfi)), sibQf=SF_FEED[sfi].find(x=>x!==qfi);
   const otherSf=FINAL_FEED.find(x=>x!==sfi);
   const rounds=[
-    {label:'Round of 32',  opp:slotTeam(oppSlot,standings,str)},
+    {label:'Round of 32',  opp},
     {label:'Round of 16',  opp:r32W(sibR32)},
     {label:'Quarter-final',opp:r16W(sibR16)},
     {label:'Semi-final',   opp:qfW(sibQf)},
@@ -3263,10 +3307,9 @@ function renderTeamPath(team,standings,str){
       <div class="kb-path-prob"><div class="kb-pp-bar"><span style="width:${pct}%"></span></div><div class="kb-pp-nums">${pct}%</div></div>
     </div>`;
   }).join('');
-  const note=pos===2?'<div class="kb-path-note">Assumes qualification as one of the best third-placed teams.</div>':'';
   return `<div class="kb-path">
     <div class="kb-path-head">${withFlag(team)} — projected run <span class="kb-path-win">${(cum*100).toFixed(1)}% to lift the trophy</span></div>
-    ${rowsHtml}${note}
+    ${rowsHtml}
   </div>`;
 }
 
@@ -3337,13 +3380,10 @@ function showFlagTip(el){
 }
 function hideFlagTip(){ const t=document.getElementById('kb-flagtip'); if(t){ t.classList.remove('show'); t.style.display='none'; } }
 if(!window.__kbTipBound){ window.__kbTipBound=true;
+  // Hover shows a candidate flag's team name (pre-qualification). Clicking a bracket
+  // game navigates to its card in the Matches list (handled by each cell's onclick).
   document.addEventListener('pointerover',e=>{ const c=e.target.closest?.('.kb-cand'); if(c) showFlagTip(c); });
-  document.addEventListener('pointerout',e=>{ const c=e.target.closest?.('.kb-cand'); if(!c)return; if(c.contains(e.relatedTarget))return; if(!c.classList.contains('pinned')) hideFlagTip(); });
-  document.addEventListener('click',e=>{ const c=e.target.closest?.('.kb-cand,.kb-resolved');
-    const wasPinned=c&&c.classList.contains('pinned');
-    document.querySelectorAll('.kb-cand.pinned,.kb-resolved.pinned').forEach(x=>x.classList.remove('pinned'));
-    if(c&&c.dataset.name&&!wasPinned){ e.stopPropagation(); c.classList.add('pinned'); showFlagTip(c); } else hideFlagTip();
-  });
+  document.addEventListener('pointerout',e=>{ const c=e.target.closest?.('.kb-cand'); if(!c)return; if(c.contains(e.relatedTarget))return; hideFlagTip(); });
   addEventListener('scroll',hideFlagTip,true); addEventListener('resize',hideFlagTip);
 }
 
