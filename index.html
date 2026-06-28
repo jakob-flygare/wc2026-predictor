@@ -1078,9 +1078,10 @@ function updateNextupCountdown(){
 let nextupTicker=null;
 function ensureNextupTicker(){ if(!nextupTicker) nextupTicker=setInterval(updateNextupCountdown,1000); }
 function getFeaturedMatch(){
-  const live=STATE.matches.find(m=>getMatchStatus(m)==='live');
+  const allMatches=[...STATE.matches,...buildKnockoutMatches()];
+  const live=allMatches.find(m=>getMatchStatus(m)==='live');
   if(live)return live;
-  const unplayed=STATE.matches.filter(m=>!m.result);
+  const unplayed=allMatches.filter(m=>!m.result);
   if(!unplayed.length)return null;
   const sorted=unplayed.filter(m=>m.kickoff).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff));
   for(const m of sorted){if(new Date(m.kickoff)>new Date())return m;}
@@ -2306,17 +2307,39 @@ function renderMatches(){
     const sortedScorers=m.scorers?[...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute):[];
     const sortedCards=m.cards?[...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute):[];
     let picksHtml='',stakesHtml='',starsHtml='';
-    if(picksVisible&&STATE.players.length&&!m.knockout){
-      const hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
-      const dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
-      const av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
+    if(picksVisible&&STATE.players.length){
       const pkCol=names=>names.length?names.map(n=>`<div class="md-pk-name">${n}</div>`).join(''):`<div class="md-pk-empty">—</div>`;
-      picksHtml=`<div class="md-section-title">Predictions</div>
-      <div class="md-picks">
-        <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn}</div>${pkCol(hv)}</div>
-        <div class="md-pk-col md-pk-draw"><div class="md-pk-head">Draw</div>${pkCol(dv)}</div>
-        <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an}</div>${pkCol(av)}</div>
-      </div>`;
+      let hv=[],dv=[],av=[];
+      if(m.knockout){
+        const advanceKey=m.id<=88?'r16':m.id<=96?'qf':m.id<=100?'sf':m.id<=102?'final':m.id===103?'bronze':'winner';
+        const homeTeam=shortName(m.home).toLowerCase();
+        const awayTeam=shortName(m.away).toLowerCase();
+        hv=STATE.players.filter(p=>{
+          const val=p.bracket?.[advanceKey];
+          const picks=Array.isArray(val)?val:(val?[val]:[]);
+          return picks.some(t=>shortName(t).toLowerCase()===homeTeam);
+        }).map(p=>p.name);
+        av=STATE.players.filter(p=>{
+          const val=p.bracket?.[advanceKey];
+          const picks=Array.isArray(val)?val:(val?[val]:[]);
+          return picks.some(t=>shortName(t).toLowerCase()===awayTeam);
+        }).map(p=>p.name);
+        picksHtml=`<div class="md-section-title">Advance picks</div>
+        <div class="md-picks">
+          <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn} advances</div>${pkCol(hv)}</div>
+          <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an} advances</div>${pkCol(av)}</div>
+        </div>`;
+      } else {
+        hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
+        dv=STATE.players.filter(p=>p.picks[m.id]==='draw').map(p=>p.name);
+        av=STATE.players.filter(p=>p.picks[m.id]==='away').map(p=>p.name);
+        picksHtml=`<div class="md-section-title">Predictions</div>
+        <div class="md-picks">
+          <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn}</div>${pkCol(hv)}</div>
+          <div class="md-pk-col md-pk-draw"><div class="md-pk-head">Draw</div>${pkCol(dv)}</div>
+          <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an}</div>${pkCol(av)}</div>
+        </div>`;
+      }
       // Special stakes — team-based specials linking to this match
       const homeTeam=shortName(m.home).toLowerCase(),awayTeam=shortName(m.away).toLowerCase();
       const STAKE_KEYS=[
