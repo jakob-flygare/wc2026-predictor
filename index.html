@@ -1123,7 +1123,8 @@ function computeActualStandings(){
 function getBest3rdPlace(standings){
   const thirds=[];
   Object.keys(standings).forEach(g=>{if(standings[g].length>=3)thirds.push({...standings[g][2],group:g});});
-  thirds.sort((a,b)=>b.pts-a.pts||b.w-a.w||a.group.localeCompare(b.group));
+  // FIFA ranking of third-placed teams: points, then goal difference, then goals for.
+  thirds.sort((a,b)=>b.pts-a.pts || ((b.gf||0)-(b.ga||0))-((a.gf||0)-(a.ga||0)) || (b.gf||0)-(a.gf||0) || a.group.localeCompare(b.group));
   return thirds.slice(0,8);
 }
 
@@ -2960,9 +2961,7 @@ function renderPathsTab(){  // kept as no-op for safety
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
 let bracketView='groups';   // 'groups' | 'bracket'
-let bracketLive=false;      // bracket: fill R32 from current standings as if final
 function setBracketView(v){ bracketView=v; renderBracketTab(); }
-function setBracketLive(v){ bracketLive=v; renderBracketTab(); }
 
 function renderBracketTab(){
   const cont=document.getElementById('bracket-content');
@@ -2970,7 +2969,6 @@ function renderBracketTab(){
   const toggle=`<div class="bracket-view-toggle">
     <button class="bvt-btn${bracketView==='groups'?' active':''}" onclick="setBracketView('groups')">Groups</button>
     <button class="bvt-btn${bracketView==='bracket'?' active':''}" onclick="setBracketView('bracket')">Bracket</button>
-    ${bracketView==='bracket'?`<button class="bvt-live${bracketLive?' active':''}" onclick="setBracketLive(${!bracketLive})" title="Fill the Round of 32 from current standings as if the group stage were final">⚡ Live fill</button>`:''}
   </div>`;
   cont.innerHTML=toggle+(bracketView==='bracket'?renderKnockoutBracket():renderGroupStandings());
   applyFlags('bracket-content');
@@ -2987,12 +2985,25 @@ function kbTeamMax(t){ return (t.pts||0)+3*Math.max(0,3-(t.pld||0)); }
 // Teams that can still finish in the top `n` of their group (guaranteed-ahead < n).
 function kbContenders(rows,n){ return rows.filter(t=>rows.filter(o=>o!==t&&(o.pts||0)>kbTeamMax(t)).length<n); }
 // Assign the current best-third-placed teams to the eight 3rd-place R32 slots,
-// respecting each slot's allowed group-set (bipartite matching). Returns a map
-// keyed by the slot's groups (joined) → team. Used by the "Live fill" view.
+// respecting each slot's allowed group-set. Returns a map keyed by the slot's
+// groups (joined) → team.
+// FIFA Annexe C: the official slot→group assignment for a given set of qualifying
+// third-place groups. Keyed by the sorted qualifying-group string. (Add rows as
+// outcomes are realised; falls back to constraint matching for unlisted combos.)
+const THIRD_PLACE_TABLE={
+  // Annexe C option 350 — qualifying thirds from groups A,B,D,E,F,J,K,L
+  'ABDEFJKL':{ABCDF:'D',CDFGH:'F',CEFHI:'E',EHIJK:'K',BEFIJ:'B',AEHIJ:'A',EFGIJ:'J',DEIJL:'L'},
+  // Annexe C option 67 — qualifying thirds from groups B,D,E,F,I,J,K,L (realised)
+  'BDEFIJKL':{ABCDF:'D',CDFGH:'F',CEFHI:'E',EHIJK:'K',BEFIJ:'B',AEHIJ:'I',EFGIJ:'J',DEIJL:'L'},
+};
 function assignLiveThirds(standings,best3rd){
   const slots=[]; const seen=new Set();
   R32_BRACKET.forEach(m=>[m.home,m.away].forEach(s=>{ if(s.type==='b3'){ const k=s.groups.join(''); if(!seen.has(k)){seen.add(k); slots.push({key:k,groups:s.groups});} } }));
   const groups=best3rd.map(t=>t.group);
+  // Use the official Annexe C row when this exact combination is known.
+  const row=THIRD_PLACE_TABLE[[...groups].sort().join('')];
+  if(row){ const m={}; slots.forEach(s=>{ const g=row[s.key]; if(g) m[s.key]=standings[g]?.[2]?.team||null; }); return m; }
+  // Fallback: a valid constraint-respecting assignment (bipartite matching).
   const matchSlot=new Array(slots.length).fill(-1);   // slot → group index
   const matchGroup=new Array(groups.length).fill(-1); // group → slot index
   const aug=(si,visited)=>{
@@ -3009,19 +3020,18 @@ function assignLiveThirds(standings,best3rd){
   return map;
 }
 // Resolve one R32 slot to a clinched team or a list of still-possible teams.
-// In live mode, fill from current standings as if the group stage were final.
-function resolveBracketSlot(slot,standings,best3rd,allComplete,live,liveB3){
+// b3 slots use the bijective best-third assignment (b3map) once groups are complete.
+function resolveBracketSlot(slot,standings,best3rd,allComplete,b3map){
   if(slot.type==='w'||slot.type==='ru'){
     const rows=standings[slot.group]||[], pos=slot.type==='w'?0:1;
-    if(live||kbGroupComplete(rows)) return {team:rows[pos]?.team||null,candidates:[]};
+    if(kbGroupComplete(rows)) return {team:rows[pos]?.team||null,candidates:[]};
     let cont=kbContenders(rows,pos+1);
     if(slot.type==='ru'){ const w=kbContenders(rows,1); if(w.length===1) cont=cont.filter(t=>t!==w[0]); }
     if(cont.length===1) return {team:cont[0].team,candidates:[]};
     return {team:null,candidates:cont.map(t=>t.team)};
   }
   if(slot.type==='b3'){
-    if(live) return {team:(liveB3&&liveB3[slot.groups.join('')])||null,candidates:[]};
-    if(allComplete&&best3rd){ const t=best3rd.find(t=>slot.groups.includes(t.group)); return {team:t?t.team:null,candidates:[]}; }
+    if(allComplete&&b3map) return {team:b3map[slot.groups.join('')]||null,candidates:[]};
     return {team:null,candidates:slot.groups.map(g=>standings[g]?.[2]?.team).filter(Boolean)};
   }
   return {team:null,candidates:[]};
@@ -3031,29 +3041,26 @@ function renderKnockoutBracket(){
   const standings=official?STATE.standings:computeActualStandings();
   const best3rd=getBest3rdPlace(standings);
   const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
-  const live=bracketLive;
-  const liveB3=live?assignLiveThirds(standings,best3rd):null;
+  const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
   const descFor=s=> s.type==='w'?('1'+s.group): s.type==='ru'?('2'+s.group): ('3·'+s.groups.join(''));
   const slotCell=(res,desc)=>{
-    if(res.team) return `<div class="kb-team">${live?`<span class="kb-tag kb-tag-live">${desc}</span> `:''}${withFlag(res.team)}</div>`;
+    if(res.team) return `<div class="kb-team kb-resolved" data-name="${res.team.replace(/"/g,'&quot;')}">${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span></div>`;
     const c=res.candidates||[];
     const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
     return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:'<span class="kb-tbd-txt">TBD</span>'}</div>`;
   };
   const r32Cell=idx=>{
     const m=R32_BRACKET[idx];
-    return `<div class="kb-match kb-r32">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,live,liveB3),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,live,liveB3),descFor(m.away))}</div>`;
+    return `<div class="kb-match kb-r32">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map),descFor(m.away))}</div>`;
   };
   const tbd=cls=>`<div class="kb-match ${cls}"><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div></div>`;
   const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
   const many=(n,cls)=>Array.from({length:n},()=>tbd(cls)).join('');
   const leftR32=[1,4,0,2,10,11,8,9], rightR32=[3,5,6,7,13,15,12,14];
-  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('',many(4,'kb-r16'))}${col('',many(2,'kb-qf'))}${col('',tbd('kb-sf'))}</div>`;
-  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final')}<div class="kb-trophy">🏆</div></div>`;
-  const right=`<div class="kb-side">${col('',tbd('kb-sf'))}${col('',many(2,'kb-qf'))}${col('',many(4,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
-  const legend=live
-    ? `<div class="kb-legend">⚡ Live fill — Round of 32 filled from current standings <em>as if the group stage were final</em>. Later rounds depend on knockout results.</div>`
-    : `<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place · flags = teams that could still take a TBD spot</div>`;
+  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',many(4,'kb-r16'))}${col('kb-col-tbd',many(2,'kb-qf'))}${col('kb-col-tbd',tbd('kb-sf'))}</div>`;
+  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final')}<div class="kb-trophy">🏆</div><div class="kb-third-label">3rd place</div>${tbd('kb-third')}</div>`;
+  const right=`<div class="kb-side">${col('kb-col-tbd',tbd('kb-sf'))}${col('kb-col-tbd',many(2,'kb-qf'))}${col('kb-col-tbd',many(4,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
+  const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place${allComplete?'':' · flags = teams that could still take a TBD spot'}</div>`;
   return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;
 }
 
@@ -3332,10 +3339,10 @@ function hideFlagTip(){ const t=document.getElementById('kb-flagtip'); if(t){ t.
 if(!window.__kbTipBound){ window.__kbTipBound=true;
   document.addEventListener('pointerover',e=>{ const c=e.target.closest?.('.kb-cand'); if(c) showFlagTip(c); });
   document.addEventListener('pointerout',e=>{ const c=e.target.closest?.('.kb-cand'); if(!c)return; if(c.contains(e.relatedTarget))return; if(!c.classList.contains('pinned')) hideFlagTip(); });
-  document.addEventListener('click',e=>{ const c=e.target.closest?.('.kb-cand');
+  document.addEventListener('click',e=>{ const c=e.target.closest?.('.kb-cand,.kb-resolved');
     const wasPinned=c&&c.classList.contains('pinned');
-    document.querySelectorAll('.kb-cand.pinned').forEach(x=>x.classList.remove('pinned'));
-    if(c&&!wasPinned){ e.stopPropagation(); c.classList.add('pinned'); showFlagTip(c); } else hideFlagTip();
+    document.querySelectorAll('.kb-cand.pinned,.kb-resolved.pinned').forEach(x=>x.classList.remove('pinned'));
+    if(c&&c.dataset.name&&!wasPinned){ e.stopPropagation(); c.classList.add('pinned'); showFlagTip(c); } else hideFlagTip();
   });
   addEventListener('scroll',hideFlagTip,true); addEventListener('resize',hideFlagTip);
 }

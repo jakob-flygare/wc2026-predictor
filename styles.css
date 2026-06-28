@@ -185,8 +185,6 @@
   .bvt-btn { padding:6px 18px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:background .15s,color .15s; }
   .bvt-btn.active { background:var(--gold); color:#1a1409; border-color:var(--gold); font-weight:600; }
   [data-theme="light"] .bvt-btn.active { background:#C9A84C; }
-  .bvt-live { margin-left:auto; padding:6px 14px; border-radius:20px; border:1px solid var(--border); background:var(--card); color:var(--text-muted); cursor:pointer; font-size:13px; font-family:inherit; transition:all .15s; }
-  .bvt-live.active { border-color:var(--gold); color:var(--gold); background:rgba(201,168,76,0.12); font-weight:600; }
   /* Classic two-sided playoff bracket */
   .kbracket-scroll { overflow-x:auto; padding:1.6rem 0 0.5rem; }
   .kbracket { display:flex; align-items:stretch; gap:16px; min-width:1080px; position:relative; }
@@ -200,11 +198,17 @@
   .kb-trophy { font-size:1.4rem; }
   .kb-match { background:var(--surface); border:1px solid var(--border); border-radius:8px; }
   .kb-match.kb-final { border-color:var(--gold); box-shadow:0 0 0 1px rgba(201,168,76,0.4); min-width:118px; }
+  /* Third-place play-off — bronze accent, under the final */
+  .kb-third-label { font-family:'Bebas Neue',sans-serif; font-size:0.8rem; letter-spacing:0.06em; color:#CD7F32; margin-top:0.4rem; }
+  .kb-match.kb-third { border-color:#CD7F32; box-shadow:0 0 0 1px rgba(205,127,50,0.4); min-width:118px; }
+  /* TBD-only columns stay compact on desktop */
+  .kb-col-tbd { min-width:auto; }
+  .kb-col-tbd .kb-match { min-width:64px; }
+  .kb-resolved { cursor:default; }
   .kb-team { display:flex; align-items:center; gap:4px; padding:5px 8px; font-size:0.72rem; font-weight:600; color:var(--text); white-space:nowrap; min-height:30px; }
   .kb-team+.kb-team { border-top:1px solid var(--border); }
   .kb-team.kb-tbd { color:var(--muted); font-weight:500; gap:4px; flex-wrap:wrap; white-space:normal; }
   .kb-tag { font-size:0.58rem; font-weight:700; letter-spacing:0.02em; color:var(--gold); flex-shrink:0; }
-  .kb-tag-live { color:var(--muted); }
   .kb-cands { display:inline-flex; flex-wrap:wrap; gap:2px; opacity:0.9; }
   .kb-cands img.emoji { height:0.95em; }
   .kb-more { font-size:0.58rem; color:var(--muted); align-self:center; }
@@ -215,6 +219,23 @@
   .kb-flagtip.show { opacity:1; }
   .kb-tbd-txt { font-size:0.66rem; letter-spacing:0.04em; }
   .kb-legend { font-size:0.7rem; color:var(--muted); margin-top:0.6rem; line-height:1.4; }
+  /* Mobile: flags-only bracket (tap a flag for the team name) to fit the viewport */
+  @media (max-width:600px){
+    .kbracket { min-width:0; gap:3px; }
+    .kb-side { gap:3px; }
+    .kb-col { min-width:32px; gap:4px; }
+    .kb-col-tbd .kb-match { min-width:30px; }
+    .kb-final-col { min-width:auto; gap:0.25rem; }
+    .kb-match.kb-final, .kb-match.kb-third { min-width:38px; }
+    .kb-team { padding:5px 2px; justify-content:center; gap:0; }
+    .kb-team .kb-tn { display:none; }
+    .kb-resolved { cursor:pointer; }
+    .kb-team img.emoji { height:17px; width:17px; }
+    .kb-final-label, .kb-third-label { font-size:0.6rem; }
+    .kb-tbd-txt { font-size:0.46rem; }
+    .kb-tag { font-size:0.46rem; }
+    .kb-legend { font-size:0.62rem; }
+  }
   /* Stats tab */
   .stats-note { font-size:0.78rem; color:var(--muted); margin-bottom:1rem; line-height:1.5; }
   /* Scroll container holds the frame so position:sticky works against it */
