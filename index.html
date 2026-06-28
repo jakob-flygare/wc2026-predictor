@@ -287,16 +287,17 @@ const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fi
 
 function inLiveWindow(){
   const now = Date.now();
-  return STATE.matches.some(m => !m.result && m.kickoff &&
+  return getAllMatches().some(m => !m.result && m.kickoff &&
     now >= new Date(m.kickoff).getTime() && now <= new Date(m.kickoff).getTime() + 3*3600*1000);
 }
 
 async function pollLiveScores(){
-  if (spoilerMode || !STATE.matches.length || !inLiveWindow()) return;
+  if (spoilerMode || !getAllMatches().length || !inLiveWindow()) return;
   let data;
   try { const r = await fetch(ESPN_SCOREBOARD); if(!r.ok) return; data = await r.json(); }
   catch(e){ return; }
   let changed = false;
+  const allMatches=getAllMatches();
   for (const ev of (data.events || [])){
     const comp = ev.competitions?.[0];
     if (comp?.status?.type?.state !== 'in') continue;   // only in-progress matches
@@ -305,7 +306,7 @@ async function pollLiveScores(){
     if (!hc || !ac) continue;
     const apiHome = espnNorm(hc.team?.displayName||''), apiAway = espnNorm(ac.team?.displayName||'');
     const hs = parseInt(hc.score)||0, as = parseInt(ac.score)||0;
-    const m = STATE.matches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
+    const m = allMatches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
       return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome); });
     if (!m || m.result) continue;
     const flipped = shortName(m.home) !== apiHome;
@@ -316,9 +317,12 @@ async function pollLiveScores(){
     }
     const newClock = espnClock(comp.status);
     if (LIVE_CLOCK[m.id] !== newClock){ LIVE_CLOCK[m.id] = newClock; m.liveClock = newClock; changed = true; }
-    LIVE_EVENTS[m.id] = espnEvents(comp);
-    m.scorers = m.scorers || (LIVE_EVENTS[m.id].scorers.length ? LIVE_EVENTS[m.id].scorers : null);
-    m.cards   = m.cards   || (LIVE_EVENTS[m.id].cards.length   ? LIVE_EVENTS[m.id].cards   : null);
+    const newEvents = espnEvents(comp);
+    const prevEvents = JSON.stringify(LIVE_EVENTS[m.id]||{});
+    LIVE_EVENTS[m.id] = newEvents;
+    if(prevEvents!==JSON.stringify(newEvents)) changed = true;
+    m.scorers = newEvents.scorers.length ? newEvents.scorers : null;
+    m.cards   = newEvents.cards.length   ? newEvents.cards   : null;
   }
   if (changed){
     try { localStorage.setItem('wc2026_live_scores', JSON.stringify(LIVE_SCORES)); } catch(e){}
@@ -976,12 +980,19 @@ const KO_ROUND_OF=n=> n<=88?'Round of 32': n<=96?'Round of 16': n<=100?'Quarter-
 const KO_NUMS={ leftR32:[74,77,73,75,83,84,81,82], leftR16:[89,90,93,94], leftQF:[97,98], leftSF:[101],
   rightSF:[102], rightQF:[99,100], rightR16:[91,92,95,96], rightR32:[76,78,79,80,86,88,85,87] };
 // Resolve the two teams for a knockout match number (R32 from the bracket, later rounds TBD).
+function projectedSlotTeam(res){
+  if(res.team)return res.team;
+  const candidates=res.candidates||[];
+  if(!candidates.length)return null;
+  const strengths=computeStrengths();
+  return [...candidates].sort((a,b)=>(strengths[b]||0.4)-(strengths[a]||0.4))[0];
+}
 function koTeams(num,standings,best3rd,allComplete,b3map){
   if(num>88) return {home:'TBD',away:'TBD'};
   const m=R32_BRACKET[num-73];
   const fmt=t=>t?((TEAM_EMOJI[t]?TEAM_EMOJI[t]+' ':'')+t):'TBD';
-  return { home:fmt(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map).team),
-           away:fmt(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map).team) };
+  return { home:fmt(projectedSlotTeam(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map))),
+           away:fmt(projectedSlotTeam(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map))) };
 }
 // Build knockout match objects (id 73–104) for the Matches list, in cardHtml shape.
 function buildKnockoutMatches(){
@@ -994,10 +1005,37 @@ function buildKnockoutMatches(){
   for(let num=73;num<=104;num++){
     const sch=KNOCKOUT_SCHEDULE[num]; const t=koTeams(num,standings,best3rd,allComplete,b3map);
     const d=sch?new Date(sch[0]+'T00:00'):null;
-    out.push({ id:num, knockout:true, group:KO_ROUND_OF(num), home:t.home, away:t.away,
-      date: d?MO[d.getMonth()]+' '+d.getDate():'', kickoff: sch?sch[0]+'T'+sch[1]:null, result:null, score:null });
+    out.push(applyRuntimeMatchData({ id:num, knockout:true, group:KO_ROUND_OF(num), home:t.home, away:t.away,
+      date: d?MO[d.getMonth()]+' '+d.getDate():'', kickoff: sch?sch[0]+'T'+sch[1]:null, result:null, score:null }));
   }
   return out;
+}
+
+function knockoutOdds(m){
+  const h=shortName(m.home), a=shortName(m.away);
+  if(!m.knockout||h==='TBD'||a==='TBD')return null;
+  const strengths=computeStrengths();
+  const hs=strengths[h]||0.4, as=strengths[a]||0.4, total=hs+as;
+  if(!total)return null;
+  return {home:hs/total, draw:0, away:as/total};
+}
+
+function applyRuntimeMatchData(m){
+  if(!m.result){
+    if(LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id];
+    if(LIVE_CLOCK[m.id]) m.liveClock = LIVE_CLOCK[m.id];
+    const ev = LIVE_EVENTS[m.id];
+    if(ev){
+      m.scorers = ev.scorers.length ? ev.scorers : null;
+      m.cards = ev.cards.length ? ev.cards : null;
+    }
+  }
+  if(!m.odds&&m.knockout) m.odds=knockoutOdds(m);
+  return m;
+}
+
+function getAllMatches(){
+  return [...STATE.matches.map(m=>applyRuntimeMatchData(m)), ...buildKnockoutMatches()];
 }
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -1078,7 +1116,7 @@ function updateNextupCountdown(){
 let nextupTicker=null;
 function ensureNextupTicker(){ if(!nextupTicker) nextupTicker=setInterval(updateNextupCountdown,1000); }
 function getFeaturedMatch(){
-  const allMatches=[...STATE.matches,...buildKnockoutMatches()];
+  const allMatches=getAllMatches();
   const live=allMatches.find(m=>getMatchStatus(m)==='live');
   if(live)return live;
   const unplayed=allMatches.filter(m=>!m.result);
@@ -1247,7 +1285,13 @@ const UK_TV=(()=>{
     ['Algeria','Austria'],['Jordan','Argentina']);
   return m;
 })();
-function getSwedishTV(match){ return SWEDISH_TV[tvKey(match.home,match.away)]||null; }
+const SWEDISH_KNOCKOUT_TV={
+  73:'TV4',76:'TV4',74:'SVT',75:'SVT',78:'TV4',77:'TV4',79:'TV4',80:'SVT',
+  82:'TV4',81:'TV4',84:'SVT',83:'TV4',85:'TV4',88:'TV4',86:'SVT',87:'SVT',
+  90:'TV4',89:'SVT',91:'TV4',92:'SVT',93:'TV4',94:'TV4',95:'TV4',96:'SVT',
+  97:'TV4',98:'SVT',99:'TV4',100:'SVT',101:'SVT',102:'TV4',103:'SVT',104:'TV4',
+};
+function getSwedishTV(match){ return SWEDISH_TV[tvKey(match.home,match.away)]||SWEDISH_KNOCKOUT_TV[match.id]||null; }
 function getUKTV(match){ return UK_TV[tvKey(match.home,match.away)]||null; }
 // Region dispatcher: returns the broadcaster for the active tvRegion.
 function getTV(match){ return tvRegion==='uk' ? getUKTV(match) : getSwedishTV(match); }
@@ -1821,7 +1865,7 @@ function getMatchStatus(m){
 }
 
 function getCountdownText(){
-  const unplayed=STATE.matches.filter(m=>!m.result);
+  const unplayed=getAllMatches().filter(m=>!m.result);
   if(!unplayed.length)return null;
 
   // Try precise countdown (matches with kickoff time in the future)
@@ -2248,11 +2292,12 @@ function closeTeamPage(e){ if(e&&e.target!==e.currentTarget)return; document.get
 // Live rail — ongoing matches shown above the tabs (visible on every tab).
 function renderLiveRail(){
   const cont=document.getElementById('global-live'); if(!cont)return;
-  let liveMatches=spoilerMode?[]:STATE.matches.filter(m=>getMatchStatus(m)==='live');
+  const allMatches=getAllMatches();
+  let liveMatches=spoilerMode?[]:allMatches.filter(m=>getMatchStatus(m)==='live');
   // Demo live mode (dev only): fake a few live matches without a real one.
   if(!liveMatches.length&&!spoilerMode&&localStorage.getItem('wc2026_demo_live')==='1'){
     const demoScores=[{home:1,away:2},{home:0,away:0},{home:3,away:1}];
-    liveMatches=STATE.matches.filter(m=>!m.result).slice(0,3).map((m,i)=>({...m,score:demoScores[i%demoScores.length]}));
+    liveMatches=allMatches.filter(m=>!m.result).slice(0,3).map((m,i)=>({...m,score:demoScores[i%demoScores.length]}));
   }
   if(!liveMatches.length){ cont.innerHTML=''; return; }
   cont.innerHTML=`<div class="container lv-wrap"><div class="lv-section">
@@ -2278,11 +2323,12 @@ function renderMatches(){
 
   const consensus=computeConsensusStandings();
   const picksLockedOrPreview=isPreviewMode()||new Date()>=PICK_DEADLINE;
+  const allMatches=getAllMatches();
   let html='';
 
   // "Next up" highlight: only when nothing is live, mark the next upcoming match
   // so it's easy to spot. getFeaturedMatch() returns the next game when none is live.
-  const anyLive=STATE.matches.some(m=>getMatchStatus(m)==='live');
+  const anyLive=allMatches.some(m=>getMatchStatus(m)==='live');
   const nextUpId=anyLive?null:(getFeaturedMatch()?.id??null);
 
   // Build HTML for a single match card.
@@ -2308,25 +2354,33 @@ function renderMatches(){
     const sortedCards=m.cards?[...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute):[];
     let picksHtml='',stakesHtml='',starsHtml='';
     if(picksVisible&&STATE.players.length){
-      const pkCol=names=>names.length?names.map(n=>`<div class="md-pk-name">${n}</div>`).join(''):`<div class="md-pk-empty">—</div>`;
+      const pkCol=(names,extraClass='')=>names.length?names.map(n=>`<div class="md-pk-name ${extraClass}">${n}</div>`).join(''):`<div class="md-pk-empty">—</div>`;
       let hv=[],dv=[],av=[];
       if(m.knockout){
         const advanceKey=m.id<=88?'r16':m.id<=96?'qf':m.id<=100?'sf':m.id<=102?'final':m.id===103?'bronze':'winner';
         const homeTeam=shortName(m.home).toLowerCase();
         const awayTeam=shortName(m.away).toLowerCase();
-        hv=STATE.players.filter(p=>{
+        const playerAdvancePicks=STATE.players.map(p=>{
           const val=p.bracket?.[advanceKey];
           const picks=Array.isArray(val)?val:(val?[val]:[]);
-          return picks.some(t=>shortName(t).toLowerCase()===homeTeam);
-        }).map(p=>p.name);
-        av=STATE.players.filter(p=>{
-          const val=p.bracket?.[advanceKey];
-          const picks=Array.isArray(val)?val:(val?[val]:[]);
-          return picks.some(t=>shortName(t).toLowerCase()===awayTeam);
-        }).map(p=>p.name);
-        picksHtml=`<div class="md-section-title">Advance picks</div>
+          return {
+            name:p.name,
+            hasHome:picks.some(t=>shortName(t).toLowerCase()===homeTeam),
+            hasAway:picks.some(t=>shortName(t).toLowerCase()===awayTeam)
+          };
+        });
+        hv=playerAdvancePicks.filter(p=>p.hasHome&&!p.hasAway).map(p=>p.name);
+        av=playerAdvancePicks.filter(p=>p.hasAway&&!p.hasHome).map(p=>p.name);
+        const bv=playerAdvancePicks.filter(p=>p.hasHome&&p.hasAway).map(p=>p.name);
+        const teamsAreSet=hn!=='TBD'&&an!=='TBD';
+        const nv=teamsAreSet?playerAdvancePicks.filter(p=>!p.hasHome&&!p.hasAway).map(p=>p.name):[];
+        picksHtml=`<div class="md-section-title">To Advance</div>
         <div class="md-picks">
           <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn} advances</div>${pkCol(hv)}</div>
+          <div class="md-pk-col md-pk-draw md-pk-split">
+            <div class="md-pk-group"><div class="md-pk-head">Both</div>${pkCol(bv)}</div>
+            <div class="md-pk-group"><div class="md-pk-head">Neither</div>${pkCol(nv,'md-pk-muted')}</div>
+          </div>
           <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an} advances</div>${pkCol(av)}</div>
         </div>`;
       } else {
@@ -2395,7 +2449,7 @@ function renderMatches(){
       const tip=reasons.length?reasons.join(' · '):'Low interest';
       starsHtml=`<span class="match-stars" onclick="toggleStarTip(event,this)">${[1,2,3].map(i=>i<=score?filled:empty).join('')}<span class="match-stars-tip">${tip}</span></span>`;
     }
-    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml||!!stakesHtml;
+    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml||!!stakesHtml||!!m.odds;
     const clickAttr=hasDetail?`onclick="toggleMatchDetail(${m.id})"`:'' ;
     const t=matchTimeStr(m);
     // In date mode: show group abbreviation + time. In group mode: show date + time.
@@ -2504,12 +2558,12 @@ function renderMatches(){
         const h=Math.round(m.odds.home*100);
         const d=Math.round(m.odds.draw*100);
         const a=100-h-d;
-        oddsHtml=`<div class="odds-bar" title="Pre-match odds">
+        oddsHtml=`<div class="odds-bar${m.knockout?' odds-bar-ko':''}" title="Pre-match odds">
           <div class="odds-home" style="width:${h}%"></div>
-          <div class="odds-draw" style="width:${d}%"></div>
+          ${m.knockout?'':`<div class="odds-draw" style="width:${d}%"></div>`}
           <div class="odds-away" style="width:${a}%"></div>
         </div>
-        <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span><span>Draw ${d}%</span><span>${shortName(m.away)} ${a}%</span></div>`;
+        <div class="odds-meta"><span>${shortName(m.home)} ${h}%</span>${m.knockout?'':`<span>Draw ${d}%</span>`}<span>${shortName(m.away)} ${a}%</span></div>`;
       }
       // Highlights — real YouTube thumbnail once the function caches one, else a search link.
       let hlLink='';
@@ -2541,7 +2595,7 @@ function renderMatches(){
 
   if(matchSortMode==='date'){
     // Sort all matches chronologically, then group by date label
-    const sorted=[...STATE.matches,...buildKnockoutMatches()].sort((a,b)=>matchSortKey(a)-matchSortKey(b));
+    const sorted=allMatches.sort((a,b)=>matchSortKey(a)-matchSortKey(b));
     const visible=sorted;
     const byDate={};
     const dateOrder=[];
@@ -2580,7 +2634,7 @@ function renderMatches(){
       STATE.matches.filter(m=>m.group===g).forEach(m=>{ html+=cardHtml(m,false); });
     });
     // Knockout rounds appended after the groups
-    const ko=buildKnockoutMatches();
+    const ko=allMatches.filter(m=>m.knockout);
     ['Round of 32','Round of 16','Quarter-final','Semi-final','Third place','Final'].forEach(rd=>{
       const rms=ko.filter(m=>m.group===rd);
       if(rms.length){ html+=`<div class="group-label">${rd}</div>`; rms.forEach(m=>{ html+=cardHtml(m,false); }); }

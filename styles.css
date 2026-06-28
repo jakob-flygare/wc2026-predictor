@@ -407,6 +407,9 @@
   .md-pk-away { text-align:right; }
   .md-pk-head { font-size:0.62rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--gold); font-weight:700; margin-bottom:0.25rem; }
   .md-pk-name { font-size:0.82rem; color:var(--text); }
+  .md-pk-split { gap:0.6rem; }
+  .md-pk-group { display:flex; flex-direction:column; gap:0.18rem; }
+  .md-pk-muted { color:var(--muted); opacity:0.7; }
   .md-pk-empty { font-size:0.82rem; color:var(--muted); }
   /* Highlights */
   .md-hl { display:flex; align-items:center; gap:0.85rem; text-decoration:none; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:0.6rem; transition:border-color .15s; }
