@@ -285,9 +285,31 @@ function espnEvents(comp){
   const d=comp.details||[];
   const playerName=x=>x.athletesInvolved?.[0]?.displayName||x.participants?.[0]?.athlete?.displayName||'Unknown';
   const minute=x=>parseInt(x.clock?.displayValue)||Math.floor((x.clock?.value||0)/60)||0;
+  const detailTeam=x=>teamById[x.team?.id]||espnNorm(x.team?.displayName||'');
+  const participantName=p=>p?.athlete?.displayName||p?.athlete?.fullName||p?.displayName||p?.name||'';
+  const participantNumber=p=>p?.athlete?.jersey||p?.athlete?.uniform||p?.athlete?.number||p?.jersey||p?.uniform||p?.number||'';
+  const isSub=x=>{
+    const txt=`${x.type?.text||''} ${x.type?.description||''} ${x.text||''} ${x.headline||''}`.toLowerCase();
+    return x.substitution===true||txt.includes('substitution')||txt.includes('substituição')||txt.includes('substitution');
+  };
+  const subNames=x=>{
+    const parts=x.participants||x.athletesInvolved||[];
+    const taggedIn=parts.find(p=>/in/i.test(`${p.type||''} ${p.role||''} ${p.status||''}`));
+    const taggedOut=parts.find(p=>/out/i.test(`${p.type||''} ${p.role||''} ${p.status||''}`));
+    const text=x.text||x.headline||x.displayText||'';
+    const match=text.match(/(.+?)\s+(?:replaces|for|in for)\s+(.+)/i);
+    const fallbackIn=participantName(parts[0]);
+    const fallbackOut=participantName(parts[1]);
+    return {
+      playerIn:participantName(taggedIn)||fallbackIn||match?.[1]?.trim()||'Unknown',
+      playerInNumber:participantNumber(taggedIn)||participantNumber(parts[0]),
+      playerOut:participantName(taggedOut)||fallbackOut||match?.[2]?.trim()||''
+    };
+  };
   const scorers=d.filter(x=>x.scoringPlay===true&&!x.ownGoal).map(x=>({player:playerName(x),team:teamById[x.team?.id]||espnNorm(x.team?.displayName||''),minute:minute(x),type:x.penaltyKick?'PENALTY':'REGULAR',assist:null}));
   const cards=d.filter(x=>x.yellowCard===true||x.redCard===true).map(x=>({player:playerName(x),team:teamById[x.team?.id]||espnNorm(x.team?.displayName||''),minute:minute(x),type:(x.redCard&&x.yellowCard)?'Yellow Red Card':x.redCard?'Red Card':'Yellow Card'}));
-  return {scorers,cards};
+  const subs=d.filter(isSub).map(x=>({team:detailTeam(x),minute:minute(x),...subNames(x)}));
+  return {scorers,cards,subs};
 }
 
 function espnLineups(comp){
@@ -363,6 +385,28 @@ function espnSummaryLineups(summary){
   return (sides.home||sides.away)?sides:null;
 }
 
+function espnSummarySubs(summary){
+  return (summary?.commentary||[]).map(c=>c.play||c).filter(p=>{
+    const type=p.type||{};
+    const text=`${type.text||''} ${type.type||''} ${p.text||''}`.toLowerCase();
+    return text.includes('substitution');
+  }).map(p=>{
+    const parts=p.participants||[];
+    const playerIn=parts[0]?.athlete?.displayName||parts[0]?.displayName||'Unknown';
+    const playerInNumber=parts[0]?.athlete?.jersey||parts[0]?.athlete?.uniform||parts[0]?.athlete?.number||parts[0]?.jersey||parts[0]?.number||'';
+    const playerOut=parts[1]?.athlete?.displayName||parts[1]?.displayName||'';
+    const text=p.text||'';
+    const match=text.match(/Substitution,\s*([^.]+)\.\s*(.+?)\s+replaces\s+(.+)\.?$/i);
+    return {
+      team:espnNorm(p.team?.displayName||match?.[1]?.trim()||''),
+      minute:parseInt(p.clock?.displayValue)||Math.floor((p.clock?.value||0)/60)||0,
+      playerIn:playerIn!=='Unknown'?playerIn:(match?.[2]?.trim()||'Unknown'),
+      playerInNumber,
+      playerOut:playerOut||match?.[3]?.trim()||''
+    };
+  });
+}
+
 function findEspnEventIdInScoreboard(m, data){
   const wantHome=espnNorm(shortName(m.home));
   const wantAway=espnNorm(shortName(m.away));
@@ -400,7 +444,7 @@ async function ensureEspnEventId(m){
 
 async function loadLineupForMatch(id){
   const m=getAllMatches().find(x=>x.id===id);
-  if(!m||m.lineups||LINEUP_FETCHING[id])return;
+  if(!m||LINEUP_FETCHING[id])return;
 
   LINEUP_FETCHING[id]=true;
 
@@ -419,15 +463,20 @@ async function loadLineupForMatch(id){
 
     const summary=await res.json();
     const lineups=espnSummaryLineups(summary);
-    if(!lineups){
+    if(lineups){
+      LIVE_LINEUPS[m.id]=lineups;
+      m.lineups=lineups;
+    } else {
       console.warn('No lineups in ESPN summary',eventId,m.home,m.away);
       const box=document.getElementById(`lu-${id}`);
       if(box)box.innerHTML='<div class="lu-empty">Confirmed line-ups not available yet.</div>';
-      return;
     }
-
-    LIVE_LINEUPS[m.id]=lineups;
-    m.lineups=lineups;
+    const subs=espnSummarySubs(summary);
+    if(subs.length){
+      LIVE_EVENTS[m.id]={scorers:m.scorers||[],cards:m.cards||[],...(LIVE_EVENTS[m.id]||{}),subs};
+      m.subs=subs;
+      try { sessionStorage.setItem('wc2026_live_events', JSON.stringify(LIVE_EVENTS)); } catch(e){}
+    }
 
     renderMatches();
 
@@ -449,7 +498,7 @@ function inLiveWindow(){
   return getAllMatches().some(m => {
     if(!m.kickoff) return false;
     const ko=new Date(m.kickoff).getTime();
-    const needsTimeline=!LIVE_EVENTS[m.id]||(!LIVE_EVENTS[m.id].scorers?.length&&!LIVE_EVENTS[m.id].cards?.length);
+    const needsTimeline=!LIVE_EVENTS[m.id]||(!LIVE_EVENTS[m.id].scorers?.length&&!LIVE_EVENTS[m.id].cards?.length&&!LIVE_EVENTS[m.id].subs?.length);
     const needsLineup=!LIVE_LINEUPS[m.id]&&now>=ko-90*60*1000&&now<=ko+3*3600*1000;
     return now>=ko-90*60*1000&&now<=ko+8*3600*1000&&(!m.result||needsTimeline||needsLineup);
   });
@@ -503,6 +552,7 @@ async function pollLiveScores(forceMeta=false){
     if(prevEvents!==JSON.stringify(newEvents)) changed = true;
     m.scorers = newEvents.scorers.length ? newEvents.scorers : null;
     m.cards   = newEvents.cards.length   ? newEvents.cards   : null;
+    m.subs    = newEvents.subs.length    ? newEvents.subs    : null;
   }
   if (changed){
     try { localStorage.setItem('wc2026_live_scores', JSON.stringify(LIVE_SCORES)); } catch(e){}
@@ -556,6 +606,7 @@ function applyDataSnapshot(data) {
     if (ev) {
       if (!m.scorers && ev.scorers.length) m.scorers = ev.scorers;
       if (!m.cards && ev.cards.length) m.cards = ev.cards;
+      if (!m.subs && ev.subs?.length) m.subs = ev.subs;
     }
   });
   const knockout = {
@@ -1231,8 +1282,9 @@ function applyRuntimeMatchData(m){
   if(LIVE_RESULTS[m.id]) m.result = LIVE_RESULTS[m.id];
   const ev = LIVE_EVENTS[m.id];
   if(ev){
-    m.scorers = ev.scorers.length ? ev.scorers : null;
-    m.cards = ev.cards.length ? ev.cards : null;
+    if(ev.scorers?.length) m.scorers = ev.scorers;
+    if(ev.cards?.length) m.cards = ev.cards;
+    if(ev.subs?.length) m.subs = ev.subs;
   }
   if(!m.result){
     if(LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id];
@@ -1254,25 +1306,34 @@ function lineupLastName(name){
   return parts.length?parts[parts.length-1]:'';
 }
 
-function lineupSubTag(p){
-  const out=p.subOutMinute?String(p.subOutMinute).replace(/'$/,''):'';
-  const inn=p.subInMinute?String(p.subInMinute).replace(/'$/,''):'';
-  if(out)return `<span class="lu-sub lu-sub-out">OUT ${out}'</span>`;
-  if(inn)return `<span class="lu-sub lu-sub-in">IN ${inn}'</span>`;
-  return '';
+function samePlayerName(a,b){
+  return lineupLastName(a).toLowerCase()===lineupLastName(b).toLowerCase() || (a||'').toLowerCase()===(b||'').toLowerCase();
 }
 
-function renderLineupList(lineup, side){
-  if(!lineup||!lineup.players?.length)return '<div class="lu-empty">Confirmed line-up not available yet.</div>';
-  return `<div class="lu-list lu-${side}">
-    ${lineup.players.slice(0,11).map(p=>{
-      const num=p.number||p.formationPlace||'';
-      return `<div class="lu-row">
-        <span class="lu-player-main">${num?`<span class="lu-num-text">${num}</span>`:''}<span class="lu-name-text">${lineupLastName(p.name)}</span></span>
-        ${lineupSubTag(p)}
-      </div>`;
-    }).join('')}
-  </div>`;
+function subMinuteLabel(minute){
+  return minute ? ` ${String(minute).replace(/'$/,'')}'` : '';
+}
+
+function renderLineupList(lineup, side, subs=[]){
+  if(!lineup||!lineup.players?.length)return `<div class="lu-list lu-${side}"><div class="lu-empty">Confirmed line-up not available yet.</div></div>`;
+  const starters=lineup.players.slice(0,11);
+  const inSubs=subs.filter(s=>s.playerIn&&!starters.some(p=>samePlayerName(p.name,s.playerIn)));
+  const starterRows=starters.map(p=>{
+    const num=p.number||p.formationPlace||'';
+    const outSub=subs.find(s=>s.playerOut&&lineupLastName(s.playerOut).toLowerCase()===lineupLastName(p.name).toLowerCase());
+    return `<div class="lu-row${outSub?' lu-row-out':''}">
+      <span class="lu-player-main">${num?`<span class="lu-num-text">${num}</span>`:''}<span class="lu-name-text">${lineupLastName(p.name)}</span></span>
+      ${outSub?`<span class="lu-sub lu-sub-out">OUT${subMinuteLabel(outSub.minute)}</span>`:''}
+    </div>`;
+  }).join('');
+  const subRows=inSubs.map(s=>{
+    const num=s.playerInNumber||'';
+    return `<div class="lu-row lu-row-in">
+      <span class="lu-player-main">${num?`<span class="lu-num-text">${num}</span>`:''}<span class="lu-name-text">${lineupLastName(s.playerIn)}</span></span>
+      <span class="lu-sub lu-sub-in">IN${subMinuteLabel(s.minute)}</span>
+    </div>`;
+  }).join('');
+  return `<div class="lu-list lu-${side}">${starterRows}${subRows?`<div class="lu-sub-divider"></div>${subRows}`:''}</div>`;
 }
 
 const SHOW_LINEUPS = true;
@@ -1281,7 +1342,9 @@ function renderLineups(m){
   const lu=m.lineups;
   const home=lu?.home, away=lu?.away;
   const formation=[home?.formation,away?.formation].filter(Boolean).join(' · ');
-  return `<div class="md-section-title">Line-up</div>
+  const homeSubs=(m.subs||[]).filter(s=>cardSide(s.team,m)==='home');
+  const awaySubs=(m.subs||[]).filter(s=>cardSide(s.team,m)==='away');
+  return `<div class="md-section-title">Lineups</div>
     <div class="lu-slim" id="lu-${m.id}">
       ${lu?`
         <div class="lu-slim-head">
@@ -1290,8 +1353,8 @@ function renderLineups(m){
           <span>${flagOf(m.away)} ${shortName(m.away)}</span>
         </div>
         <div class="lu-slim-grid">
-          ${renderLineupList(home,'home')}
-          ${renderLineupList(away,'away')}
+          ${renderLineupList(home,'home',homeSubs)}
+          ${renderLineupList(away,'away',awaySubs)}
         </div>
       `:`<div class="lu-empty">Loading line-ups…</div>`}
     </div>`;
@@ -2611,6 +2674,7 @@ function renderMatches(){
     const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
     const sortedScorers=m.scorers?[...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute):[];
     const sortedCards=m.cards?[...Object.values(m.cards)].sort((a,b)=>a.minute-b.minute):[];
+    const sortedSubs=m.subs?[...Object.values(m.subs)].sort((a,b)=>a.minute-b.minute):[];
     let picksHtml='',stakesHtml='',starsHtml='';
     if(picksVisible&&STATE.players.length){
       const pkCol=(names,extraClass='')=>names.length?names.map(n=>`<div class="md-pk-name ${extraClass}">${n}</div>`).join(''):`<div class="md-pk-empty">—</div>`;
@@ -2721,7 +2785,7 @@ function renderMatches(){
     }
     const lineupsHtml=renderLineups(m);
     const canLoadLineup=SHOW_LINEUPS&&shortName(m.home)!=='TBD'&&shortName(m.away)!=='TBD';
-    const hasDetail=sortedScorers.length>0||sortedCards.length>0||canLoadLineup||!!picksHtml||!!stakesHtml||!!m.odds;
+    const hasDetail=sortedScorers.length>0||sortedCards.length>0||sortedSubs.length>0||canLoadLineup||!!lineupsHtml||!!picksHtml||!!stakesHtml||!!m.odds;
     const clickAttr=hasDetail?`onclick="toggleMatchDetail(${m.id})"`:'' ;
     const t=matchTimeStr(m);
     // In date mode: show group abbreviation + time. In group mode: show date + time.
@@ -2756,7 +2820,7 @@ function renderMatches(){
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live${m.liveClock?' '+m.liveClock:''}</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
-      mcCenter=`<div class="mc-when">FT</div>
+      mcCenter=`<div class="mc-when mc-when-ft">FT</div>
         <div class="mc-score">${showScore?scoreStr:dashScore}</div>`;
     }else{
       mcStateCls='mc-upcoming';
