@@ -263,6 +263,7 @@ function initData() {
 const LIVE_SCORES = {};   // {id:{home,away}} — persisted so the last score shows instantly on reload
 const LIVE_CLOCK = {};    // {id: "'16" | "PAUS"} — game clock for the LIVE pill (not persisted)
 const LIVE_EVENTS = {};   // {id:{scorers:[],cards:[]}} — live timeline events
+const LIVE_LINEUPS = {};  // {id:{home:{team,formation,players:[]},away:{...}}} — confirmed starting XIs when available
 try { Object.assign(LIVE_SCORES, JSON.parse(localStorage.getItem('wc2026_live_scores')||'{}')); } catch(e){}
 const ESPN_TEAM_MAP = {'United States':'USA','Korea Republic':'South Korea','Czech Republic':'Czechia','Turkey':'Türkiye','Bosnia and Herzegovina':'Bosnia-Herzegovina','Congo DR':'DR Congo','Democratic Republic of Congo':'DR Congo',"Cote d'Ivoire":'Ivory Coast',"Côte d'Ivoire":'Ivory Coast','Curacao':'Curaçao'};
 const espnNorm = n => ESPN_TEAM_MAP[n] || n;
@@ -283,12 +284,52 @@ function espnEvents(comp){
   const cards=d.filter(x=>x.yellowCard===true||x.redCard===true).map(x=>({player:x.athletesInvolved?.[0]?.displayName||'Unknown',team:teamById[x.team?.id]||'',minute:parseInt(x.clock?.displayValue)||0,type:(x.redCard&&x.yellowCard)?'Yellow Red Card':x.redCard?'Red Card':'Yellow Card'}));
   return {scorers,cards};
 }
+
+function espnLineups(comp){
+  const sides={};
+  (comp?.competitors||[]).forEach(c=>{
+    const side=c.homeAway;
+    if(side!=='home'&&side!=='away')return;
+
+    let raw=c.lineup||c.starters||c.roster||c.athletes||[];
+    if(raw?.starters) raw=raw.starters;
+    if(raw?.entries) raw=raw.entries;
+    if(!Array.isArray(raw)&&raw&&typeof raw==='object'){
+      raw=Object.values(raw).flat().filter(Boolean);
+    }
+    if(!Array.isArray(raw)||!raw.length)return;
+
+    const players=raw.map((x,i)=>{
+      const a=x.athlete||x.player||x;
+      const pos=x.position||a.position||{};
+      const starter=x.starter===true||x.isStarter===true||x.substitute===false||x.status==='starter'||x.status?.type==='starter';
+      return {
+        name:a.displayName||a.fullName||a.name||x.displayName||x.name||'Unknown',
+        number:a.jersey||a.uniform||x.jersey||x.uniform||x.number||'',
+        position:(pos.abbreviation||pos.name||x.position||'').toString(),
+        order:i,
+        starter
+      };
+    });
+
+    const starters=players.filter(pl=>pl.starter).slice(0,11);
+    const confirmed=starters.length>=10?starters:(players.length===11?players.slice(0,11):[]);
+    if(!confirmed.length)return;
+
+    sides[side]={
+      team:espnNorm(c.team?.displayName||''),
+      formation:c.formation||c.lineupFormation||'',
+      players:confirmed
+    };
+  });
+  return (sides.home||sides.away)?sides:null;
+}
 const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=500';
 
 function inLiveWindow(){
   const now = Date.now();
   return getAllMatches().some(m => !m.result && m.kickoff &&
-    now >= new Date(m.kickoff).getTime() && now <= new Date(m.kickoff).getTime() + 3*3600*1000);
+    now >= new Date(m.kickoff).getTime() - 90*60*1000 && now <= new Date(m.kickoff).getTime() + 3*3600*1000);
 }
 
 async function pollLiveScores(){
@@ -300,7 +341,6 @@ async function pollLiveScores(){
   const allMatches=getAllMatches();
   for (const ev of (data.events || [])){
     const comp = ev.competitions?.[0];
-    if (comp?.status?.type?.state !== 'in') continue;   // only in-progress matches
     const hc = comp.competitors?.find(c=>c.homeAway==='home');
     const ac = comp.competitors?.find(c=>c.homeAway==='away');
     if (!hc || !ac) continue;
@@ -309,6 +349,16 @@ async function pollLiveScores(){
     const m = allMatches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
       return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome); });
     if (!m || m.result) continue;
+
+    const newLineups = espnLineups(comp);
+    if(newLineups){
+      const prevLineups = JSON.stringify(LIVE_LINEUPS[m.id]||{});
+      LIVE_LINEUPS[m.id] = newLineups;
+      m.lineups = newLineups;
+      if(prevLineups!==JSON.stringify(newLineups)) changed = true;
+    }
+
+    if (comp?.status?.type?.state !== 'in') continue;   // scores/timeline only for in-progress matches
     const flipped = shortName(m.home) !== apiHome;
     const score = { home: flipped?as:hs, away: flipped?hs:as };
     const prev = LIVE_SCORES[m.id];
@@ -1029,6 +1079,7 @@ function applyRuntimeMatchData(m){
       m.scorers = ev.scorers.length ? ev.scorers : null;
       m.cards = ev.cards.length ? ev.cards : null;
     }
+    if(LIVE_LINEUPS[m.id]) m.lineups = LIVE_LINEUPS[m.id];
   }
   if(!m.odds&&m.knockout) m.odds=knockoutOdds(m);
   return m;
@@ -1037,6 +1088,79 @@ function applyRuntimeMatchData(m){
 function getAllMatches(){
   return [...STATE.matches.map(m=>applyRuntimeMatchData(m)), ...buildKnockoutMatches()];
 }
+
+function lineupLastName(name){
+  const parts=(name||'').trim().split(/\s+/).filter(Boolean);
+  return parts.length?parts[parts.length-1]:'';
+}
+
+function lineupBuckets(players){
+  const out={gk:[],def:[],mid:[],fwd:[],other:[]};
+  players.forEach((p,i)=>{
+    const pos=(p.position||'').toUpperCase();
+    const item={...p,order:i};
+    if(pos.includes('GK')||pos.includes('GOAL'))out.gk.push(item);
+    else if(pos.includes('D')||pos.includes('BACK')||pos.includes('CB')||pos.includes('LB')||pos.includes('RB'))out.def.push(item);
+    else if(pos.includes('M')||pos.includes('MID'))out.mid.push(item);
+    else if(pos.includes('F')||pos.includes('W')||pos.includes('ST')||pos.includes('ATT'))out.fwd.push(item);
+    else out.other.push(item);
+  });
+  if(!out.gk.length&&players[0])out.gk.push({...players[0],order:0});
+  const used=new Set(out.gk.concat(out.def,out.mid,out.fwd).map(p=>p.order));
+  out.other=players.map((p,i)=>({...p,order:i})).filter(p=>!used.has(p.order));
+  if(out.other.length){
+    const target=out.mid.length<=out.def.length?'mid':'fwd';
+    out[target].push(...out.other);
+    out.other=[];
+  }
+  return out;
+}
+
+function lineupPositions(players, side){
+  const b=lineupBuckets(players);
+  const rows=[
+    {key:'gk', x:side==='home'?8:92},
+    {key:'def',x:side==='home'?23:77},
+    {key:'mid',x:side==='home'?40:60},
+    {key:'fwd',x:side==='home'?56:44},
+  ];
+  const placed=[];
+  rows.forEach(row=>{
+    const arr=b[row.key]||[];
+    const n=arr.length;
+    arr.forEach((p,i)=>{
+      const y=n===1?50:18+(64*(i/(n-1)));
+      placed.push({...p,x:row.x,y});
+    });
+  });
+  return placed.slice(0,11);
+}
+
+function renderLineupSide(lineup, side){
+  if(!lineup||!lineup.players?.length)return '';
+  return lineupPositions(lineup.players,side).map(p=>`
+    <div class="lu-player lu-${side}" style="left:${p.x}%;top:${p.y}%">
+      <div class="lu-num">${p.number||''}</div>
+      <div class="lu-name">${lineupLastName(p.name)}</div>
+    </div>`).join('');
+}
+
+function renderLineups(m){
+  const lu=m.lineups;
+  if(!lu)return '';
+  const home=lu.home, away=lu.away;
+  if(!home&&!away)return '';
+  const sub=[home?.formation,away?.formation].filter(Boolean).join(' · ');
+  return `<div class="md-section-title">Line up</div>
+    <div class="lu-wrap">
+      <div class="lu-head"><span>${flagOf(m.home)} ${shortName(m.home)}</span>${sub?`<span>${sub}</span>`:''}<span>${flagOf(m.away)} ${shortName(m.away)}</span></div>
+      <div class="lu-field">
+        ${renderLineupSide(home,'home')}
+        ${renderLineupSide(away,'away')}
+      </div>
+    </div>`;
+}
+
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
 let STATE={matches:[],players:[],special:{},source:'demo',knockout:{},prevRanks:{}};
@@ -2449,7 +2573,8 @@ function renderMatches(){
       const tip=reasons.length?reasons.join(' · '):'Low interest';
       starsHtml=`<span class="match-stars" onclick="toggleStarTip(event,this)">${[1,2,3].map(i=>i<=score?filled:empty).join('')}<span class="match-stars-tip">${tip}</span></span>`;
     }
-    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!picksHtml||!!stakesHtml||!!m.odds;
+    const lineupsHtml=renderLineups(m);
+    const hasDetail=sortedScorers.length>0||sortedCards.length>0||!!lineupsHtml||!!picksHtml||!!stakesHtml||!!m.odds;
     const clickAttr=hasDetail?`onclick="toggleMatchDetail(${m.id})"`:'' ;
     const t=matchTimeStr(m);
     // In date mode: show group abbreviation + time. In group mode: show date + time.
@@ -2587,7 +2712,7 @@ function renderMatches(){
       // The collapsed card stays as the header; the detail opens directly below it.
       const timelineBlock=timelineRows?`<div class="md-section-title">Timeline</div><div class="md-tl">${timelineRows}</div>`:'';
       const oddsBlock=oddsHtml?`<div class="md-section-title">Win probability</div>${oddsHtml}`:'';
-      out+=`<div class="match-scorers" id="md-${m.id}">${timelineBlock}${picksHtml}${oddsBlock}${stakesHtml}${hlLink}</div>`;
+      out+=`<div class="match-scorers" id="md-${m.id}">${timelineBlock}${lineupsHtml}${picksHtml}${oddsBlock}${stakesHtml}${hlLink}</div>`;
     }
     out+=`</div></div>`;
     return out;
