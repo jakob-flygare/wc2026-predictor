@@ -799,3 +799,28 @@
   .lu-num { width:22px; height:22px; font-size:0.66rem; }
   .lu-name { font-size:0.5rem; max-width:58px; }
 }
+
+/* Slim confirmed lineups */
+.lu-slim { margin:0.2rem 0 0.85rem; }
+.lu-slim-head { display:grid; grid-template-columns:1fr auto 1fr; gap:0.75rem; align-items:center; font-size:0.68rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin-bottom:0.55rem; }
+.lu-slim-head span:first-child { text-align:left; }
+.lu-slim-head span:last-child { text-align:right; }
+.lu-formations { color:var(--gold); white-space:nowrap; }
+.lu-slim-grid { display:grid; grid-template-columns:1fr 1fr; gap:0.9rem; }
+.lu-list { display:flex; flex-direction:column; gap:0.22rem; min-width:0; }
+.lu-away { text-align:right; }
+.lu-row { display:flex; align-items:center; justify-content:space-between; gap:0.45rem; min-width:0; font-size:0.8rem; color:var(--text); }
+.lu-away .lu-row { flex-direction:row-reverse; }
+.lu-player-main { display:inline-flex; align-items:baseline; gap:0.35rem; min-width:0; }
+.lu-num-text { color:var(--gold); font-size:0.72rem; font-weight:800; min-width:1.1rem; }
+.lu-name-text { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lu-sub { flex-shrink:0; font-size:0.58rem; font-weight:800; letter-spacing:0.08em; border-radius:999px; padding:0.08rem 0.32rem; }
+.lu-sub-in { color:var(--green); background:rgba(46,204,113,0.12); }
+.lu-sub-out { color:var(--red); background:rgba(231,76,60,0.12); }
+.lu-empty { font-size:0.78rem; color:var(--muted); padding:0.25rem 0 0.4rem; }
+@media (max-width:600px){
+  .lu-slim-head { font-size:0.56rem; gap:0.35rem; }
+  .lu-slim-grid { gap:0.55rem; }
+  .lu-row { font-size:0.72rem; gap:0.28rem; }
+  .lu-sub { font-size:0.52rem; padding:0.06rem 0.24rem; }
+}
