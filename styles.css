@@ -98,14 +98,12 @@
   .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
   /* ── Mobile hamburger nav ───────────────────────────────────────────────── */
-  .mobile-nav-bar { display: none; align-items: center; justify-content: space-between; padding: 0 1.2rem; height: 48px; }
-  .mobile-nav-current { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
-  .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: none; border: none; cursor: pointer; border-radius: 6px; color: var(--text); flex-shrink: 0; }
-  .hamburger-btn:active { background: var(--surface2); }
-  .ham-svg { display: block; }
-  .ham-svg-close { display: none; }
-  .hamburger-btn.open .ham-svg-open { display: none; }
-  .hamburger-btn.open .ham-svg-close { display: block; }
+  .mobile-nav-bar { display: none; align-items: center; justify-content: space-between; padding: 0 1rem 0 1.2rem; height: 48px; cursor: pointer; user-select: none; gap: 0.5rem; }
+  .mobile-nav-bar:active { background: var(--surface2); }
+  .mobile-nav-bar.open { background: var(--surface); }
+  .mobile-nav-current { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gold); flex: 1; }
+  .mobile-nav-chevron { color: var(--text); flex-shrink: 0; transition: transform 0.2s ease; }
+  .mobile-nav-bar.open .mobile-nav-chevron { transform: rotate(180deg); }
   .mobile-nav-backdrop { display: none; position: fixed; inset: 0; z-index: 149; background: rgba(0,0,0,0.45); }
   .mobile-nav-backdrop.open { display: block; }
   .mobile-nav-drawer { position: fixed; top: 48px; left: 0; right: 0; z-index: 150; background: var(--bg); border-bottom: 1px solid var(--border); max-height: 0; overflow: hidden; transition: max-height 0.28s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
@@ -246,7 +244,8 @@
   .kb-tbd-txt { font-size:0.66rem; letter-spacing:0.04em; }
   .kb-legend { font-size:0.7rem; color:var(--muted); margin-top:0.6rem; line-height:1.4; }
   /* Bracket picks overlay */
-  .kb-picks-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--gold); color:#1a1409; font-size:0.6rem; font-weight:700; margin-left:5px; vertical-align:middle; flex-shrink:0; }
+  .kb-picks-badge { position:absolute; top:2px; right:2px; display:flex; align-items:center; justify-content:center; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:var(--gold); color:#1a1409; font-size:0.58rem; font-weight:700; pointer-events:none; }
+  .kb-team { position:relative; }
   .kb-team.kb-picks-mode { cursor:pointer; }
   .kb-team.kb-picks-mode:hover { background:rgba(255,255,255,0.06); border-radius:4px; }
   /* Team picks bottom-sheet panel */
