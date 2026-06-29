@@ -354,19 +354,72 @@ function espnSummaryLineups(summary){
   return (sides.home||sides.away)?sides:null;
 }
 
+function findEspnEventIdInScoreboard(m, data){
+  const wantHome=espnNorm(shortName(m.home));
+  const wantAway=espnNorm(shortName(m.away));
+
+  for(const ev of (data?.events||[])){
+    const comp=(ev.competitions||[])[0];
+    if(!comp)continue;
+
+    const home=comp.competitors?.find(c=>c.homeAway==='home');
+    const away=comp.competitors?.find(c=>c.homeAway==='away');
+    if(!home||!away)continue;
+
+    const apiHome=espnNorm(home.team?.displayName||home.team?.shortDisplayName||home.team?.name||'');
+    const apiAway=espnNorm(away.team?.displayName||away.team?.shortDisplayName||away.team?.name||'');
+
+    if((apiHome===wantHome&&apiAway===wantAway)||(apiHome===wantAway&&apiAway===wantHome)){
+      return String(ev.id);
+    }
+  }
+  return '';
+}
+
+async function ensureEspnEventId(m){
+  if(m.espnEventId)return m.espnEventId;
+
+  const res=await fetch(ESPN_SCOREBOARD);
+  if(!res.ok)return '';
+
+  const data=await res.json();
+  const id=findEspnEventIdInScoreboard(m,data);
+  if(id)m.espnEventId=id;
+
+  return id;
+}
+
 async function loadLineupForMatch(id){
   const m=getAllMatches().find(x=>x.id===id);
-  if(!m||m.lineups||!m.espnEventId||LINEUP_FETCHING[id])return;
+  if(!m||m.lineups||LINEUP_FETCHING[id])return;
+
   LINEUP_FETCHING[id]=true;
+
   try{
-    const res=await fetch(ESPN_SUMMARY+encodeURIComponent(m.espnEventId));
-    if(!res.ok)return;
+    const eventId=await ensureEspnEventId(m);
+    if(!eventId){
+      console.warn('No ESPN event id for lineup',id,m.home,m.away);
+      return;
+    }
+
+    const res=await fetch(ESPN_SUMMARY+encodeURIComponent(eventId));
+    if(!res.ok){
+      console.warn('ESPN summary failed',eventId,res.status);
+      return;
+    }
+
     const summary=await res.json();
     const lineups=espnSummaryLineups(summary);
-    if(!lineups)return;
+    if(!lineups){
+      console.warn('No lineups in ESPN summary',eventId,m.home,m.away);
+      return;
+    }
+
     LIVE_LINEUPS[m.id]=lineups;
     m.lineups=lineups;
+
     renderMatches();
+
     const el=document.getElementById(`md-${id}`);
     if(el)el.classList.add('open');
   }catch(e){
