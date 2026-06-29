@@ -205,6 +205,7 @@
   .kb-col-tbd .kb-match { min-width:0; }
   .kb-resolved { cursor:default; }
   .kb-team { display:flex; align-items:center; gap:4px; padding:5px 8px; font-size:0.72rem; font-weight:600; color:var(--text); white-space:nowrap; min-height:30px; min-width:0; max-width:100%; }
+  .kb-team.kb-eliminated { opacity:0.42; filter:grayscale(1); }
   .kb-team .kb-tn { display:none; min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .kb-team+.kb-team { border-top:1px solid var(--border); }
   .kb-team.kb-tbd { color:var(--muted); font-weight:500; gap:4px; flex-wrap:wrap; white-space:normal; }

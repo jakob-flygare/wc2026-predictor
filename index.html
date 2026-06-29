@@ -3477,24 +3477,27 @@ function renderKnockoutBracket(){
   const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
   const koById=Object.fromEntries(buildKnockoutMatches().map(m=>[m.id,m]));
   const descFor=s=> s.type==='w'?('1'+s.group): s.type==='ru'?('2'+s.group): ('3·'+s.groups.join(''));
-  const slotCell=(res,desc)=>{
-    if(res.team) return `<div class="kb-team kb-resolved" data-name="${res.team.replace(/"/g,'&quot;')}">${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span></div>`;
+  const isEliminated=(m,side)=>m?.result&&m.result!=='draw'&&m.result!==side;
+  const slotCell=(res,desc,m,side)=>{
+    const eliminated=isEliminated(m,side)?' kb-eliminated':'';
+    if(res.team) return `<div class="kb-team kb-resolved${eliminated}" data-name="${res.team.replace(/"/g,'&quot;')}">${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span></div>`;
     const c=res.candidates||[];
     const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
     return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:'<span class="kb-tbd-txt">TBD</span>'}</div>`;
   };
   const r32Cell=idx=>{
-    const m=R32_BRACKET[idx];
-    return `<div class="kb-match kb-r32" onclick="goToMatch(${73+idx})">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map),descFor(m.away))}</div>`;
+    const slot=R32_BRACKET[idx], m=koById[73+idx];
+    return `<div class="kb-match kb-r32" onclick="goToMatch(${73+idx})">${slotCell(resolveBracketSlot(slot.home,standings,best3rd,allComplete,b3map),descFor(slot.home),m,'home')}${slotCell(resolveBracketSlot(slot.away,standings,best3rd,allComplete,b3map),descFor(slot.away),m,'away')}</div>`;
   };
-  const teamCell=team=>{
+  const teamCell=(team,m,side)=>{
     const name=shortName(team);
-    if(name&&name!=='TBD')return `<div class="kb-team kb-resolved" data-name="${name.replace(/"/g,'&quot;')}">${TEAM_EMOJI[name]||''} <span class="kb-tn">${name}</span></div>`;
+    const eliminated=isEliminated(m,side)?' kb-eliminated':'';
+    if(name&&name!=='TBD')return `<div class="kb-team kb-resolved${eliminated}" data-name="${name.replace(/"/g,'&quot;')}">${TEAM_EMOJI[name]||''} <span class="kb-tn">${name}</span></div>`;
     return `<div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div>`;
   };
   const matchCell=(cls,num)=>{
     const m=koById[num]||{};
-    return `<div class="kb-match ${cls}" onclick="goToMatch(${num})">${teamCell(m.home)}${teamCell(m.away)}</div>`;
+    return `<div class="kb-match ${cls}" onclick="goToMatch(${num})">${teamCell(m.home,m,'home')}${teamCell(m.away,m,'away')}</div>`;
   };
   const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
   const matches=(nums,cls)=>nums.map(n=>matchCell(cls,n)).join('');
