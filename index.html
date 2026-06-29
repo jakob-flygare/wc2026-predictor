@@ -264,7 +264,10 @@ const LIVE_SCORES = {};   // {id:{home,away}} — persisted so the last score sh
 const LIVE_CLOCK = {};    // {id: "'16" | "PAUS"} — game clock for the LIVE pill (not persisted)
 const LIVE_EVENTS = {};   // {id:{scorers:[],cards:[]}} — live timeline events
 const LIVE_LINEUPS = {};  // {id:{home:{team,formation,players:[]},away:{...}}} — confirmed starting XIs when available
+const LIVE_RESULTS = {};  // {id:'home'|'away'|'draw'} — ESPN final state before admin import catches up
 try { Object.assign(LIVE_SCORES, JSON.parse(localStorage.getItem('wc2026_live_scores')||'{}')); } catch(e){}
+try { Object.assign(LIVE_EVENTS, JSON.parse(sessionStorage.getItem('wc2026_live_events')||'{}')); } catch(e){}
+try { Object.assign(LIVE_RESULTS, JSON.parse(sessionStorage.getItem('wc2026_live_results')||'{}')); } catch(e){}
 const ESPN_TEAM_MAP = {'United States':'USA','Korea Republic':'South Korea','Czech Republic':'Czechia','Turkey':'Türkiye','Bosnia and Herzegovina':'Bosnia-Herzegovina','Congo DR':'DR Congo','Democratic Republic of Congo':'DR Congo',"Cote d'Ivoire":'Ivory Coast',"Côte d'Ivoire":'Ivory Coast','Curacao':'Curaçao'};
 const espnNorm = n => ESPN_TEAM_MAP[n] || n;
 // Game clock label for the LIVE pill, e.g. "'16", "PAUS", "'90+2".
@@ -280,8 +283,10 @@ function espnClock(status){
 function espnEvents(comp){
   const teamById={}; (comp.competitors||[]).forEach(c=>{ if(c.team?.id) teamById[c.team.id]=espnNorm(c.team.displayName||''); });
   const d=comp.details||[];
-  const scorers=d.filter(x=>x.scoringPlay===true&&!x.ownGoal).map(x=>({player:x.athletesInvolved?.[0]?.displayName||'Unknown',team:teamById[x.team?.id]||'',minute:parseInt(x.clock?.displayValue)||0,type:x.penaltyKick?'PENALTY':'REGULAR',assist:null}));
-  const cards=d.filter(x=>x.yellowCard===true||x.redCard===true).map(x=>({player:x.athletesInvolved?.[0]?.displayName||'Unknown',team:teamById[x.team?.id]||'',minute:parseInt(x.clock?.displayValue)||0,type:(x.redCard&&x.yellowCard)?'Yellow Red Card':x.redCard?'Red Card':'Yellow Card'}));
+  const playerName=x=>x.athletesInvolved?.[0]?.displayName||x.participants?.[0]?.athlete?.displayName||'Unknown';
+  const minute=x=>parseInt(x.clock?.displayValue)||Math.floor((x.clock?.value||0)/60)||0;
+  const scorers=d.filter(x=>x.scoringPlay===true&&!x.ownGoal).map(x=>({player:playerName(x),team:teamById[x.team?.id]||espnNorm(x.team?.displayName||''),minute:minute(x),type:x.penaltyKick?'PENALTY':'REGULAR',assist:null}));
+  const cards=d.filter(x=>x.yellowCard===true||x.redCard===true).map(x=>({player:playerName(x),team:teamById[x.team?.id]||espnNorm(x.team?.displayName||''),minute:minute(x),type:(x.redCard&&x.yellowCard)?'Yellow Red Card':x.redCard?'Red Card':'Yellow Card'}));
   return {scorers,cards};
 }
 
@@ -431,11 +436,17 @@ async function loadLineupForMatch(id){
 const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=500';
 const ESPN_SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=';
 const LINEUP_FETCHING = {};
+const resultFromScore=s=>s.home>s.away?'home':s.away>s.home?'away':'draw';
 
 function inLiveWindow(){
   const now = Date.now();
-  return getAllMatches().some(m => !m.result && m.kickoff &&
-    now >= new Date(m.kickoff).getTime() - 90*60*1000 && now <= new Date(m.kickoff).getTime() + 3*3600*1000);
+  return getAllMatches().some(m => {
+    if(!m.kickoff) return false;
+    const ko=new Date(m.kickoff).getTime();
+    const needsTimeline=!LIVE_EVENTS[m.id]||(!LIVE_EVENTS[m.id].scorers?.length&&!LIVE_EVENTS[m.id].cards?.length);
+    const needsLineup=!LIVE_LINEUPS[m.id]&&now>=ko-90*60*1000&&now<=ko+3*3600*1000;
+    return now>=ko-90*60*1000&&now<=ko+8*3600*1000&&(!m.result||needsTimeline||needsLineup);
+  });
 }
 
 async function pollLiveScores(forceMeta=false){
@@ -447,8 +458,9 @@ async function pollLiveScores(forceMeta=false){
   const allMatches=getAllMatches();
   for (const ev of (data.events || [])){
     const comp = ev.competitions?.[0];
-    const hc = comp.competitors?.find(c=>c.homeAway==='home');
-    const ac = comp.competitors?.find(c=>c.homeAway==='away');
+    const apiState=comp?.status?.type?.state;
+    const hc = comp?.competitors?.find(c=>c.homeAway==='home');
+    const ac = comp?.competitors?.find(c=>c.homeAway==='away');
     if (!hc || !ac) continue;
     const apiHome = espnNorm(hc.team?.displayName||''), apiAway = espnNorm(ac.team?.displayName||'');
     const hs = parseInt(hc.score)||0, as = parseInt(ac.score)||0;
@@ -465,8 +477,7 @@ async function pollLiveScores(forceMeta=false){
       if(prevLineups!==JSON.stringify(newLineups)) changed = true;
     }
 
-    if (m.result) continue; // lineups can show for completed matches, but don't overwrite final match data
-    if (comp?.status?.type?.state !== 'in') continue;   // scores/timeline only for in-progress matches
+    if ((apiState!=='in'&&apiState!=='post') || (m.result&&!LIVE_RESULTS[m.id])) continue;
     const flipped = shortName(m.home) !== apiHome;
     const score = { home: flipped?as:hs, away: flipped?hs:as };
     const prev = LIVE_SCORES[m.id];
@@ -475,6 +486,11 @@ async function pollLiveScores(forceMeta=false){
     }
     const newClock = espnClock(comp.status);
     if (LIVE_CLOCK[m.id] !== newClock){ LIVE_CLOCK[m.id] = newClock; m.liveClock = newClock; changed = true; }
+    if(apiState==='post'){
+      const newResult=resultFromScore(score);
+      if(LIVE_RESULTS[m.id]!==newResult){ LIVE_RESULTS[m.id]=newResult; changed=true; }
+      m.result=newResult;
+    }
     const newEvents = espnEvents(comp);
     const prevEvents = JSON.stringify(LIVE_EVENTS[m.id]||{});
     LIVE_EVENTS[m.id] = newEvents;
@@ -484,8 +500,11 @@ async function pollLiveScores(forceMeta=false){
   }
   if (changed){
     try { localStorage.setItem('wc2026_live_scores', JSON.stringify(LIVE_SCORES)); } catch(e){}
+    try { sessionStorage.setItem('wc2026_live_events', JSON.stringify(LIVE_EVENTS)); } catch(e){}
+    try { sessionStorage.setItem('wc2026_live_results', JSON.stringify(LIVE_RESULTS)); } catch(e){}
     renderLiveRail();
     if(document.getElementById('matches')?.classList.contains('active')) renderMatches();
+    renderLeaderboard();
   }
 }
 
@@ -1152,6 +1171,19 @@ function koTeams(num,standings,best3rd,allComplete,b3map){
   return { home:fmt(projectedSlotTeam(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map))),
            away:fmt(projectedSlotTeam(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map))) };
 }
+function koWinner(m){
+  if(!m||!m.result||m.result==='draw')return null;
+  const team=m.result==='home'?shortName(m.home):shortName(m.away);
+  return team&&team!=='TBD'?team:null;
+}
+function koLoser(m){
+  if(!m||!m.result||m.result==='draw')return null;
+  const team=m.result==='home'?shortName(m.away):shortName(m.home);
+  return team&&team!=='TBD'?team:null;
+}
+function koDisplayTeam(team){
+  return team&&team!=='TBD'?((TEAM_EMOJI[team]?TEAM_EMOJI[team]+' ':'')+team):'TBD';
+}
 // Build knockout match objects (id 73–104) for the Matches list, in cardHtml shape.
 function buildKnockoutMatches(){
   const standings=STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings();
@@ -1160,12 +1192,23 @@ function buildKnockoutMatches(){
   const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
   const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const out=[];
-  for(let num=73;num<=104;num++){
-    const sch=KNOCKOUT_SCHEDULE[num]; const t=koTeams(num,standings,best3rd,allComplete,b3map);
+  const makeMatch=(num,home,away)=>{
+    const sch=KNOCKOUT_SCHEDULE[num];
     const d=sch?new Date(sch[0]+'T00:00'):null;
-    out.push(applyRuntimeMatchData({ id:num, knockout:true, group:KO_ROUND_OF(num), home:t.home, away:t.away,
-      date: d?MO[d.getMonth()]+' '+d.getDate():'', kickoff: sch?sch[0]+'T'+sch[1]:null, result:null, score:null }));
-  }
+    const m=applyRuntimeMatchData({ id:num, knockout:true, group:KO_ROUND_OF(num), home:koDisplayTeam(home), away:koDisplayTeam(away),
+      date: d?MO[d.getMonth()]+' '+d.getDate():'', kickoff: sch?sch[0]+'T'+sch[1]:null, result:null, score:null });
+    out.push(m);
+    return m;
+  };
+  const r32=R32_BRACKET.map((_,idx)=>{
+    const t=koTeams(73+idx,standings,best3rd,allComplete,b3map);
+    return makeMatch(73+idx,shortName(t.home),shortName(t.away));
+  });
+  const r16=R16_FEED.map((feed,idx)=>makeMatch(89+idx,koWinner(r32[feed[0]]),koWinner(r32[feed[1]])));
+  const qf=QF_FEED.map((feed,idx)=>makeMatch(97+idx,koWinner(r16[feed[0]]),koWinner(r16[feed[1]])));
+  const sf=SF_FEED.map((feed,idx)=>makeMatch(101+idx,koWinner(qf[feed[0]]),koWinner(qf[feed[1]])));
+  makeMatch(103,koLoser(sf[FINAL_FEED[0]]),koLoser(sf[FINAL_FEED[1]]));
+  makeMatch(104,koWinner(sf[FINAL_FEED[0]]),koWinner(sf[FINAL_FEED[1]]));
   return out;
 }
 
@@ -1179,16 +1222,19 @@ function knockoutOdds(m){
 }
 
 function applyRuntimeMatchData(m){
+  if(LIVE_RESULTS[m.id]) m.result = LIVE_RESULTS[m.id];
+  const ev = LIVE_EVENTS[m.id];
+  if(ev){
+    m.scorers = ev.scorers.length ? ev.scorers : null;
+    m.cards = ev.cards.length ? ev.cards : null;
+  }
   if(!m.result){
     if(LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id];
     if(LIVE_CLOCK[m.id]) m.liveClock = LIVE_CLOCK[m.id];
-    const ev = LIVE_EVENTS[m.id];
-    if(ev){
-      m.scorers = ev.scorers.length ? ev.scorers : null;
-      m.cards = ev.cards.length ? ev.cards : null;
-    }
-    if(LIVE_LINEUPS[m.id]) m.lineups = LIVE_LINEUPS[m.id];
+  } else if(LIVE_SCORES[m.id]) {
+    m.score = LIVE_SCORES[m.id];
   }
+  if(LIVE_LINEUPS[m.id]) m.lineups = LIVE_LINEUPS[m.id];
   if(!m.odds&&m.knockout) m.odds=knockoutOdds(m);
   return m;
 }
@@ -2606,9 +2652,12 @@ function renderMatches(){
     let picksHtml='',stakesHtml='',starsHtml='';
     if(picksVisible&&STATE.players.length){
       const pkCol=(names,extraClass='')=>names.length?names.map(n=>`<div class="md-pk-name ${extraClass}">${n}</div>`).join(''):`<div class="md-pk-empty">—</div>`;
-      let hv=[],dv=[],av=[];
+      let hv=[],dv=[],av=[],bv=[],nv=[];
       if(m.knockout){
         const advanceKey=m.id<=88?'r16':m.id<=96?'qf':m.id<=100?'sf':m.id<=102?'final':m.id===103?'bronze':'winner';
+        const isWinPick=m.id>=103;
+        const picksTitle=isWinPick?'To Win':'To Advance';
+        const actionLabel=isWinPick?'wins':'advances';
         const homeTeam=shortName(m.home).toLowerCase();
         const awayTeam=shortName(m.away).toLowerCase();
         const playerAdvancePicks=STATE.players.map(p=>{
@@ -2622,17 +2671,17 @@ function renderMatches(){
         });
         hv=playerAdvancePicks.filter(p=>p.hasHome&&!p.hasAway).map(p=>p.name);
         av=playerAdvancePicks.filter(p=>p.hasAway&&!p.hasHome).map(p=>p.name);
-        const bv=playerAdvancePicks.filter(p=>p.hasHome&&p.hasAway).map(p=>p.name);
+        bv=playerAdvancePicks.filter(p=>p.hasHome&&p.hasAway).map(p=>p.name);
         const teamsAreSet=hn!=='TBD'&&an!=='TBD';
-        const nv=teamsAreSet?playerAdvancePicks.filter(p=>!p.hasHome&&!p.hasAway).map(p=>p.name):[];
-        picksHtml=`<div class="md-section-title">To Advance</div>
+        nv=teamsAreSet?playerAdvancePicks.filter(p=>!p.hasHome&&!p.hasAway).map(p=>p.name):[];
+        picksHtml=`<div class="md-section-title">${picksTitle}</div>
         <div class="md-picks">
-          <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn} advances</div>${pkCol(hv)}</div>
+          <div class="md-pk-col md-pk-home"><div class="md-pk-head">${hn} ${actionLabel}</div>${pkCol(hv)}</div>
           <div class="md-pk-col md-pk-draw md-pk-split">
             <div class="md-pk-group"><div class="md-pk-head">Both</div>${pkCol(bv)}</div>
             <div class="md-pk-group"><div class="md-pk-head">Neither</div>${pkCol(nv,'md-pk-muted')}</div>
           </div>
-          <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an} advances</div>${pkCol(av)}</div>
+          <div class="md-pk-col md-pk-away"><div class="md-pk-head">${an} ${actionLabel}</div>${pkCol(av)}</div>
         </div>`;
       } else {
         hv=STATE.players.filter(p=>p.picks[m.id]==='home').map(p=>p.name);
@@ -2655,8 +2704,10 @@ function renderMatches(){
       // Group by stake (one row per pick), then list the players who chose it.
       const stakeGroups={};
       const addStake=(disp,name)=>{(stakeGroups[disp]=stakeGroups[disp]||[]).push(name);};
+      const firstScorerDecided=!!(STATE.special&&STATE.special['First Scorer']);
       STATE.players.forEach(p=>{
         STAKE_KEYS.forEach(({key,label})=>{
+          if(key==='firstScorer'&&firstScorerDecided)return;
           const pick=(p.special?.[key]||'').toLowerCase();
           if(pick&&(pick===homeTeam||pick===awayTeam))
             addStake(`${label}: ${p.special[key]}`,p.name);
@@ -2671,10 +2722,11 @@ function renderMatches(){
         `<div class="stake-row"><span class="stake-pick">${disp}</span> <span class="stake-names">${names.join(', ')}</span></div>`);
       if(stakeLines.length) stakesHtml=`<div class="match-stakes"><div class="stakes-label">Special Stakes</div>${stakeLines.join('')}</div>`;
       // ── Interest stars (0–3) — always shown, in the card header ──────────────
-      const tot=hv.length+dv.length+av.length;
+      const pickBuckets=m.knockout?[hv,av,bv]:[hv,dv,av];
+      const tot=pickBuckets.reduce((sum,bucket)=>sum+bucket.length,0);
       let score=0; const reasons=[];
       if(tot>0){
-        const divergence=1-Math.max(hv.length,dv.length,av.length)/tot;
+        const divergence=1-Math.max(...pickBuckets.map(bucket=>bucket.length))/tot;
         const hasStakes=stakeLines.length>0;
         // Bold pick: someone backed an outcome well below the favourite's probability
         // (e.g. a draw at 21% when the favourite is 59% → a 38pt gap against the grain).
@@ -2682,7 +2734,12 @@ function renderMatches(){
         if(m.odds){
           const probOf=o=>o==='home'?(m.odds.home||0):o==='draw'?(m.odds.draw||0):(m.odds.away||0);
           const fav=Math.max(m.odds.home||0,m.odds.draw||0,m.odds.away||0);
-          STATE.players.forEach(p=>{const o=p.picks[m.id]; if(!o)return; const b=fav-probOf(o); if(b>maxBold)maxBold=b;});
+          STATE.players.forEach(p=>{
+            const o=m.knockout?null:p.picks[m.id];
+            if(!o)return;
+            const b=fav-probOf(o);
+            if(b>maxBold)maxBold=b;
+          });
         }
         const bold=maxBold>=0.25;
         if(divergence>=0.2) score++;   // at least one dissenter
@@ -2711,14 +2768,13 @@ function renderMatches(){
     // ── Light card (visual redesign): header strip + round flags + 3 states ──
     const isGroupStage=/^Group /.test(m.group||'');
     const stageLabel=isGroupStage?'Group Stage':(m.group||'');
-    let metaRight=m.knockout?'':(m.group||'');
+    let metaRight=m.knockout?stageLabel:(m.group||'');
     if(isGroupStage){
       const gm=STATE.matches.filter(x=>x.group===m.group).sort((a,b)=>matchSortKey(a)-matchSortKey(b));
       const pos=gm.findIndex(x=>x.id===m.id);
       if(pos>=0)metaRight=`${m.group} · Matchday ${Math.floor(pos/2)+1} of 3`;
     }
-    // Group games: show the interest stars where the stage label used to be.
-    const headerLeft=isGroupStage?starsHtml:`<span class="mc-stage">${stageLabel}</span>`;
+    const headerLeft=starsHtml||'';
     const whenStr=inDateMode?(t||friendlyDate(m)):`${friendlyDate(m)}${t?' · '+t:''}`;
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
@@ -2737,7 +2793,7 @@ function renderMatches(){
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live${m.liveClock?' '+m.liveClock:''}</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
-      mcCenter=`<div class="mc-when">${whenStr}</div>
+      mcCenter=`<div class="mc-when">FT</div>
         <div class="mc-score">${showScore?scoreStr:dashScore}</div>`;
     }else{
       mcStateCls='mc-upcoming';
@@ -3419,6 +3475,7 @@ function renderKnockoutBracket(){
   const best3rd=getBest3rdPlace(standings);
   const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
   const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
+  const koById=Object.fromEntries(buildKnockoutMatches().map(m=>[m.id,m]));
   const descFor=s=> s.type==='w'?('1'+s.group): s.type==='ru'?('2'+s.group): ('3·'+s.groups.join(''));
   const slotCell=(res,desc)=>{
     if(res.team) return `<div class="kb-team kb-resolved" data-name="${res.team.replace(/"/g,'&quot;')}">${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span></div>`;
@@ -3430,13 +3487,21 @@ function renderKnockoutBracket(){
     const m=R32_BRACKET[idx];
     return `<div class="kb-match kb-r32" onclick="goToMatch(${73+idx})">${slotCell(resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map),descFor(m.home))}${slotCell(resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map),descFor(m.away))}</div>`;
   };
-  const tbd=(cls,num)=>`<div class="kb-match ${cls}" onclick="goToMatch(${num})"><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div><div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div></div>`;
+  const teamCell=team=>{
+    const name=shortName(team);
+    if(name&&name!=='TBD')return `<div class="kb-team kb-resolved" data-name="${name.replace(/"/g,'&quot;')}">${TEAM_EMOJI[name]||''} <span class="kb-tn">${name}</span></div>`;
+    return `<div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div>`;
+  };
+  const matchCell=(cls,num)=>{
+    const m=koById[num]||{};
+    return `<div class="kb-match ${cls}" onclick="goToMatch(${num})">${teamCell(m.home)}${teamCell(m.away)}</div>`;
+  };
   const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
-  const tbds=(nums,cls)=>nums.map(n=>tbd(cls,n)).join('');
+  const matches=(nums,cls)=>nums.map(n=>matchCell(cls,n)).join('');
   const leftR32=[1,4,0,2,10,11,8,9], rightR32=[3,5,6,7,13,15,12,14];
-  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',tbds(KO_NUMS.leftR16,'kb-r16'))}${col('kb-col-tbd',tbds(KO_NUMS.leftQF,'kb-qf'))}${col('kb-col-tbd',tbds(KO_NUMS.leftSF,'kb-sf'))}</div>`;
-  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${tbd('kb-final',104)}<div class="kb-trophy">🏆</div><div class="kb-third-label">3rd place</div>${tbd('kb-third',103)}</div>`;
-  const right=`<div class="kb-side">${col('kb-col-tbd',tbds(KO_NUMS.rightSF,'kb-sf'))}${col('kb-col-tbd',tbds(KO_NUMS.rightQF,'kb-qf'))}${col('kb-col-tbd',tbds(KO_NUMS.rightR16,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
+  const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',matches(KO_NUMS.leftR16,'kb-r16'))}${col('kb-col-tbd',matches(KO_NUMS.leftQF,'kb-qf'))}${col('kb-col-tbd',matches(KO_NUMS.leftSF,'kb-sf'))}</div>`;
+  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${matchCell('kb-final',104)}<div class="kb-trophy">🏆</div><div class="kb-third-label">3rd place</div>${matchCell('kb-third',103)}</div>`;
+  const right=`<div class="kb-side">${col('kb-col-tbd',matches(KO_NUMS.rightSF,'kb-sf'))}${col('kb-col-tbd',matches(KO_NUMS.rightQF,'kb-qf'))}${col('kb-col-tbd',matches(KO_NUMS.rightR16,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
   const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place${allComplete?'':' · flags = teams that could still take a TBD spot'}</div>`;
   return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;
 }
@@ -3500,6 +3565,36 @@ function isEliminated(team,standings){
   }
   return false;
 }
+function trophyLikelihood(team,standings,str){
+  if(!teamGroupOf(team)||isEliminated(team,standings)) return 0;
+  const best3rd=getBest3rdPlace(standings);
+  const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
+  const r32=R32_BRACKET.map(m=>({
+    home:resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map).team,
+    away:resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map).team
+  }));
+  let ti=-1;
+  r32.forEach((x,i)=>{ if(x.home===team||x.away===team) ti=i; });
+  if(ti<0) return 0;
+  const r32W=i=>pickStronger(r32[i].home,r32[i].away,str);
+  const r16W=i=>pickStronger(r32W(R16_FEED[i][0]),r32W(R16_FEED[i][1]),str);
+  const qfW =i=>pickStronger(r16W(QF_FEED[i][0]),r16W(QF_FEED[i][1]),str);
+  const sfW =i=>pickStronger(qfW(SF_FEED[i][0]),qfW(SF_FEED[i][1]),str);
+  const r16i=R16_FEED.findIndex(f=>f.includes(ti)), sibR32=R16_FEED[r16i]?.find(x=>x!==ti);
+  const qfi =QF_FEED.findIndex(f=>f.includes(r16i)), sibR16=QF_FEED[qfi]?.find(x=>x!==r16i);
+  const sfi =SF_FEED.findIndex(f=>f.includes(qfi)), sibQf=SF_FEED[sfi]?.find(x=>x!==qfi);
+  const otherSf=FINAL_FEED.find(x=>x!==sfi);
+  const opponents=[r32[ti].home===team?r32[ti].away:r32[ti].home,r32W(sibR32),r16W(sibR16),qfW(sibQf),sfW(otherSf)];
+  const sT=str[team]||0.4;
+  return opponents.reduce((cum,opp)=>{
+    const sO=opp?(str[opp]||0.4):0;
+    return cum*(opp?sT/(sT+sO):0.99);
+  },1);
+}
+function trophyPctLabel(team,standings,str){
+  return `${(trophyLikelihood(team,standings,str)*100).toFixed(1)}%`;
+}
 // ── ROAD TO THE CUP TAB (most-likely path for a chosen team) ──────────────────
 function renderRoadTab(){
   const cont=document.getElementById('road-content'); if(!cont)return;
@@ -3509,7 +3604,7 @@ function renderRoadTab(){
   const teams=[...new Set(STATE.matches.flatMap(m=>[shortName(m.home),shortName(m.away)]))].sort();
   const opts=['<option value="">— pick a team —</option>'].concat(teams.map(t=>{
     const e=isEliminated(t,standings);
-    return `<option value="${t.replace(/"/g,'&quot;')}"${e?' disabled':''}${t===pathTeam?' selected':''}>${t}${e?' — eliminated':''}</option>`;
+    return `<option value="${t.replace(/"/g,'&quot;')}"${e?' disabled':''}${t===pathTeam?' selected':''}>${t} (${trophyPctLabel(t,standings,str)})${e?' — eliminated':''}</option>`;
   })).join('');
   const picker=`<div class="kb-path-picker"><span class="kb-path-label">Pick a team</span><select class="kb-path-select" onchange="setPathTeam(this.value)">${opts}</select></div>`;
   const body=pathTeam ? renderTeamPath(pathTeam,standings,str)
@@ -3640,7 +3735,7 @@ function renderTeamPath(team,standings,str){
     </div>`;
   }).join('');
   return `<div class="kb-path">
-    <div class="kb-path-head">${withFlag(team)} — projected run <span class="kb-path-win">${(cum*100).toFixed(1)}% to lift the trophy</span></div>
+    <div class="kb-path-head">${withFlag(team)} — projected run <span class="kb-path-win">${trophyPctLabel(team,standings,str)} to lift the trophy</span></div>
     ${rowsHtml}
   </div>`;
 }
