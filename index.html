@@ -33,7 +33,7 @@
 
 <div id="global-live"></div>
 <div class="topbar">
-  <nav>
+  <nav id="main-nav">
     <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
     <button class="tab" onclick="showTab('matches',this)">Matches</button>
     <button class="tab" onclick="showTab('picks',this)">All Picks</button>
@@ -43,8 +43,26 @@
     <button class="tab" onclick="showTab('stats',this)">Stats</button>
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" onclick="showTab('admin',this)">Settings</button>
-    <button class="tab" onclick="showTab('fantasy',this)">⚽ Fantasy</button>
   </nav>
+  <div class="mobile-nav-bar" id="mobile-nav-bar">
+    <span class="mobile-nav-current" id="mobile-tab-label">Leaderboard</span>
+    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleMobileNav()" aria-label="Open menu" aria-expanded="false">
+      <span class="ham-bar"></span>
+      <span class="ham-bar"></span>
+      <span class="ham-bar"></span>
+    </button>
+  </div>
+  <div class="mobile-nav-drawer" id="mobile-nav-drawer" aria-hidden="true">
+    <button class="mobile-tab active" data-tab="leaderboard" onclick="showTab('leaderboard',this)">Leaderboard</button>
+    <button class="mobile-tab" data-tab="matches" onclick="showTab('matches',this)">Matches</button>
+    <button class="mobile-tab" data-tab="picks" onclick="showTab('picks',this)">All Picks</button>
+    <button class="mobile-tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
+    <button class="mobile-tab" data-tab="bracket" onclick="showTab('bracket',this)">Standings</button>
+    <button class="mobile-tab" data-tab="road" onclick="showTab('road',this)">Road to the Cup</button>
+    <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
+    <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
+    <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
+  </div>
 </div>
 
 <!-- LEADERBOARD -->
@@ -1269,6 +1287,23 @@ function buildKnockoutMatches(){
   return out;
 }
 
+// Merges STATE.knockout (Firebase) with winners derived from LIVE_RESULTS so that
+// bracket points update immediately when a match finishes, before the import runs.
+function derivedKnockout(){
+  const base=STATE.knockout||{};
+  const ko={r16:[...(base.r16||[])],qf:[...(base.qf||[])],sf:[...(base.sf||[])],final:[...(base.final||[])],winner:base.winner||null,bronze:base.bronze||null};
+  const norm=t=>(t||'').toLowerCase().trim();
+  buildKnockoutMatches().forEach(m=>{
+    const w=koWinner(m);
+    if(!w)return;
+    const stage=m.group==='Round of 32'?'r16':m.group==='Round of 16'?'qf':m.group==='Quarter-final'?'sf':m.group==='Semi-final'?'final':null;
+    if(stage&&!ko[stage].some(t=>norm(t)===norm(w)))ko[stage].push(w);
+    if(m.group==='Final'&&!ko.winner)ko.winner=w;
+    if(m.group==='Third place'&&!ko.bronze)ko.bronze=w;
+  });
+  return ko;
+}
+
 function knockoutOdds(m){
   const h=shortName(m.home), a=shortName(m.away);
   if(!m.knockout||h==='TBD'||a==='TBD')return null;
@@ -1619,7 +1654,7 @@ function getUKTV(match){ return UK_TV[tvKey(match.home,match.away)]||null; }
 function getTV(match){ return tvRegion==='uk' ? getUKTV(match) : getSwedishTV(match); }
 
 function calcBracketPoints(player){
-  const ko=STATE.knockout||{},bracket=player.bracket||{};
+  const ko=derivedKnockout(),bracket=player.bracket||{};
   const res={r16:0,qf:0,sf:0,final:0,winner:0,bronze:0,total:0};
   ['r16','qf','sf','final'].forEach(stage=>{
     const actual=ko[stage]||[];if(!actual.length)return;
@@ -1694,6 +1729,26 @@ function maxRemainingPoints(player){
     .forEach(([k,sk])=>{ if(!sp[sk] && player.special?.[k]) r += SPECIAL_PTS[k]; });
   if(!sp['Total Goals']) r += SPECIAL_PTS.totalGoals;
   return r;
+}
+
+// Points a player can still earn from playoff bracket picks: team not yet confirmed
+// correct AND not yet eliminated (lost a knockout match).
+function maxFutureBracketPts(player){
+  const ko=derivedKnockout(),br=player.bracket||{};
+  const elim=new Set();
+  buildKnockoutMatches().forEach(m=>{const l=koLoser(m);if(l)elim.add(l.toLowerCase().trim());});
+  const norm=t=>(t||'').toLowerCase().trim();
+  let max=0;
+  ['r16','qf','sf','final'].forEach(stage=>{
+    const confirmed=(ko[stage]||[]).map(norm);
+    (br[stage]||[]).forEach(team=>{
+      const t=norm(team);
+      if(!confirmed.includes(t)&&!elim.has(t))max+=BRACKET_PTS[stage];
+    });
+  });
+  if(br.winner&&!ko.winner&&!elim.has(norm(br.winner)))max+=BRACKET_PTS.winner;
+  if(br.bronze&&!ko.bronze&&!elim.has(norm(br.bronze)))max+=BRACKET_PTS.bronze;
+  return max;
 }
 
 // ── LIVE STATS HELPERS ────────────────────────────────────────────────────────
@@ -1825,9 +1880,27 @@ function niceStep(range,n){
 function buildLbChartData(){
   const N=STATE.players.length;
   if(!N)return null;
-  const ms=[...STATE.matches].filter(m=>m.result).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||a.id-b.id);
+  const norm=t=>(t||'').toLowerCase().trim();
+
+  // Group stage completed matches
+  const groupMs=[...STATE.matches].filter(m=>m.result).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||a.id-b.id);
+
+  // Knockout completed matches — each contributes bracket pts for the stage its winner advances to
+  const stageFor=m=>m.group==='Round of 32'?'r16':m.group==='Round of 16'?'qf':m.group==='Quarter-final'?'sf':m.group==='Semi-final'?'final':m.group==='Final'?'winner':m.group==='Third place'?'bronze':null;
+  const koMs=buildKnockoutMatches().filter(m=>m.result&&stageFor(m)).map(m=>({...m,_bracketStage:stageFor(m)})).sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||a.id-b.id);
+
+  // Merge both streams sorted by kickoff
+  const ms=[...groupMs,...koMs].sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||a.id-b.id);
   if(ms.length<2)return null;
+
   const pScores=STATE.players.map(p=>ms.map(m=>{
+    if(m.knockout){
+      const winner=koWinner(m),stage=m._bracketStage;
+      if(!winner||!stage)return 0;
+      const br=p.bracket||{};
+      if(stage==='winner'||stage==='bronze') return norm(br[stage])===norm(winner)?BRACKET_PTS[stage]:0;
+      return (br[stage]||[]).some(t=>norm(t)===norm(winner))?BRACKET_PTS[stage]:0;
+    }
     if(p.picks[m.id]!==m.result)return 0;
     if(LB_SCORING_MODE==='copabet'){
       const C=STATE.players.filter(q=>q.picks[m.id]===m.result).length;
@@ -1838,8 +1911,8 @@ function buildLbChartData(){
   }));
   const cum=pScores.map(s=>{let c=0;return s.map(v=>c+=v);});
   const avg=ms.map((_,i)=>cum.reduce((s,c)=>s+c[i],0)/N);
-  const norm=cum.map(c=>c.map((v,i)=>v-avg[i]));
-  return{ms,cum,norm};
+  const normSeries=cum.map(c=>c.map((v,i)=>v-avg[i]));
+  return{ms,cum,norm:normSeries};
 }
 
 function setChartMode(mode){
@@ -2364,7 +2437,7 @@ function computeBadges(){
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
-  const scored=STATE.players.map(p=>({...p,...calcScoreByMode(p,goalsWinners)})).sort((a,b)=>b.pts-a.pts);
+  const scored=STATE.players.map(p=>({...p,...calcScoreByMode(p,goalsWinners),maxFuturePts:maxFutureBracketPts(p)})).sort((a,b)=>b.pts-a.pts);
   // Eliminated: can't reach the leader even winning everything, or is behind someone with identical picks.
   const leaderPts=scored.length?scored[0].pts:0;
   const picksKey=p=>JSON.stringify(p.picks||{})+'|'+JSON.stringify(p.bracket||{})+'|'+JSON.stringify(p.special||{});
@@ -2445,7 +2518,7 @@ function renderLeaderboard(){
               <div class="lb-meta"><span class="lb-ok">✓</span> ${p.correct}/${p.total} games correct</div>
               ${(()=>{const w=calcSpecialsWon(p,goalsWinners);return `<div class="lb-meta"><span class="lb-ok">✓</span> ${w} special bet${w!==1?'s':''} won</div>`;})()}
             </div>
-            <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div></div>
+            <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div>${p.maxFuturePts>0?`<div class="lb-pts-future">▲${p.maxFuturePts} possible</div>`:''}</div>
           </div>
           <div class="lb-breakdown" id="${id}">${renderPlayerBreakdown(p,goalsWinners,bdg)}</div>
         </div>`;
@@ -3420,7 +3493,7 @@ function renderPathsTab(){  // kept as no-op for safety
 }
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
-let bracketView='groups';   // 'groups' | 'bracket'
+let bracketView='bracket';  // 'groups' | 'bracket'
 function setBracketView(v){ bracketView=v; renderBracketTab(); }
 
 function renderBracketTab(){
@@ -4941,11 +5014,36 @@ async function saveFantasyWindow(val){
 }
 
 // ── TABS + RENDER ALL ─────────────────────────────────────────────────────────
+const MOBILE_TAB_LABELS={leaderboard:'Leaderboard',matches:'Matches',picks:'All Picks',special:'Special Bets',bracket:'Standings',road:'Road to the Cup',stats:'Stats',scoring:'How it works',admin:'Settings',fantasy:'⚽ Fantasy'};
+function toggleMobileNav(){
+  const drawer=document.getElementById('mobile-nav-drawer');
+  const btn=document.getElementById('hamburger-btn');
+  const open=drawer.classList.toggle('open');
+  btn.classList.toggle('open',open);
+  btn.setAttribute('aria-expanded',String(open));
+  drawer.setAttribute('aria-hidden',String(!open));
+}
+function closeMobileNav(){
+  const drawer=document.getElementById('mobile-nav-drawer');
+  const btn=document.getElementById('hamburger-btn');
+  if(!drawer)return;
+  drawer.classList.remove('open');
+  btn?.classList.remove('open');
+  btn?.setAttribute('aria-expanded','false');
+  drawer.setAttribute('aria-hidden','true');
+}
+
 function showTab(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab,.mobile-tab').forEach(t=>t.classList.remove('active'));
   document.getElementById(id)?.classList.add('active');
   if(el)el.classList.add('active');
+  // Sync the counterpart tab (desktop↔mobile) so both show active
+  document.querySelectorAll(`.tab,.mobile-tab`).forEach(t=>{if(t!==el&&t.dataset.tab===id)t.classList.add('active');});
+  // Update mobile current-tab label and close drawer
+  const lbl=document.getElementById('mobile-tab-label');
+  if(lbl)lbl.textContent=MOBILE_TAB_LABELS[id]||id;
+  closeMobileNav();
   if(id==='submit')  renderSubmitTab();
   if(id==='admin')   renderAdminTab();
   if(id==='scoring') renderScoringTab();

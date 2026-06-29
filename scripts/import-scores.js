@@ -125,17 +125,17 @@ function findOurMatch(apiHome, apiAway) {
 
 // ── Knockout stage detection by date ─────────────────────────────────────────
 // Bucket names: who advanced *past* that round.
-// r16  = 16 teams who won the Round of 32  (matches ~Jul 1-4)
-// qf   = 8 teams who won the Round of 16   (matches ~Jul 7-10)
-// sf   = 4 teams who won the QF            (matches ~Jul 11-12)
-// final = 2 finalists                      (matches ~Jul 15-16)
+// r16  = 16 teams who won the Round of 32  (matches Jun 28 – Jul 4)
+// qf   = 8 teams who won the Round of 16   (matches Jul 4-7)
+// sf   = 4 teams who won the QF            (matches Jul 9-12)
+// final = 2 finalists                      (matches Jul 14-15)
 // winner = champion                        (Jul 19)
 // bronze = 3rd place                       (Jul 18)
 const KNOCKOUT_DATE_RANGES = [
-  { stage: 'r16',    from: '2026-07-01', to: '2026-07-04' },
-  { stage: 'qf',     from: '2026-07-07', to: '2026-07-10' },
-  { stage: 'sf',     from: '2026-07-11', to: '2026-07-12' },
-  { stage: 'final',  from: '2026-07-15', to: '2026-07-16' },
+  { stage: 'r16',    from: '2026-06-28', to: '2026-07-04' },
+  { stage: 'qf',     from: '2026-07-04', to: '2026-07-07' },
+  { stage: 'sf',     from: '2026-07-09', to: '2026-07-12' },
+  { stage: 'final',  from: '2026-07-14', to: '2026-07-15' },
   { stage: 'bronze', from: '2026-07-18', to: '2026-07-18' },
   { stage: 'winner', from: '2026-07-19', to: '2026-07-19' },
 ];

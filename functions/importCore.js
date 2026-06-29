@@ -124,10 +124,10 @@ const MATCH_BY_ID = Object.fromEntries(OUR_MATCHES.map(m => [String(m.id), m]));
 
 // ── Knockout stage detection by date ─────────────────────────────────────────
 const KNOCKOUT_DATE_RANGES = [
-  { stage: 'r16',    from: '2026-07-01', to: '2026-07-04' },
-  { stage: 'qf',     from: '2026-07-07', to: '2026-07-10' },
-  { stage: 'sf',     from: '2026-07-11', to: '2026-07-12' },
-  { stage: 'final',  from: '2026-07-15', to: '2026-07-16' },
+  { stage: 'r16',    from: '2026-06-28', to: '2026-07-04' },
+  { stage: 'qf',     from: '2026-07-04', to: '2026-07-07' },
+  { stage: 'sf',     from: '2026-07-09', to: '2026-07-12' },
+  { stage: 'final',  from: '2026-07-14', to: '2026-07-15' },
   { stage: 'bronze', from: '2026-07-18', to: '2026-07-18' },
   { stage: 'winner', from: '2026-07-19', to: '2026-07-19' },
 ];

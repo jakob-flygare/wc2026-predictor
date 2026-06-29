@@ -97,6 +97,25 @@
   .tab:hover { color: var(--text); }
   .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
+  /* ── Mobile hamburger nav ───────────────────────────────────────────────── */
+  .mobile-nav-bar { display: none; align-items: center; justify-content: space-between; padding: 0 1.2rem; height: 48px; }
+  .mobile-nav-current { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
+  .hamburger-btn { display: flex; flex-direction: column; gap: 5px; padding: 8px; background: none; border: none; cursor: pointer; border-radius: 4px; }
+  .ham-bar { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 1px; transition: transform 0.22s ease, opacity 0.15s ease; transform-origin: center; }
+  .hamburger-btn.open .ham-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+  .hamburger-btn.open .ham-bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
+  .hamburger-btn.open .ham-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  .mobile-nav-drawer { position: absolute; left: 0; right: 0; top: 100%; background: var(--bg); border-bottom: 1px solid var(--border); max-height: 0; overflow: hidden; transition: max-height 0.25s ease; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+  .mobile-nav-drawer.open { max-height: 560px; }
+  .mobile-tab { display: block; width: 100%; padding: 0.85rem 1.5rem; text-align: left; font-size: 0.85rem; font-weight: 500; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); background: none; border: none; border-bottom: 1px solid var(--border); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: color 0.15s, background 0.15s; }
+  .mobile-tab:last-child { border-bottom: none; }
+  .mobile-tab:active { background: var(--surface); }
+  .mobile-tab.active { color: var(--gold); }
+  @media (max-width: 640px) {
+    nav#main-nav { display: none; }
+    .mobile-nav-bar { display: flex; }
+  }
+
   .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
   .section { display: none; }
   .section.active { display: block; }
@@ -170,6 +189,7 @@
   .lb-ok { color: inherit; font-weight: 700; margin-right: 3px; }
   .lb-points { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); text-align: right; line-height: 1; }
   .lb-pts-label { font-size: 0.65rem; color: var(--muted); text-align: right; text-transform: uppercase; letter-spacing: 0.1em; }
+  .lb-pts-future { font-size: 0.65rem; color: var(--green); text-align: right; margin-top: 2px; }
   .progress-bar-wrap { background: var(--surface2); border-radius: 999px; height: 4px; overflow: hidden; margin-top: 6px; }
   .progress-bar-fill { height: 100%; background: var(--gold); border-radius: 999px; }
 
