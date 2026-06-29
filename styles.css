@@ -116,6 +116,8 @@
   @media (max-width: 640px) {
     nav#main-nav { display: none; }
     .mobile-nav-bar { display: flex; }
+    .topbar { position: fixed; width: 100%; }
+    body { padding-top: 48px; }
   }
 
   .container { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem; }
@@ -242,6 +244,26 @@
   .kb-flagtip.show { opacity:1; }
   .kb-tbd-txt { font-size:0.66rem; letter-spacing:0.04em; }
   .kb-legend { font-size:0.7rem; color:var(--muted); margin-top:0.6rem; line-height:1.4; }
+  /* Bracket picks overlay */
+  .kb-picks-badge { display:inline-flex; align-items:center; justify-content:center; min-width:16px; height:16px; padding:0 4px; border-radius:8px; background:var(--gold); color:#1a1409; font-size:0.6rem; font-weight:700; margin-left:5px; vertical-align:middle; flex-shrink:0; }
+  .kb-team.kb-picks-mode { cursor:pointer; }
+  .kb-team.kb-picks-mode:hover { background:rgba(255,255,255,0.06); border-radius:4px; }
+  /* Team picks bottom-sheet panel */
+  .team-picks-backdrop { display:none; position:fixed; inset:0; z-index:300; }
+  .team-picks-backdrop.open { display:block; }
+  .team-picks-panel { position:fixed; bottom:0; left:0; right:0; z-index:301; background:var(--surface); border-top:2px solid var(--border); border-radius:16px 16px 0 0; transform:translateY(100%); transition:transform 0.26s ease; max-height:70vh; overflow-y:auto; }
+  .team-picks-panel.open { transform:translateY(0); }
+  .tp-header { display:flex; align-items:center; justify-content:space-between; padding:1rem 1.2rem 0.6rem; border-bottom:1px solid var(--border); }
+  .tp-title { font-size:1rem; font-weight:600; }
+  .tp-close { background:none; border:none; color:var(--muted); font-size:1.4rem; cursor:pointer; line-height:1; padding:0 4px; }
+  .tp-row { display:flex; align-items:center; gap:0.5rem; padding:0.7rem 1.2rem; border-bottom:1px solid var(--border); }
+  .tp-row:last-child { border-bottom:none; }
+  .tp-name { font-weight:600; min-width:80px; }
+  .tp-stage { font-size:0.78rem; color:var(--gold); background:rgba(201,168,76,0.12); border-radius:4px; padding:2px 7px; white-space:nowrap; }
+  .tp-pts { font-size:0.8rem; color:var(--muted); margin-left:auto; text-align:right; }
+  .tp-pts b { color:var(--text); }
+  .tp-pts .tp-possible { color:var(--green); }
+  .tp-empty { padding:1rem 1.2rem; color:var(--muted); font-size:0.85rem; }
   @media (min-width:900px){
     .kbracket-scroll { width:calc(100vw - 3rem); max-width:1600px; margin-left:50%; transform:translateX(-50%); }
     .kb-r32 .kb-team .kb-tn { display:inline; }

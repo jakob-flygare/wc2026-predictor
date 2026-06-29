@@ -3495,14 +3495,86 @@ function renderPathsTab(){  // kept as no-op for safety
 
 // ── BRACKET DISPLAY TAB ───────────────────────────────────────────────────────
 let bracketView='bracket';  // 'groups' | 'bracket'
+let bracketShowPicks=false;
 function setBracketView(v){ bracketView=v; renderBracketTab(); }
+function toggleBracketPicks(){ bracketShowPicks=!bracketShowPicks; renderBracketTab(); }
+
+function countPicksForTeam(teamName){
+  const norm=t=>(t||'').toLowerCase().trim(),nt=norm(teamName);
+  let n=0;
+  STATE.players.forEach(p=>{
+    const br=p.bracket||{};
+    const all=[...(br.r16||[]),...(br.qf||[]),...(br.sf||[]),...(br.final||[])];
+    if(br.winner)all.push(br.winner);
+    if(br.bronze)all.push(br.bronze);
+    if(all.some(t=>norm(t)===nt))n++;
+  });
+  return n;
+}
+function earnedPtsFromTeam(player,teamName){
+  const norm=t=>(t||'').toLowerCase().trim(),nt=norm(teamName);
+  const ko=derivedKnockout(),br=player.bracket||{};
+  let pts=0;
+  ['r16','qf','sf','final'].forEach(s=>{
+    if((br[s]||[]).some(t=>norm(t)===nt)&&(ko[s]||[]).some(t=>norm(t)===nt))pts+=BRACKET_PTS[s];
+  });
+  if(norm(br.winner||'')===nt&&norm(ko.winner||'')===nt)pts+=BRACKET_PTS.winner;
+  if(norm(br.bronze||'')===nt&&norm(ko.bronze||'')===nt)pts+=BRACKET_PTS.bronze;
+  return pts;
+}
+function possiblePtsFromTeam(player,teamName){
+  const norm=t=>(t||'').toLowerCase().trim(),nt=norm(teamName);
+  const ko=derivedKnockout(),br=player.bracket||{};
+  const elim=new Set();
+  buildKnockoutMatches().forEach(m=>{const l=koLoser(m);if(l)elim.add(norm(l));});
+  if(elim.has(nt))return 0;
+  let pts=0;
+  ['r16','qf','sf','final'].forEach(s=>{
+    if((br[s]||[]).some(t=>norm(t)===nt)&&!(ko[s]||[]).some(t=>norm(t)===nt))pts+=BRACKET_PTS[s];
+  });
+  if(norm(br.winner||'')===nt&&!ko.winner)pts+=BRACKET_PTS.winner;
+  if(norm(br.bronze||'')===nt&&!ko.bronze)pts+=BRACKET_PTS.bronze;
+  return pts;
+}
+function showTeamPicksPanel(teamName){
+  const norm=t=>(t||'').toLowerCase().trim(),nt=norm(teamName);
+  const SLABELS={r16:'R16',qf:'QF',sf:'SF',final:'Final',winner:'🏆 Winner',bronze:'3rd Place'};
+  const rows=STATE.players.map(p=>{
+    const br=p.bracket||{};
+    let stage=null;
+    ['r16','qf','sf','final'].forEach(s=>{if((br[s]||[]).some(t=>norm(t)===nt))stage=s;});
+    if(norm(br.winner||'')===nt)stage='winner';
+    if(norm(br.bronze||'')===nt)stage='bronze';
+    if(!stage)return null;
+    const earned=earnedPtsFromTeam(p,teamName),possible=possiblePtsFromTeam(p,teamName);
+    return{name:p.name,stage,earned,possible};
+  }).filter(Boolean);
+  // Create panel elements if not yet in DOM
+  if(!document.getElementById('team-picks-panel')){
+    const bd=document.createElement('div');bd.className='team-picks-backdrop';bd.id='team-picks-backdrop';bd.onclick=closeTeamPicksPanel;document.body.appendChild(bd);
+    const pn=document.createElement('div');pn.className='team-picks-panel';pn.id='team-picks-panel';pn.innerHTML='<div id="team-picks-inner"></div>';document.body.appendChild(pn);
+    pn.getBoundingClientRect(); // force reflow so first transition works
+  }
+  const inner=document.getElementById('team-picks-inner');
+  inner.innerHTML=`<div class="tp-header"><span class="tp-title">${TEAM_EMOJI[teamName]||''} ${teamName}</span><button class="tp-close" onclick="closeTeamPicksPanel()">×</button></div>`
+    +(rows.length?rows.map(d=>`<div class="tp-row"><span class="tp-name">${d.name}</span><span class="tp-stage">${SLABELS[d.stage]||d.stage}</span><span class="tp-pts">${d.earned?`<b>+${d.earned} earned</b> `:''}<span class="tp-possible">${d.possible?`+${d.possible} possible`:''}</span></span></div>`).join('')
+    :`<div class="tp-empty">No players picked ${teamName}</div>`);
+  document.getElementById('team-picks-panel').classList.add('open');
+  document.getElementById('team-picks-backdrop').classList.add('open');
+}
+function closeTeamPicksPanel(){
+  document.getElementById('team-picks-panel')?.classList.remove('open');
+  document.getElementById('team-picks-backdrop')?.classList.remove('open');
+}
 
 function renderBracketTab(){
   const cont=document.getElementById('bracket-content');
   if(!cont)return;
+  const picksBtn=bracketView==='bracket'?`<button class="bvt-btn${bracketShowPicks?' active':''}" onclick="toggleBracketPicks()">👥 Picks</button>`:'';
   const toggle=`<div class="bracket-view-toggle">
     <button class="bvt-btn${bracketView==='groups'?' active':''}" onclick="setBracketView('groups')">Groups</button>
     <button class="bvt-btn${bracketView==='bracket'?' active':''}" onclick="setBracketView('bracket')">Bracket</button>
+    ${picksBtn}
   </div>`;
   cont.innerHTML=toggle+(bracketView==='bracket'?renderKnockoutBracket():renderGroupStandings());
   applyFlags('bracket-content');
@@ -3581,7 +3653,11 @@ function renderKnockoutBracket(){
   const isEliminated=(m,side)=>m?.result&&m.result!=='draw'&&m.result!==side;
   const slotCell=(res,desc,m,side)=>{
     const eliminated=isEliminated(m,side)?' kb-eliminated':'';
-    if(res.team) return `<div class="kb-team kb-resolved${eliminated}" data-name="${res.team.replace(/"/g,'&quot;')}">${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span></div>`;
+    if(res.team){
+      const badge=bracketShowPicks?(()=>{const n=countPicksForTeam(res.team);return n?`<span class="kb-picks-badge">${n}</span>`:''})():'';
+      const pickClick=bracketShowPicks?` onclick="event.stopPropagation();showTeamPicksPanel(this.dataset.name)"`:'' ;
+      return `<div class="kb-team kb-resolved${eliminated}${bracketShowPicks?' kb-picks-mode':''}" data-name="${res.team.replace(/"/g,'&quot;')}"${pickClick}>${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span>${badge}</div>`;
+    }
     const c=res.candidates||[];
     const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
     return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:'<span class="kb-tbd-txt">TBD</span>'}</div>`;
@@ -3593,7 +3669,11 @@ function renderKnockoutBracket(){
   const teamCell=(team,m,side)=>{
     const name=shortName(team);
     const eliminated=isEliminated(m,side)?' kb-eliminated':'';
-    if(name&&name!=='TBD')return `<div class="kb-team kb-resolved${eliminated}" data-name="${name.replace(/"/g,'&quot;')}">${TEAM_EMOJI[name]||''} <span class="kb-tn">${name}</span></div>`;
+    if(name&&name!=='TBD'){
+      const badge=bracketShowPicks?(()=>{const n=countPicksForTeam(name);return n?`<span class="kb-picks-badge">${n}</span>`:''})():'';
+      const pickClick=bracketShowPicks?` onclick="event.stopPropagation();showTeamPicksPanel(this.dataset.name)"`:'' ;
+      return `<div class="kb-team kb-resolved${eliminated}${bracketShowPicks?' kb-picks-mode':''}" data-name="${name.replace(/"/g,'&quot;')}"${pickClick}>${TEAM_EMOJI[name]||''} <span class="kb-tn">${name}</span>${badge}</div>`;
+    }
     return `<div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div>`;
   };
   const matchCell=(cls,num)=>{
