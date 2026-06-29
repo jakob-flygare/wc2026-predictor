@@ -52,17 +52,18 @@
       <span class="ham-bar"></span>
     </button>
   </div>
-  <div class="mobile-nav-drawer" id="mobile-nav-drawer" aria-hidden="true">
-    <button class="mobile-tab active" data-tab="leaderboard" onclick="showTab('leaderboard',this)">Leaderboard</button>
-    <button class="mobile-tab" data-tab="matches" onclick="showTab('matches',this)">Matches</button>
-    <button class="mobile-tab" data-tab="picks" onclick="showTab('picks',this)">All Picks</button>
-    <button class="mobile-tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
-    <button class="mobile-tab" data-tab="bracket" onclick="showTab('bracket',this)">Standings</button>
-    <button class="mobile-tab" data-tab="road" onclick="showTab('road',this)">Road to the Cup</button>
-    <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
-    <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
-    <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
-  </div>
+</div>
+<div class="mobile-nav-backdrop" id="mobile-nav-backdrop" onclick="closeMobileNav()"></div>
+<div class="mobile-nav-drawer" id="mobile-nav-drawer" aria-hidden="true">
+  <button class="mobile-tab active" data-tab="leaderboard" onclick="showTab('leaderboard',this)">Leaderboard</button>
+  <button class="mobile-tab" data-tab="matches" onclick="showTab('matches',this)">Matches</button>
+  <button class="mobile-tab" data-tab="picks" onclick="showTab('picks',this)">All Picks</button>
+  <button class="mobile-tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
+  <button class="mobile-tab" data-tab="bracket" onclick="showTab('bracket',this)">Standings</button>
+  <button class="mobile-tab" data-tab="road" onclick="showTab('road',this)">Road to the Cup</button>
+  <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
+  <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
+  <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
 </div>
 
 <!-- LEADERBOARD -->
@@ -5018,17 +5019,21 @@ const MOBILE_TAB_LABELS={leaderboard:'Leaderboard',matches:'Matches',picks:'All 
 function toggleMobileNav(){
   const drawer=document.getElementById('mobile-nav-drawer');
   const btn=document.getElementById('hamburger-btn');
+  const backdrop=document.getElementById('mobile-nav-backdrop');
   const open=drawer.classList.toggle('open');
   btn.classList.toggle('open',open);
+  backdrop?.classList.toggle('open',open);
   btn.setAttribute('aria-expanded',String(open));
   drawer.setAttribute('aria-hidden',String(!open));
 }
 function closeMobileNav(){
   const drawer=document.getElementById('mobile-nav-drawer');
   const btn=document.getElementById('hamburger-btn');
+  const backdrop=document.getElementById('mobile-nav-backdrop');
   if(!drawer)return;
   drawer.classList.remove('open');
   btn?.classList.remove('open');
+  backdrop?.classList.remove('open');
   btn?.setAttribute('aria-expanded','false');
   drawer.setAttribute('aria-hidden','true');
 }
