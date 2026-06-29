@@ -100,11 +100,12 @@
   /* ── Mobile hamburger nav ───────────────────────────────────────────────── */
   .mobile-nav-bar { display: none; align-items: center; justify-content: space-between; padding: 0 1.2rem; height: 48px; }
   .mobile-nav-current { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); }
-  .hamburger-btn { display: flex; flex-direction: column; gap: 5px; padding: 8px; background: none; border: none; cursor: pointer; border-radius: 4px; }
-  .ham-bar { display: block; width: 22px; height: 2px; background: var(--text); border-radius: 1px; transition: transform 0.22s ease, opacity 0.15s ease; transform-origin: center; }
-  .hamburger-btn.open .ham-bar:nth-child(1) { transform: translateY(7px) rotate(45deg); }
-  .hamburger-btn.open .ham-bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
-  .hamburger-btn.open .ham-bar:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+  .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; background: none; border: none; cursor: pointer; border-radius: 6px; color: var(--text); flex-shrink: 0; }
+  .hamburger-btn:active { background: var(--surface2); }
+  .ham-svg { display: block; }
+  .ham-svg-close { display: none; }
+  .hamburger-btn.open .ham-svg-open { display: none; }
+  .hamburger-btn.open .ham-svg-close { display: block; }
   .mobile-nav-backdrop { display: none; position: fixed; inset: 0; z-index: 149; background: rgba(0,0,0,0.45); }
   .mobile-nav-backdrop.open { display: block; }
   .mobile-nav-drawer { position: fixed; top: 48px; left: 0; right: 0; z-index: 150; background: var(--bg); border-bottom: 1px solid var(--border); max-height: 0; overflow: hidden; transition: max-height 0.28s ease; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
@@ -113,7 +114,7 @@
   .mobile-tab:last-child { border-bottom: none; }
   .mobile-tab:active { background: var(--surface); }
   .mobile-tab.active { color: var(--gold); }
-  @media (max-width: 640px) {
+  @media (max-width: 768px) {
     nav#main-nav { display: none; }
     .mobile-nav-bar { display: flex; }
     .topbar { position: fixed; width: 100%; }
