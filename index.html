@@ -1318,7 +1318,9 @@ function renderLineupSide(lineup, side){
     </div>`).join('');
 }
 
+const SHOW_LINEUPS = false;
 function renderLineups(m){
+  if(!SHOW_LINEUPS)return '';
   const lu=m.lineups;
   if(!lu)return '';
   const home=lu.home, away=lu.away;
@@ -2970,7 +2972,7 @@ function toggleMatchDetail(id){
   if(!el)return;
   const willOpen=!el.classList.contains('open');
   el.classList.toggle('open');
-  if(willOpen)loadLineupForMatch(id);
+  if(willOpen&&SHOW_LINEUPS)loadLineupForMatch(id);
 }
 
 // ── STAKES TAB ────────────────────────────────────────────────────────────────
