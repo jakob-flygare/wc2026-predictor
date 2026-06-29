@@ -324,7 +324,60 @@ function espnLineups(comp){
   });
   return (sides.home||sides.away)?sides:null;
 }
+
+function espnSummaryLineups(summary){
+  const sides={};
+  (summary?.rosters||[]).forEach(r=>{
+    const side=r.homeAway;
+    if(side!=='home'&&side!=='away')return;
+    const raw=Array.isArray(r.roster)?r.roster:[];
+    const starters=raw.filter(x=>x.starter===true).slice(0,11);
+    if(starters.length<10)return;
+
+    sides[side]={
+      team:espnNorm(r.team?.displayName||r.team?.shortDisplayName||''),
+      formation:r.formation||'',
+      players:starters.map((x,i)=>{
+        const a=x.athlete||{};
+        const pos=a.position||x.position||{};
+        return {
+          name:a.displayName||a.fullName||a.name||x.displayName||x.name||'Unknown',
+          number:a.jersey||a.uniform||x.jersey||x.uniform||x.number||x.formationPlace||'',
+          position:(pos.abbreviation||pos.name||'').toString(),
+          formationPlace:x.formationPlace||'',
+          order:i,
+          starter:true
+        };
+      })
+    };
+  });
+  return (sides.home||sides.away)?sides:null;
+}
+
+async function loadLineupForMatch(id){
+  const m=getAllMatches().find(x=>x.id===id);
+  if(!m||m.lineups||!m.espnEventId||LINEUP_FETCHING[id])return;
+  LINEUP_FETCHING[id]=true;
+  try{
+    const res=await fetch(ESPN_SUMMARY+encodeURIComponent(m.espnEventId));
+    if(!res.ok)return;
+    const summary=await res.json();
+    const lineups=espnSummaryLineups(summary);
+    if(!lineups)return;
+    LIVE_LINEUPS[m.id]=lineups;
+    m.lineups=lineups;
+    renderMatches();
+    const el=document.getElementById(`md-${id}`);
+    if(el)el.classList.add('open');
+  }catch(e){
+    console.warn('Could not load lineup',id,e);
+  }finally{
+    LINEUP_FETCHING[id]=false;
+  }
+}
 const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard?dates=20260611-20260719&limit=500';
+const ESPN_SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=';
+const LINEUP_FETCHING = {};
 
 function inLiveWindow(){
   const now = Date.now();
@@ -349,6 +402,7 @@ async function pollLiveScores(forceMeta=false){
     const m = allMatches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
       return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome); });
     if (!m) continue;
+    if(ev?.id) m.espnEventId = String(ev.id);
 
     const newLineups = espnLineups(comp);
     if(newLineups){
@@ -1117,7 +1171,26 @@ function lineupBuckets(players){
   return out;
 }
 
+function lineupSlotCoords(place, side){
+  const map={
+    '1':[50,88],
+    '2':[82,68],'3':[18,68],'4':[62,70],'5':[50,70],'6':[38,70],
+    '7':[78,43],'8':[38,48],'10':[50,36],'11':[22,43],
+    '9':[50,15]
+  };
+  const p=map[String(place||'')];
+  if(!p)return null;
+  return {x:p[0],y:side==='away'?100-p[1]:p[1]};
+}
+
 function lineupPositions(players, side){
+  const withSlots=players.map((p,i)=>{
+    const s=lineupSlotCoords(p.formationPlace||p.number,side);
+    return s?{...p,...s}:null;
+  });
+  if(withSlots.filter(Boolean).length>=10)return withSlots.filter(Boolean);
+
+
   const b=lineupBuckets(players);
   const rows=[
     {key:'gk', x:side==='home'?8:92},
@@ -2785,7 +2858,10 @@ const PICKS_LOCKED_MSG=`<div style="text-align:center;padding:3rem 1rem">
 
 function toggleMatchDetail(id){
   const el=document.getElementById(`md-${id}`);
-  if(el)el.classList.toggle('open');
+  if(!el)return;
+  const willOpen=!el.classList.contains('open');
+  el.classList.toggle('open');
+  if(willOpen)loadLineupForMatch(id);
 }
 
 // ── STAKES TAB ────────────────────────────────────────────────────────────────
