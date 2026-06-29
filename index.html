@@ -36,11 +36,12 @@
   <nav id="main-nav">
     <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
     <button class="tab" onclick="showTab('matches',this)">Matches</button>
-    <button class="tab" onclick="showTab('picks',this)">All Picks</button>
-    <button class="tab" onclick="showTab('special',this)">Special Bets</button>
     <button class="tab" onclick="showTab('bracket',this)">Standings</button>
     <button class="tab" onclick="showTab('road',this)">Road to the Cup</button>
+    <button class="tab" onclick="showTab('picks',this)">All Picks</button>
+    <button class="tab" onclick="showTab('special',this)">Special Bets</button>
     <button class="tab" onclick="showTab('stats',this)">Stats</button>
+    <button class="tab" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" onclick="showTab('admin',this)">Settings</button>
   </nav>
@@ -204,7 +205,7 @@
 <div id="fantasy" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">⚽ Fantasy League</div>
+      <div class="section-title">Fantasy League</div>
       <div class="section-sub">Draft 11 knockout players · 100M budget · scoring starts from R32</div>
     </div>
     <div id="fantasy-content"><div class="loading">Loading…</div></div>
@@ -265,7 +266,7 @@ function initData() {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
     db.ref('wc2026').on('value', snap => applyDataSnapshot(snap.val() || {}));
-    if(!window._liveTimer){ pollLiveScores(true); window._liveTimer = setInterval(()=>pollLiveScores(false), 45000); }
+    startLivePolling();
   } catch(e) {
     console.error('Firebase init failed:', e);
     loadDemo();
@@ -297,6 +298,20 @@ function espnClock(status){
 // Live goal/card events parsed from the scoreboard, for the live timeline.
 function espnEvents(comp){
   const teamById={}; (comp.competitors||[]).forEach(c=>{ if(c.team?.id) teamById[c.team.id]=espnNorm(c.team.displayName||''); });
+  const jerseyByName={};
+  (comp.competitors||[]).forEach(c=>{
+    let raw=c.lineup||c.starters||c.roster||c.athletes||[];
+    if(raw?.starters) raw=raw.starters;
+    if(raw?.entries) raw=raw.entries;
+    if(!Array.isArray(raw)&&raw&&typeof raw==='object') raw=Object.values(raw).flat().filter(Boolean);
+    if(!Array.isArray(raw))return;
+    raw.forEach(x=>{
+      const a=x.athlete||x.player||x;
+      const name=(a.displayName||a.fullName||a.name||x.displayName||x.name||'').toLowerCase();
+      const jersey=a.jersey||a.uniform||a.number||x.jersey||x.uniform||x.number||'';
+      if(name&&jersey)jerseyByName[name]=jersey;
+    });
+  });
   const d=comp.details||[];
   const playerName=x=>x.athletesInvolved?.[0]?.displayName||x.participants?.[0]?.athlete?.displayName||'Unknown';
   const minute=x=>parseInt(x.clock?.displayValue)||Math.floor((x.clock?.value||0)/60)||0;
@@ -315,9 +330,10 @@ function espnEvents(comp){
     const match=text.match(/(.+?)\s+(?:replaces|for|in for)\s+(.+)/i);
     const fallbackIn=participantName(parts[0]);
     const fallbackOut=participantName(parts[1]);
+    const playerIn=participantName(taggedIn)||fallbackIn||match?.[1]?.trim()||'Unknown';
     return {
-      playerIn:participantName(taggedIn)||fallbackIn||match?.[1]?.trim()||'Unknown',
-      playerInNumber:participantNumber(taggedIn)||participantNumber(parts[0]),
+      playerIn,
+      playerInNumber:participantNumber(taggedIn)||participantNumber(parts[0])||jerseyByName[playerIn.toLowerCase()]||'',
       playerOut:participantName(taggedOut)||fallbackOut||match?.[2]?.trim()||''
     };
   };
@@ -401,6 +417,15 @@ function espnSummaryLineups(summary){
 }
 
 function espnSummarySubs(summary){
+  const jerseyByName={};
+  (summary?.rosters||[]).forEach(r=>{
+    (Array.isArray(r.roster)?r.roster:[]).forEach(x=>{
+      const a=x.athlete||{};
+      const name=(a.displayName||a.fullName||a.name||x.displayName||x.name||'').toLowerCase();
+      const jersey=a.jersey||a.uniform||a.number||x.jersey||x.uniform||x.number||x.formationPlace||'';
+      if(name&&jersey)jerseyByName[name]=jersey;
+    });
+  });
   return (summary?.commentary||[]).map(c=>c.play||c).filter(p=>{
     const type=p.type||{};
     const text=`${type.text||''} ${type.type||''} ${p.text||''}`.toLowerCase();
@@ -408,14 +433,15 @@ function espnSummarySubs(summary){
   }).map(p=>{
     const parts=p.participants||[];
     const playerIn=parts[0]?.athlete?.displayName||parts[0]?.displayName||'Unknown';
-    const playerInNumber=parts[0]?.athlete?.jersey||parts[0]?.athlete?.uniform||parts[0]?.athlete?.number||parts[0]?.jersey||parts[0]?.number||'';
     const playerOut=parts[1]?.athlete?.displayName||parts[1]?.displayName||'';
     const text=p.text||'';
     const match=text.match(/Substitution,\s*([^.]+)\.\s*(.+?)\s+replaces\s+(.+)\.?$/i);
+    const resolvedIn=playerIn!=='Unknown'?playerIn:(match?.[2]?.trim()||'Unknown');
+    const playerInNumber=parts[0]?.athlete?.jersey||parts[0]?.athlete?.uniform||parts[0]?.athlete?.number||parts[0]?.jersey||parts[0]?.number||jerseyByName[resolvedIn.toLowerCase()]||'';
     return {
       team:espnNorm(p.team?.displayName||match?.[1]?.trim()||''),
       minute:parseInt(p.clock?.displayValue)||Math.floor((p.clock?.value||0)/60)||0,
-      playerIn:playerIn!=='Unknown'?playerIn:(match?.[2]?.trim()||'Unknown'),
+      playerIn:resolvedIn,
       playerInNumber,
       playerOut:playerOut||match?.[3]?.trim()||''
     };
@@ -484,7 +510,7 @@ async function loadLineupForMatch(id){
     } else {
       console.warn('No lineups in ESPN summary',eventId,m.home,m.away);
       const box=document.getElementById(`lu-${id}`);
-      if(box)box.innerHTML='<div class="lu-empty">Confirmed line-ups not available yet.</div>';
+      if(box)box.innerHTML='<div class="lu-empty">No confirmed lineups yet</div>';
     }
     const subs=espnSummarySubs(summary);
     if(subs.length){
@@ -507,6 +533,11 @@ const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fi
 const ESPN_SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=';
 const LINEUP_FETCHING = {};
 const resultFromScore=s=>s.home>s.away?'home':s.away>s.home?'away':'draw';
+
+function startLivePolling(){
+  pollLiveScores(true);
+  if(!window._liveTimer) window._liveTimer = setInterval(()=>pollLiveScores(false), 45000);
+}
 
 function inLiveWindow(){
   const now = Date.now();
@@ -1347,21 +1378,26 @@ function subMinuteLabel(minute){
 }
 
 function renderLineupList(lineup, side, subs=[]){
-  if(!lineup||!lineup.players?.length)return `<div class="lu-list lu-${side}"><div class="lu-empty">Confirmed line-up not available yet.</div></div>`;
+  if(!lineup||!lineup.players?.length)return `<div class="lu-list lu-${side}"><div class="lu-empty">No confirmed lineups yet</div></div>`;
   const starters=lineup.players.slice(0,11);
   const inSubs=subs.filter(s=>s.playerIn&&!starters.some(p=>samePlayerName(p.name,s.playerIn)));
+  const playerLabel=(num,name)=>{
+    const numHtml=num?`<span class="lu-num-text">${num}</span>`:'';
+    const nameHtml=`<span class="lu-name-text">${lineupLastName(name)}</span>`;
+    return side==='away' ? `${nameHtml}${numHtml}` : `${numHtml}${nameHtml}`;
+  };
   const starterRows=starters.map(p=>{
     const num=p.number||p.formationPlace||'';
     const outSub=subs.find(s=>s.playerOut&&lineupLastName(s.playerOut).toLowerCase()===lineupLastName(p.name).toLowerCase());
     return `<div class="lu-row${outSub?' lu-row-out':''}">
-      <span class="lu-player-main">${num?`<span class="lu-num-text">${num}</span>`:''}<span class="lu-name-text">${lineupLastName(p.name)}</span></span>
+      <span class="lu-player-main">${playerLabel(num,p.name)}</span>
       ${outSub?`<span class="lu-sub lu-sub-out">OUT${subMinuteLabel(outSub.minute)}</span>`:''}
     </div>`;
   }).join('');
   const subRows=inSubs.map(s=>{
     const num=s.playerInNumber||'';
     return `<div class="lu-row lu-row-in">
-      <span class="lu-player-main">${num?`<span class="lu-num-text">${num}</span>`:''}<span class="lu-name-text">${lineupLastName(s.playerIn)}</span></span>
+      <span class="lu-player-main">${playerLabel(num,s.playerIn)}</span>
       <span class="lu-sub lu-sub-in">IN${subMinuteLabel(s.minute)}</span>
     </div>`;
   }).join('');
@@ -1388,7 +1424,7 @@ function renderLineups(m){
           ${renderLineupList(home,'home',homeSubs)}
           ${renderLineupList(away,'away',awaySubs)}
         </div>
-      `:`<div class="lu-empty">Loading line-ups…</div>`}
+      `:`<div class="lu-empty">No confirmed lineups yet</div>`}
     </div>`;
 }
 
@@ -2816,7 +2852,7 @@ function renderMatches(){
       });
       const stakeLines=Object.entries(stakeGroups).map(([disp,names])=>
         `<div class="stake-row"><span class="stake-pick">${disp}</span> <span class="stake-names">${names.join(', ')}</span></div>`);
-      if(stakeLines.length) stakesHtml=`<div class="match-stakes"><div class="stakes-label">Special Stakes</div>${stakeLines.join('')}</div>`;
+      if(stakeLines.length) stakesHtml=`<div class="match-stakes"><div class="stakes-label">Special Bets</div>${stakeLines.join('')}</div>`;
       // ── Interest stars (0–3) — always shown, in the card header ──────────────
       const pickBuckets=m.knockout?[hv,av,bv]:[hv,dv,av];
       const tot=pickBuckets.reduce((sum,bucket)=>sum+bucket.length,0);
@@ -3926,6 +3962,8 @@ function renderGroupStandings(){
   const standings=official?STATE.standings:computeActualStandings();
   const anyResults=STATE.matches.some(m=>m.result);
   const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
+  const allGroupsComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const bestThirdTeams=new Set(allGroupsComplete?getBest3rdPlace(standings).map(t=>t.team):[]);
 
   let html='<div class="group-standings-grid">';
   Object.keys(standings).sort().forEach(g=>{
@@ -3939,15 +3977,11 @@ function renderGroupStandings(){
     html+=`<div class="gs-card gs-card-clickable" onclick="toggleBracketGroup('${g}')">`;
     html+=`<div class="gs-title">Group ${g}${starsHtml}</div>`;
     rows.forEach((t,i)=>{
-      const rc=i===0?'r1':i===1?'r2':i===2?'r3':'r4';
-      let adv='';
-      if(official){
-        const n=(t.note||'').toLowerCase();
-        if(n.includes('advance')||n.includes('round of 32')) adv='<span style="font-size:0.6rem;color:var(--gold)"> Q</span>';
-        else if(n.includes('best')) adv='<span style="font-size:0.6rem;color:var(--text-muted)"> B3</span>';
-      } else {
-        if(i<2&&anyResults) adv='<span style="font-size:0.6rem;color:var(--gold)"> Q</span>';
-      }
+      const groupComplete=kbGroupComplete(rows);
+      const qualified=groupComplete&&(i<2||(i===2&&bestThirdTeams.has(t.team)));
+      const out=groupComplete&&!qualified;
+      const rc=qualified?'st-qualified':out?'st-group-out':'st-pending';
+      const adv=qualified?'<span class="gs-q">Q</span>':'';
       html+=`<div class="gs-row ${rc}"><span class="gs-pos">${i+1}</span><span class="gs-name tp-link" onclick="event.stopPropagation();openTeamPage('${t.team.replace(/'/g,"\\'")}')">${withFlag(t.team)}${adv}</span><span class="gs-pts">${t.pts}p</span></div>`;
     });
 
@@ -5156,6 +5190,7 @@ function scrollToNextMatch(){
 function loadDemo(){
   STATE={matches:DEMO_MATCHES,players:DEMO_PLAYERS,source:'demo',special:DEMO_SPECIAL,knockout:DEMO_KNOCKOUT,fantasy:{window:null,squads:{}}};
   renderAll();
+  startLivePolling();
 }
 function loadDemoWithScores(){
   // Preview mode: demo data + fake scores/scorers so live stats are visible
@@ -5174,6 +5209,7 @@ function loadDemoWithScores(){
   [...DEMO_PLAYERS].reverse().forEach((p,i)=>{demoPrevRanks[p.name]=i+1;});
   STATE={matches,players:DEMO_PLAYERS,source:'demo',special,knockout:DEMO_KNOCKOUT,prevRanks:demoPrevRanks,fantasy:{window:null,squads:{}}};
   renderAll();
+  startLivePolling();
 }
 
 function renderAll(){
