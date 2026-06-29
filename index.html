@@ -3555,9 +3555,10 @@ function showTeamPicksPanel(teamName){
     pn.getBoundingClientRect(); // force reflow so first transition works
   }
   const inner=document.getElementById('team-picks-inner');
-  inner.innerHTML=`<div class="tp-header"><span class="tp-title">${TEAM_EMOJI[teamName]||''} ${teamName}</span><button class="tp-close" onclick="closeTeamPicksPanel()">×</button></div>`
+  inner.innerHTML=`<div class="tp-header"><span class="tp-title">${teamName}</span><button class="tp-close" onclick="closeTeamPicksPanel()">×</button></div>`
     +(rows.length?rows.map(d=>`<div class="tp-row"><span class="tp-name">${d.name}</span><span class="tp-stage">${SLABELS[d.stage]||d.stage}</span><span class="tp-pts">${d.earned?`<b>+${d.earned} earned</b> `:''}<span class="tp-possible">${d.possible?`+${d.possible} possible`:''}</span></span></div>`).join('')
     :`<div class="tp-empty">No players picked ${teamName}</div>`);
+  applyFlags('team-picks-panel');
   document.getElementById('team-picks-panel').classList.add('open');
   document.getElementById('team-picks-backdrop').classList.add('open');
 }
