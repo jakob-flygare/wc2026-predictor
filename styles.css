@@ -98,7 +98,7 @@
   .tab.active { color: var(--gold); border-bottom-color: var(--gold); }
 
   /* ── Mobile hamburger nav ───────────────────────────────────────────────── */
-  .mobile-nav-bar { display: none; align-items: center; justify-content: space-between; padding: 0 1rem 0 1.2rem; height: 48px; cursor: pointer; user-select: none; gap: 0.5rem; }
+  .mobile-nav-bar { display: none; align-items: center; justify-content: space-between; padding: 0 1rem 0 1.2rem; height: 48px; cursor: pointer; user-select: none; gap: 0.5rem; background: none; border: none; outline: none; width: 100%; text-align: left; font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
   .mobile-nav-bar:active { background: var(--surface2); }
   .mobile-nav-bar.open { background: var(--surface); }
   .mobile-nav-current { font-size: 0.85rem; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gold); flex: 1; }

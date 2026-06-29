@@ -44,13 +44,10 @@
     <button class="tab" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" onclick="showTab('admin',this)">Settings</button>
   </nav>
-  <div class="mobile-nav-bar" id="mobile-nav-bar">
+  <button class="mobile-nav-bar" id="mobile-nav-bar" onclick="toggleMobileNav()" type="button" aria-haspopup="listbox" aria-expanded="false">
     <span class="mobile-nav-current" id="mobile-tab-label">Leaderboard</span>
-    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleMobileNav()" aria-label="Open menu" aria-expanded="false">
-      <svg class="ham-svg ham-svg-open" width="22" height="16" viewBox="0 0 22 16" fill="currentColor" aria-hidden="true"><rect x="0" y="0" width="22" height="2" rx="1"/><rect x="0" y="7" width="22" height="2" rx="1"/><rect x="0" y="14" width="22" height="2" rx="1"/></svg>
-      <svg class="ham-svg ham-svg-close" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="2" y1="2" x2="18" y2="18"/><line x1="18" y1="2" x2="2" y2="18"/></svg>
-    </button>
-  </div>
+    <svg class="mobile-nav-chevron" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 7 9 12 14 7"/></svg>
+  </button>
 </div>
 <div class="mobile-nav-backdrop" id="mobile-nav-backdrop" onclick="closeMobileNav()"></div>
 <div class="mobile-nav-drawer" id="mobile-nav-drawer" aria-hidden="true">
@@ -5098,23 +5095,23 @@ async function saveFantasyWindow(val){
 const MOBILE_TAB_LABELS={leaderboard:'Leaderboard',matches:'Matches',picks:'All Picks',special:'Special Bets',bracket:'Standings',road:'Road to the Cup',stats:'Stats',scoring:'How it works',admin:'Settings',fantasy:'⚽ Fantasy'};
 function toggleMobileNav(){
   const drawer=document.getElementById('mobile-nav-drawer');
-  const btn=document.getElementById('hamburger-btn');
+  const bar=document.getElementById('mobile-nav-bar');
   const backdrop=document.getElementById('mobile-nav-backdrop');
   const open=drawer.classList.toggle('open');
-  btn.classList.toggle('open',open);
+  bar?.classList.toggle('open',open);
   backdrop?.classList.toggle('open',open);
-  btn.setAttribute('aria-expanded',String(open));
+  bar?.setAttribute('aria-expanded',String(open));
   drawer.setAttribute('aria-hidden',String(!open));
 }
 function closeMobileNav(){
   const drawer=document.getElementById('mobile-nav-drawer');
-  const btn=document.getElementById('hamburger-btn');
+  const bar=document.getElementById('mobile-nav-bar');
   const backdrop=document.getElementById('mobile-nav-backdrop');
   if(!drawer)return;
   drawer.classList.remove('open');
-  btn?.classList.remove('open');
+  bar?.classList.remove('open');
   backdrop?.classList.remove('open');
-  btn?.setAttribute('aria-expanded','false');
+  bar?.setAttribute('aria-expanded','false');
   drawer.setAttribute('aria-hidden','true');
 }
 
