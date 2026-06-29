@@ -250,7 +250,7 @@ function initData() {
     firebase.initializeApp(FIREBASE_CONFIG);
     db = firebase.database();
     db.ref('wc2026').on('value', snap => applyDataSnapshot(snap.val() || {}));
-    if(!window._liveTimer){ pollLiveScores(); window._liveTimer = setInterval(pollLiveScores, 45000); }
+    if(!window._liveTimer){ pollLiveScores(true); window._liveTimer = setInterval(()=>pollLiveScores(false), 45000); }
   } catch(e) {
     console.error('Firebase init failed:', e);
     loadDemo();
@@ -332,8 +332,8 @@ function inLiveWindow(){
     now >= new Date(m.kickoff).getTime() - 90*60*1000 && now <= new Date(m.kickoff).getTime() + 3*3600*1000);
 }
 
-async function pollLiveScores(){
-  if (spoilerMode || !getAllMatches().length || !inLiveWindow()) return;
+async function pollLiveScores(forceMeta=false){
+  if (spoilerMode || !getAllMatches().length || (!forceMeta && !inLiveWindow())) return;
   let data;
   try { const r = await fetch(ESPN_SCOREBOARD); if(!r.ok) return; data = await r.json(); }
   catch(e){ return; }
@@ -348,7 +348,7 @@ async function pollLiveScores(){
     const hs = parseInt(hc.score)||0, as = parseInt(ac.score)||0;
     const m = allMatches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
       return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome); });
-    if (!m || m.result) continue;
+    if (!m) continue;
 
     const newLineups = espnLineups(comp);
     if(newLineups){
@@ -358,6 +358,7 @@ async function pollLiveScores(){
       if(prevLineups!==JSON.stringify(newLineups)) changed = true;
     }
 
+    if (m.result) continue; // lineups can show for completed matches, but don't overwrite final match data
     if (comp?.status?.type?.state !== 'in') continue;   // scores/timeline only for in-progress matches
     const flipped = shortName(m.home) !== apiHome;
     const score = { home: flipped?as:hs, away: flipped?hs:as };
