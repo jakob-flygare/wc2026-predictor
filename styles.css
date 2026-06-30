@@ -418,7 +418,7 @@
   .mc-when-ft { height:auto; align-items:center; }
   .mc-when-lg { font-size:0.74rem; font-weight:600; color:var(--text); }
   .mc-score { font-family:'Bebas Neue',sans-serif; font-size:2rem; line-height:1; color:var(--text); letter-spacing:0.03em; }
-  .mc-score-sep { color:var(--gold); padding:0 0.1rem; }
+  .mc-score-sep { color:var(--text); padding:0 0.1rem; }
   .mc-penalties { margin-top:-0.05rem; color:var(--text); font-size:0.68rem; font-weight:700; letter-spacing:0.04em; white-space:nowrap; }
   .mc-penalties .mc-score-sep { color:inherit; }
   .mc-vs { font-family:'Bebas Neue',sans-serif; font-size:1.5rem; color:var(--muted); letter-spacing:0.05em; }
