@@ -990,3 +990,8 @@
   border-top-color: rgba(201,168,76,0.3) !important;
   background: rgba(201,168,76,0.04) !important;
 }
+
+/* Neutral score separator — keep dash white/text-colored in all themes */
+.mc-score-sep {
+  color: var(--text) !important;
+}
