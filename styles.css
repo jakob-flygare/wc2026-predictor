@@ -963,3 +963,30 @@
   border-top-color: rgba(154,45,239,0.65) !important;
   background: rgba(154,45,239,0.08) !important;
 }
+
+/* Gold match-card overrides — keep next-up state gold in Gold theme */
+[data-accent="gold"] .mc-nextup {
+  border-color: rgba(201,168,76,0.45) !important;
+  box-shadow: 0 0 16px rgba(201,168,76,0.12) !important;
+}
+
+[data-accent="gold"] .mc-nextup .mc-header {
+  background: rgba(201,168,76,0.12) !important;
+  border-bottom-color: rgba(201,168,76,0.3) !important;
+}
+
+[data-accent="gold"] .match-card.mc-nextup:hover,
+[data-accent="gold"] .match-card.mc-nextup:focus-within {
+  border-color: var(--gold) !important;
+  box-shadow: 0 0 22px rgba(201,168,76,0.22) !important;
+}
+
+[data-accent="gold"] .mc-pill-next {
+  background: rgba(201,168,76,0.2) !important;
+  color: var(--gold-light) !important;
+}
+
+[data-accent="gold"] .mc-nextup .match-detail {
+  border-top-color: rgba(201,168,76,0.3) !important;
+  background: rgba(201,168,76,0.04) !important;
+}
