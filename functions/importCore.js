@@ -156,6 +156,19 @@ function orientScore(ourMatch, apiHome, homeScore, awayScore) {
   };
 }
 
+function knockoutWinner(homeComp, awayComp, homeScore, awayScore) {
+  if (homeScore > awayScore) return norm(homeComp.team?.displayName || '');
+  if (awayScore > homeScore) return norm(awayComp.team?.displayName || '');
+  if (homeComp.winner === true) return norm(homeComp.team?.displayName || '');
+  if (awayComp.winner === true) return norm(awayComp.team?.displayName || '');
+  const homePens = parseInt(homeComp.shootoutScore);
+  const awayPens = parseInt(awayComp.shootoutScore);
+  if (!Number.isNaN(homePens) && !Number.isNaN(awayPens) && homePens !== awayPens) {
+    return homePens > awayPens ? norm(homeComp.team?.displayName || '') : norm(awayComp.team?.displayName || '');
+  }
+  return null;
+}
+
 // ── Parse the scoreboard payload ──────────────────────────────────────────────
 // Returns everything we might write plus counters used for the live-only gate.
 function parseScoreboard(sbData, alreadyImported, existingResults) {
@@ -262,8 +275,7 @@ function parseScoreboard(sbData, alreadyImported, existingResults) {
       const eventDate = event.date ? event.date.slice(0, 10) : '';
       const stage = knockoutStageForDate(eventDate);
       if (!stage) continue;
-      const winner = homeScore > awayScore ? norm(apiHome)
-                   : awayScore > homeScore ? norm(apiAway) : null;
+      const winner = knockoutWinner(homeComp, awayComp, homeScore, awayScore);
       if (winner && !out.knockoutWinners[stage].includes(winner)) {
         out.knockoutWinners[stage].push(winner);
       }

@@ -17,10 +17,42 @@
   <span>👁 Preview Mode — showing demo data with fake scores. Real data is unaffected.</span>
   <button onclick="exitPreview()" style="background:none;border:1px solid rgba(232,184,75,0.4);color:var(--gold);border-radius:4px;padding:0.2rem 0.6rem;font-size:0.75rem;cursor:pointer;font-family:'DM Sans',sans-serif">Exit Preview</button>
 </div>
-<header>
-  <img class="wc-logo wc-logo-dark" src="logo.png" alt="FIFA World Cup 2026">
-  <img class="wc-logo wc-logo-light" src="logo-onlight.svg" alt="FIFA World Cup 2026">
-  <div class="subtitle">Lehman Brothers</div>
+<div class="topbar">
+  <button class="nav-brand" onclick="showTab('leaderboard',null)" type="button" aria-label="Go to leaderboard">
+    <img class="nav-logo nav-logo-dark" src="logo.png" alt="FIFA World Cup 2026">
+    <img class="nav-logo nav-logo-light" src="logo-onlight.svg" alt="FIFA World Cup 2026">
+  </button>
+  <nav id="main-nav">
+    <button class="tab active" data-tab="leaderboard" onclick="showTab('leaderboard',this)">Leaderboard</button>
+    <button class="tab" data-tab="matches" onclick="showTab('matches',this)">Matches</button>
+    <button class="tab" data-tab="bracket" onclick="showTab('bracket',this)">Standings</button>
+    <button class="tab" data-tab="road" onclick="showTab('road',this)">Road to the Cup</button>
+    <button class="tab" data-tab="picks" onclick="showTab('picks',this)">All Picks</button>
+    <button class="tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
+    <button class="tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
+    <button class="tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
+    <button class="tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
+    <button class="tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
+  </nav>
+  <button class="mobile-nav-bar" id="mobile-nav-bar" onclick="toggleMobileNav()" type="button" aria-haspopup="listbox" aria-expanded="false">
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+    <span class="hamburger-line"></span>
+  </button>
+</div>
+<div id="global-live"></div>
+<div class="mobile-nav-backdrop" id="mobile-nav-backdrop" onclick="closeMobileNav()"></div>
+<div class="mobile-nav-drawer" id="mobile-nav-drawer" aria-hidden="true">
+  <button class="mobile-tab active" data-tab="leaderboard" onclick="showTab('leaderboard',this)">Leaderboard</button>
+  <button class="mobile-tab" data-tab="matches" onclick="showTab('matches',this)">Matches</button>
+  <button class="mobile-tab" data-tab="bracket" onclick="showTab('bracket',this)">Standings</button>
+  <button class="mobile-tab" data-tab="road" onclick="showTab('road',this)">Road to the Cup</button>
+  <button class="mobile-tab" data-tab="picks" onclick="showTab('picks',this)">All Picks</button>
+  <button class="mobile-tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
+  <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
+  <button class="mobile-tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
+  <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
+  <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   <button id="spoiler-btn" class="spoiler-toggle" onclick="toggleSpoiler()" aria-pressed="false">
     <svg class="spoiler-icon" viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
@@ -29,43 +61,15 @@
     <span class="spoiler-toggle-label">No Spoilers</span>
     <span class="spoiler-switch"><span class="spoiler-knob"></span></span>
   </button>
-</header>
-
-<div id="global-live"></div>
-<div class="topbar">
-  <nav id="main-nav">
-    <button class="tab active" onclick="showTab('leaderboard',this)">Leaderboard</button>
-    <button class="tab" onclick="showTab('matches',this)">Matches</button>
-    <button class="tab" onclick="showTab('bracket',this)">Standings</button>
-    <button class="tab" onclick="showTab('road',this)">Road to the Cup</button>
-    <button class="tab" onclick="showTab('picks',this)">All Picks</button>
-    <button class="tab" onclick="showTab('special',this)">Special Bets</button>
-    <button class="tab" onclick="showTab('stats',this)">Stats</button>
-    <button class="tab" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
-    <button class="tab" onclick="showTab('scoring',this)">How it works</button>
-    <button class="tab" onclick="showTab('admin',this)">Settings</button>
-  </nav>
-  <button class="mobile-nav-bar" id="mobile-nav-bar" onclick="toggleMobileNav()" type="button" aria-haspopup="listbox" aria-expanded="false">
-    <span class="mobile-nav-current" id="mobile-tab-label">Leaderboard</span>
-    <svg class="mobile-nav-chevron" width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 7 9 12 14 7"/></svg>
-  </button>
-</div>
-<div class="mobile-nav-backdrop" id="mobile-nav-backdrop" onclick="closeMobileNav()"></div>
-<div class="mobile-nav-drawer" id="mobile-nav-drawer" aria-hidden="true">
-  <button class="mobile-tab active" data-tab="leaderboard" onclick="showTab('leaderboard',this)">Leaderboard</button>
-  <button class="mobile-tab" data-tab="matches" onclick="showTab('matches',this)">Matches</button>
-  <button class="mobile-tab" data-tab="picks" onclick="showTab('picks',this)">All Picks</button>
-  <button class="mobile-tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
-  <button class="mobile-tab" data-tab="bracket" onclick="showTab('bracket',this)">Standings</button>
-  <button class="mobile-tab" data-tab="road" onclick="showTab('road',this)">Road to the Cup</button>
-  <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
-  <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
-  <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
 </div>
 
 <!-- LEADERBOARD -->
 <div id="leaderboard" class="section active">
   <div class="container">
+    <div class="leaderboard-hero">
+      <img class="leaderboard-logo leaderboard-logo-dark" src="logo.png" alt="FIFA World Cup 2026">
+      <img class="leaderboard-logo leaderboard-logo-light" src="logo-onlight.svg" alt="FIFA World Cup 2026">
+    </div>
     <div class="section-header" style="flex-direction:row;align-items:center;justify-content:space-between">
       <div class="section-title">Leaderboard</div>
       <div id="lb-share-area"></div>
@@ -281,9 +285,13 @@ const LIVE_CLOCK = {};    // {id: "'16" | "PAUS"} — game clock for the LIVE pi
 const LIVE_EVENTS = {};   // {id:{scorers:[],cards:[]}} — live timeline events
 const LIVE_LINEUPS = {};  // {id:{home:{team,formation,players:[]},away:{...}}} — confirmed starting XIs when available
 const LIVE_RESULTS = {};  // {id:'home'|'away'|'draw'} — ESPN final state before admin import catches up
+const LIVE_PENALTIES = {}; // {id:{home,away}} — penalty shootout score, shown below tied FT/AET score
+const LIVE_FINISH_LABELS = {}; // {id:'After ET'|'After Pen.'} — final-state label for knockout matches
 try { Object.assign(LIVE_SCORES, JSON.parse(localStorage.getItem('wc2026_live_scores')||'{}')); } catch(e){}
 try { Object.assign(LIVE_EVENTS, JSON.parse(sessionStorage.getItem('wc2026_live_events')||'{}')); } catch(e){}
 try { Object.assign(LIVE_RESULTS, JSON.parse(sessionStorage.getItem('wc2026_live_results')||'{}')); } catch(e){}
+try { Object.assign(LIVE_PENALTIES, JSON.parse(sessionStorage.getItem('wc2026_live_penalties')||'{}')); } catch(e){}
+try { Object.assign(LIVE_FINISH_LABELS, JSON.parse(sessionStorage.getItem('wc2026_live_finish_labels')||'{}')); } catch(e){}
 const ESPN_TEAM_MAP = {'United States':'USA','Korea Republic':'South Korea','Czech Republic':'Czechia','Turkey':'Türkiye','Bosnia and Herzegovina':'Bosnia-Herzegovina','Congo DR':'DR Congo','Democratic Republic of Congo':'DR Congo',"Cote d'Ivoire":'Ivory Coast',"Côte d'Ivoire":'Ivory Coast','Curacao':'Curaçao'};
 const espnNorm = n => ESPN_TEAM_MAP[n] || n;
 // Game clock label for the LIVE pill, e.g. "'16", "PAUS", "'90+2".
@@ -533,6 +541,36 @@ const ESPN_SCOREBOARD = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fi
 const ESPN_SUMMARY = 'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/summary?event=';
 const LINEUP_FETCHING = {};
 const resultFromScore=s=>s.home>s.away?'home':s.away>s.home?'away':'draw';
+function espnShootoutScore(c){
+  const vals=[
+    c.shootoutScore,c.penaltyScore,c.penalties,c.penaltyShootoutScore,c.shootout?.score,c.shootout?.shootoutScore
+  ];
+  for(const v of vals){
+    if(v===0||v){
+      const n=parseInt(v);
+      if(!Number.isNaN(n))return n;
+    }
+  }
+  return null;
+}
+function resultFromEspn(comp,hc,ac,score,flipped,isKnockout){
+  const normal=resultFromScore(score);
+  if(normal!=='draw'||!isKnockout)return normal;
+  const homeWinner=flipped?ac.winner:hc.winner;
+  const awayWinner=flipped?hc.winner:ac.winner;
+  if(homeWinner===true)return 'home';
+  if(awayWinner===true)return 'away';
+  const hp=flipped?espnShootoutScore(ac):espnShootoutScore(hc);
+  const ap=flipped?espnShootoutScore(hc):espnShootoutScore(ac);
+  if(hp!==null&&ap!==null&&hp!==ap)return hp>ap?'home':'away';
+  return normal;
+}
+function espnFinishLabel(comp, hasPenalties){
+  if(hasPenalties)return 'After Pen.';
+  const txt=`${comp?.status?.type?.name||''} ${comp?.status?.type?.description||''} ${comp?.status?.type?.detail||''} ${comp?.status?.type?.shortDetail||''}`.toLowerCase();
+  if(txt.includes('extra')||txt.includes('aet')||txt.includes('after et'))return 'After ET';
+  return '';
+}
 
 function startLivePolling(){
   pollLiveScores(true);
@@ -588,9 +626,30 @@ async function pollLiveScores(forceMeta=false){
     const newClock = espnClock(comp.status);
     if (LIVE_CLOCK[m.id] !== newClock){ LIVE_CLOCK[m.id] = newClock; m.liveClock = newClock; changed = true; }
     if(apiState==='post'){
-      const newResult=resultFromScore(score);
+      const newResult=resultFromEspn(comp,hc,ac,score,flipped,!!m.knockout);
       if(LIVE_RESULTS[m.id]!==newResult){ LIVE_RESULTS[m.id]=newResult; changed=true; }
       m.result=newResult;
+      const hp=flipped?espnShootoutScore(ac):espnShootoutScore(hc);
+      const ap=flipped?espnShootoutScore(hc):espnShootoutScore(ac);
+      let hasPenalties=!!LIVE_PENALTIES[m.id];
+      if(m.knockout&&score.home===score.away&&hp!==null&&ap!==null){
+        hasPenalties=true;
+        const pen={home:hp,away:ap};
+        const prevPen=LIVE_PENALTIES[m.id];
+        if(!prevPen||prevPen.home!==pen.home||prevPen.away!==pen.away){
+          LIVE_PENALTIES[m.id]=pen;
+          m.penalties=pen;
+          changed=true;
+        }
+      }
+      if(m.knockout){
+        const finishLabel=espnFinishLabel(comp,hasPenalties);
+        if(finishLabel&&LIVE_FINISH_LABELS[m.id]!==finishLabel){
+          LIVE_FINISH_LABELS[m.id]=finishLabel;
+          m.finishLabel=finishLabel;
+          changed=true;
+        }
+      }
     }
     const newEvents = espnEvents(comp);
     const prevEvents = JSON.stringify(LIVE_EVENTS[m.id]||{});
@@ -604,6 +663,8 @@ async function pollLiveScores(forceMeta=false){
     try { localStorage.setItem('wc2026_live_scores', JSON.stringify(LIVE_SCORES)); } catch(e){}
     try { sessionStorage.setItem('wc2026_live_events', JSON.stringify(LIVE_EVENTS)); } catch(e){}
     try { sessionStorage.setItem('wc2026_live_results', JSON.stringify(LIVE_RESULTS)); } catch(e){}
+    try { sessionStorage.setItem('wc2026_live_penalties', JSON.stringify(LIVE_PENALTIES)); } catch(e){}
+    try { sessionStorage.setItem('wc2026_live_finish_labels', JSON.stringify(LIVE_FINISH_LABELS)); } catch(e){}
     renderLiveRail();
     if(document.getElementById('matches')?.classList.contains('active')) renderMatches();
     renderLeaderboard();
@@ -706,7 +767,7 @@ function applyDataSnapshot(data) {
     },
   };
   renderAll();
-  pollLiveScores();   // data is now loaded — poll ESPN for live scores right away
+  pollLiveScores(true);   // data is now loaded — force-poll ESPN for finished playoff metadata too
 }
 
 // ── DEMO DATA ─────────────────────────────────────────────────────────────────
@@ -1356,6 +1417,8 @@ function applyRuntimeMatchData(m){
     m.score = LIVE_SCORES[m.id];
   }
   if(LIVE_LINEUPS[m.id]) m.lineups = LIVE_LINEUPS[m.id];
+  if(LIVE_PENALTIES[m.id]) m.penalties = LIVE_PENALTIES[m.id];
+  if(LIVE_FINISH_LABELS[m.id]) m.finishLabel = LIVE_FINISH_LABELS[m.id];
   if(!m.odds&&m.knockout) m.odds=knockoutOdds(m);
   return m;
 }
@@ -1526,7 +1589,10 @@ function goToMatch(id){
   renderMatches();
   setTimeout(()=>{
     const detail=document.getElementById('md-'+id);
-    if(detail&&!detail.classList.contains('open'))detail.classList.add('open');
+    if(detail&&!detail.classList.contains('open')){
+      detail.classList.add('open');
+      if(SHOW_LINEUPS)loadLineupForMatch(id);
+    }
     const wrap=document.getElementById('mw-'+id);
     if(wrap)wrap.scrollIntoView({behavior:'smooth',block:'center'});
   },80);
@@ -2698,7 +2764,7 @@ function openTeamPage(team){
       const my=isHome?m.score.home:m.score.away, th=isHome?m.score.away:m.score.home;
       if(m.result){played++;gf+=my;ga+=th;}
       cls=m.result?(my>th?'tp-w':my<th?'tp-l':'tp-d'):'tp-live';
-      right=`<b>${my}–${th}</b>${st==='live'?' <span class="tp-livedot">●</span>':''}`;
+      right=`<b>${my}-${th}</b>${st==='live'?' <span class="tp-livedot">●</span>':''}`;
     } else { right=`<span class="tp-when">${m.date}${matchTimeStr(m)?' · '+matchTimeStr(m):''}</span>`; }
     return `<div class="tp-game ${cls}"><span class="tp-opp">${withFlag(oppName)}</span><span>${right}</span></div>`;
   }).join('');
@@ -2775,7 +2841,7 @@ function renderMatches(){
     if(mStatus==='live')pill=`<span class="badge-live">🔴 LIVE</span>`;
     else if(mStatus==='today'&&!m.result)pill=`<span class="badge-today">Today</span>`;
     const scoreBox=m.score&&!spoilerMode
-      ?`<div class="score-box">${m.score.home} – ${m.score.away}</div>`
+      ?`<div class="score-box">${m.score.home}-${m.score.away}</div>`
       :`<div class="vs">vs</div>`;
     const picksVisible=isPreviewMode()||new Date()>=PICK_DEADLINE;
     const sortedScorers=m.scorers?[...Object.values(m.scorers)].sort((a,b)=>a.minute-b.minute):[];
@@ -2910,8 +2976,10 @@ function renderMatches(){
     const headerLeft=starsHtml||'';
     const whenStr=inDateMode?(t||friendlyDate(m)):`${friendlyDate(m)}${t?' · '+t:''}`;
     const showScore=m.score&&!spoilerMode;
-    const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">:</span>${m.score.away}`:'';
-    const dashScore=`–<span class="mc-score-sep">:</span>–`;   // shown when No Spoilers is on
+    const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">-</span>${m.score.away}`:'';
+    const finishLabel=m.penalties?'After Pen.':(m.finishLabel||'FT');
+    const penaltyStr=showScore&&m.penalties?`<div class="mc-penalties">(${m.penalties.home}<span class="mc-score-sep">-</span>${m.penalties.away})</div>`:'';
+    const dashScore=`<span class="mc-score-spoiler">-</span>`;   // shown when No Spoilers is on
     const tvCh=getTV(m);
     const TV_LOGOS={SVT:TV_LOGO_SVT,TV4:TV_LOGO_TV4,BBC:TV_LOGO_BBC,ITV:TV_LOGO_ITV};
     const tvTitle=tvRegion==='uk'?`Watch on ${tvCh}`:`Sänds på ${tvCh}`;
@@ -2920,14 +2988,15 @@ function renderMatches(){
     if(mStatus==='live'){
       mcStateCls='mc-live';
       // A kicked-off match is at least 0:0 even before any score data arrives.
-      const liveScoreStr=`${m.score?.home??0}<span class="mc-score-sep">:</span>${m.score?.away??0}`;
+      const liveScoreStr=`${m.score?.home??0}<span class="mc-score-sep">-</span>${m.score?.away??0}`;
       mcCenter=`<div class="mc-when">${whenStr}${tvBadge}</div>
         <div class="mc-score">${spoilerMode?dashScore:liveScoreStr}</div>
         <div class="mc-statusrow"><span class="mc-pill mc-pill-live">● Live${m.liveClock?' '+m.liveClock:''}</span></div>`;
     }else if(m.result){
       mcStateCls='mc-finished';
-      mcCenter=`<div class="mc-when mc-when-ft">FT</div>
-        <div class="mc-score">${showScore?scoreStr:dashScore}</div>`;
+      mcCenter=`<div class="mc-when mc-when-ft">${finishLabel}</div>
+        <div class="mc-score">${showScore?scoreStr:dashScore}</div>
+        ${penaltyStr}`;
     }else{
       mcStateCls='mc-upcoming';
       let nextPill='';
@@ -5126,7 +5195,6 @@ async function saveFantasyWindow(val){
 }
 
 // ── TABS + RENDER ALL ─────────────────────────────────────────────────────────
-const MOBILE_TAB_LABELS={leaderboard:'Leaderboard',matches:'Matches',picks:'All Picks',special:'Special Bets',bracket:'Standings',road:'Road to the Cup',stats:'Stats',scoring:'How it works',admin:'Settings',fantasy:'⚽ Fantasy'};
 function toggleMobileNav(){
   const drawer=document.getElementById('mobile-nav-drawer');
   const bar=document.getElementById('mobile-nav-bar');
@@ -5156,9 +5224,7 @@ function showTab(id,el){
   if(el)el.classList.add('active');
   // Sync the counterpart tab (desktop↔mobile) so both show active
   document.querySelectorAll(`.tab,.mobile-tab`).forEach(t=>{if(t!==el&&t.dataset.tab===id)t.classList.add('active');});
-  // Update mobile current-tab label and close drawer
-  const lbl=document.getElementById('mobile-tab-label');
-  if(lbl)lbl.textContent=MOBILE_TAB_LABELS[id]||id;
+  // Close drawer after selecting a mobile menu item
   closeMobileNav();
   if(id==='submit')  renderSubmitTab();
   if(id==='admin')   renderAdminTab();

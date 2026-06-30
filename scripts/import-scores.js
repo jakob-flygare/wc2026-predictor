@@ -148,6 +148,19 @@ function knockoutStageForDate(dateStr) {
   return null;
 }
 
+function knockoutWinner(homeComp, awayComp, homeScore, awayScore) {
+  if (homeScore > awayScore) return norm(homeComp.team?.displayName || '');
+  if (awayScore > homeScore) return norm(awayComp.team?.displayName || '');
+  if (homeComp.winner === true) return norm(homeComp.team?.displayName || '');
+  if (awayComp.winner === true) return norm(awayComp.team?.displayName || '');
+  const homePens = parseInt(homeComp.shootoutScore);
+  const awayPens = parseInt(awayComp.shootoutScore);
+  if (!Number.isNaN(homePens) && !Number.isNaN(awayPens) && homePens !== awayPens) {
+    return homePens > awayPens ? norm(homeComp.team?.displayName || '') : norm(awayComp.team?.displayName || '');
+  }
+  return null;
+}
+
 // ── American odds → implied probability (raw, before normalisation) ───────────
 function americanToProb(oddsStr) {
   const n = parseInt(oddsStr);
@@ -325,9 +338,7 @@ async function fetchESPNData(alreadyImported) {
         console.log(`  Unknown stage for ${apiHome} vs ${apiAway} on ${eventDate}`);
         continue;
       }
-      const winner = homeScore > awayScore ? norm(apiHome)
-                   : awayScore > homeScore ? norm(apiAway)
-                   : null; // draw shouldn't happen in knockout (extra time/pens determine winner)
+      const winner = knockoutWinner(homeComp, awayComp, homeScore, awayScore);
       if (winner) {
         result.knockoutWinners[stage].push(winner);
         console.log(`  Knockout [${stage}]: ${winner} (${homeScore}-${awayScore})`);
