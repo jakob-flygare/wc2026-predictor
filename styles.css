@@ -925,3 +925,41 @@
   .lu-row { font-size:0.72rem; gap:0.28rem; }
   .lu-sub { font-size:0.52rem; padding:0.06rem 0.24rem; }
 }
+
+/* Purple match-card overrides — keep next-up state fully purple and remove gold hover/focus residue */
+[data-accent="purple"] .match-card.has-scorers:hover,
+[data-accent="purple"] .match-card.has-scorers:focus,
+[data-accent="purple"] .match-card.has-scorers:focus-within {
+  border-color: var(--border) !important;
+  box-shadow: none !important;
+}
+
+[data-accent="purple"] .mc-nextup {
+  border-color: rgba(154,45,239,0.9) !important;
+  box-shadow:
+    0 0 0 1px rgba(154,45,239,0.65),
+    0 0 30px rgba(154,45,239,0.3) !important;
+}
+
+[data-accent="purple"] .mc-nextup .mc-header {
+  background: rgba(154,45,239,0.24) !important;
+  border-bottom-color: rgba(154,45,239,0.65) !important;
+}
+
+[data-accent="purple"] .match-card.mc-nextup:hover,
+[data-accent="purple"] .match-card.mc-nextup:focus-within {
+  border-color: #BD93E2 !important;
+  box-shadow:
+    0 0 0 1px rgba(189,147,226,0.8),
+    0 0 36px rgba(154,45,239,0.42) !important;
+}
+
+[data-accent="purple"] .mc-pill-next {
+  background: rgba(154,45,239,0.42) !important;
+  color: #FFFFFF !important;
+}
+
+[data-accent="purple"] .mc-nextup .match-detail {
+  border-top-color: rgba(154,45,239,0.65) !important;
+  background: rgba(154,45,239,0.08) !important;
+}
