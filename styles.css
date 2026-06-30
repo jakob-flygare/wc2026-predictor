@@ -14,6 +14,18 @@
     --card: var(--surface2);
     --text-muted: var(--muted);
   }
+
+  [data-accent="purple"] {
+    --gold: #9A2DEF;
+    --gold-light: #BD93E2;
+    --bg: #09000F;
+    --surface: #14081E;
+    --surface2: #21102E;
+    --border: rgba(189,147,226,0.16);
+    --text: #F6F0FA;
+    --muted: #A999B6;
+    --draw: #BD93E2;
+  }
   /* Light mode — overrides the core palette; most components are var-driven. */
   [data-theme="light"] {
     --gold: #9A741B;
@@ -27,6 +39,18 @@
     --green: #1B934F;
     --red: #CF3526;
     --draw: #9A7318;
+  }
+
+  [data-theme="light"][data-accent="purple"] {
+    --gold: #6F1FB2;
+    --gold-light: #9A2DEF;
+    --bg: #F4ECFA;
+    --surface: #FFFFFF;
+    --surface2: #E8DDF2;
+    --border: rgba(82,21,133,0.16);
+    --text: #170B20;
+    --muted: #685B70;
+    --draw: #6F1FB2;
   }
   /* Keep white-filled broadcaster logos legible on light backgrounds */
   [data-theme="light"] .mc-tv-logo-svt path,
@@ -55,6 +79,7 @@
   [data-theme="light"] .btn:hover { background:#CBA94E; }
   /* Outline / danger buttons: brighten text and tint a touch for contrast on light */
   [data-theme="light"] .btn-outline:hover { background:rgba(201,168,76,0.14); }
+  [data-theme="light"][data-accent="purple"] .btn-outline:hover { background:rgba(154,45,239,0.12); }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html { scrollbar-gutter: stable; scroll-padding-top: 96px; }
   img.emoji { height:1.1em; width:auto; vertical-align:-0.15em; margin-right:5px; border-radius:2px; }
@@ -63,6 +88,8 @@
   .trophy-icon { font-size: 2.5rem; margin-bottom: 0.5rem; display: block; filter: drop-shadow(0 0 20px rgba(201,168,76,0.4)); }
   .topbar { position: sticky; top: 0; z-index: 160; display:flex; align-items:center; gap:0.75rem; min-height:56px; padding:0 1rem; background: rgba(10,12,15,0.94); backdrop-filter:blur(10px); border-bottom: 1px solid var(--border); }
   [data-theme="light"] .topbar { background:rgba(243,240,232,0.94); }
+  [data-accent="purple"] .topbar { background:rgba(9,0,15,0.94); }
+  [data-theme="light"][data-accent="purple"] .topbar { background:rgba(244,236,250,0.94); }
   .nav-brand { display:flex; align-items:center; justify-content:center; flex-shrink:0; width:44px; height:44px; padding:0; border:none; background:none; cursor:pointer; }
   .nav-logo { display:block; height:40px; width:auto; }
   .leaderboard-hero { display:flex; justify-content:center; margin:0.2rem 0 1.4rem; }
@@ -136,12 +163,29 @@
   .settings-block { background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1.25rem; }
   .settings-block-title { font-family:'Bebas Neue',sans-serif; font-size:1.3rem; letter-spacing:0.04em; color:var(--text); }
   .settings-block-sub { font-size:0.8rem; color:var(--muted); margin:0.15rem 0 0.9rem; }
+  .settings-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; margin-top:0.8rem; }
+  .settings-row-label { color:var(--muted); font-size:0.72rem; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; }
   .theme-toggle { display:inline-flex; gap:0.35rem; background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:0.25rem; }
   .thm-opt { display:inline-flex; align-items:center; gap:0.45rem; padding:0.45rem 0.95rem; border-radius:999px; border:1px solid transparent; background:transparent; color:var(--muted); cursor:pointer; font-family:'DM Sans',sans-serif; font-size:0.78rem; font-weight:700; transition:background .15s, color .15s, border-color .15s; }
   .thm-opt svg { width:16px; height:16px; flex-shrink:0; }
+  .theme-swatch { width:13px; height:13px; border-radius:50%; flex-shrink:0; border:1px solid rgba(255,255,255,0.28); }
+  .theme-swatch-gold { background:#C9A84C; }
+  .theme-swatch-purple { background:#9A2DEF; }
   .thm-opt:hover { color:var(--text); }
   .theme-toggle[data-mode="light"] .thm-opt[data-m="light"],
-  .theme-toggle[data-mode="dark"] .thm-opt[data-m="dark"] { background:var(--gold); color:#1a1409; border-color:var(--gold); }
+  .theme-toggle[data-mode="dark"] .thm-opt[data-m="dark"],
+  .theme-toggle[data-mode="gold"] .thm-opt[data-m="gold"] { background:var(--gold); color:#1a1409; border-color:var(--gold); }
+  .theme-toggle[data-mode="purple"] .thm-opt[data-m="purple"] { background:#9A2DEF; color:#fff; border-color:#9A2DEF; }
+  [data-accent="purple"] .theme-toggle[data-mode="light"] .thm-opt[data-m="light"],
+  [data-accent="purple"] .theme-toggle[data-mode="dark"] .thm-opt[data-m="dark"],
+  [data-accent="purple"] .theme-toggle[data-mode="gold"] .thm-opt[data-m="gold"],
+  [data-accent="purple"] .theme-toggle[data-mode="purple"] .thm-opt[data-m="purple"],
+  [data-accent="purple"] .btn,
+  [data-accent="purple"] .sort-btn.active,
+  [data-accent="purple"] .bvt-btn.active,
+  [data-accent="purple"] .sm-btn.active {
+    color:#fff;
+  }
   /* Broadcaster channel badge (Swedish: SVT/TV4 · UK: BBC/ITV) */
   .mc-tv-badge { display:inline-flex; align-items:center; }
   .mc-tv-logo { display:block; width:auto; transform:translateY(-1.5px); }

@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>WC2026 — Friends Predictor</title>
-<script>try{document.documentElement.setAttribute('data-theme',localStorage.getItem('wc2026_theme')==='light'?'light':'dark');}catch(e){}</script>
+<script>try{const r=document.documentElement;r.setAttribute('data-theme',localStorage.getItem('wc2026_theme')==='light'?'light':'dark');r.setAttribute('data-accent',localStorage.getItem('wc2026_accent')==='purple'?'purple':'gold');}catch(e){}</script>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -181,19 +181,37 @@
       <div class="section-title">Settings</div>
       <div class="section-sub">Appearance &amp; match administration</div>
     </div>
-    <!-- Appearance: theme toggle (always available) -->
+    <!-- Appearance: theme and accent toggles (always available) -->
     <div class="settings-block">
       <div class="settings-block-title">Appearance</div>
-      <div class="settings-block-sub">Choose between light and dark mode.</div>
-      <div id="theme-toggle" class="theme-toggle" data-mode="dark" role="group" aria-label="Theme">
-        <button class="thm-opt" data-m="light" onclick="setTheme('light')" aria-label="Light mode">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-          <span>Light</span>
-        </button>
-        <button class="thm-opt" data-m="dark" onclick="setTheme('dark')" aria-label="Dark mode">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-          <span>Dark</span>
-        </button>
+      <div class="settings-block-sub">Choose display mode and color theme.</div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Mode</div>
+        <div id="theme-toggle" class="theme-toggle" data-mode="dark" role="group" aria-label="Mode">
+          <button class="thm-opt" data-m="light" onclick="setTheme('light')" aria-label="Light mode">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+            <span>Light</span>
+          </button>
+          <button class="thm-opt" data-m="dark" onclick="setTheme('dark')" aria-label="Dark mode">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+            <span>Dark</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="settings-row">
+        <div class="settings-row-label">Theme</div>
+        <div id="accent-toggle" class="theme-toggle" data-mode="gold" role="group" aria-label="Color theme">
+          <button class="thm-opt" data-m="gold" onclick="setAccent('gold')" aria-label="Gold theme">
+            <span class="theme-swatch theme-swatch-gold"></span>
+            <span>Gold</span>
+          </button>
+          <button class="thm-opt" data-m="purple" onclick="setAccent('purple')" aria-label="Purple theme">
+            <span class="theme-swatch theme-swatch-purple"></span>
+            <span>Purple</span>
+          </button>
+        </div>
       </div>
     </div>
     <!-- Admin: password-gated data management -->
@@ -234,18 +252,34 @@ const PLAYER_COLORS = ['#3B82F6','#8B5CF6','#10B981','#F59E0B','#EF4444','#EC489
 let db = null;
 let spoilerMode = localStorage.getItem('wc2026_spoiler') === '1';
 
-// ── THEME (light / dark) ──────────────────────────────────────────────────────
+// ── APPEARANCE ─────────────────────────────────────────────────────────────────
 let themeMode = localStorage.getItem('wc2026_theme') === 'light' ? 'light' : 'dark';
-function applyTheme(){
+let accentTheme = localStorage.getItem('wc2026_accent') === 'purple' ? 'purple' : 'gold';
+
+function applyAppearance(){
   document.documentElement.setAttribute('data-theme', themeMode);
-  const t=document.getElementById('theme-toggle'); if(t) t.dataset.mode=themeMode;
+  document.documentElement.setAttribute('data-accent', accentTheme);
+
+  const themeToggle = document.getElementById('theme-toggle');
+  if(themeToggle) themeToggle.dataset.mode = themeMode;
+
+  const accentToggle = document.getElementById('accent-toggle');
+  if(accentToggle) accentToggle.dataset.mode = accentTheme;
 }
+
 function setTheme(mode){
-  themeMode = mode==='light' ? 'light' : 'dark';
+  themeMode = mode === 'light' ? 'light' : 'dark';
   localStorage.setItem('wc2026_theme', themeMode);
-  applyTheme();
+  applyAppearance();
 }
-applyTheme();
+
+function setAccent(accent){
+  accentTheme = accent === 'purple' ? 'purple' : 'gold';
+  localStorage.setItem('wc2026_accent', accentTheme);
+  applyAppearance();
+}
+
+applyAppearance();
 
 function toggleSpoiler(){
   spoilerMode = !spoilerMode;
