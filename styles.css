@@ -384,7 +384,7 @@
   /* ── MATCH CARDS (dark, redesign) ─────────────────────────────────────────── */
   .match-card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:0; margin-bottom:0; overflow:hidden; display:block; color:var(--text); transition:border-color .15s, box-shadow .15s, transform .15s; }
   .match-card.has-scorers .mc-clickable { cursor: pointer; }
-  .match-card.has-scorers:hover { border-color:rgba(201,168,76,0.35); }
+  .match-card.has-scorers:hover { border-color:var(--border); }
   /* Header strip */
   .mc-header { display:flex; justify-content:space-between; align-items:center; padding:0.5rem 1.1rem; background:var(--surface2); border-bottom:1px solid var(--border); }
   .mc-stage { font-size:0.74rem; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:var(--gold); }
@@ -434,12 +434,13 @@
   .mc-live .mc-header { background:rgba(231,76,60,0.12); border-bottom-color:rgba(231,76,60,0.3); }
   /* Mirror the Live-rail card hover (lift + red glow) on the in-list live card */
   .match-card.mc-live:hover { border-color:var(--red); box-shadow:0 0 0 1px var(--red), 0 0 22px rgba(231,76,60,0.22); transform:translateY(-2px); }
-  /* "Next up" theme — gold accent mirroring the Live theme; shown only when no game is live */
-  .mc-nextup { border-color:rgba(201,168,76,0.45); box-shadow:0 0 16px rgba(201,168,76,0.12); }
-  .mc-nextup .mc-header { background:rgba(201,168,76,0.12); border-bottom-color:rgba(201,168,76,0.3); }
-  .match-card.mc-nextup:hover { border-color:var(--gold); box-shadow:0 0 22px rgba(201,168,76,0.22); transform:translateY(-2px); }
-  .mc-pill-next { background:rgba(201,168,76,0.2); color:var(--gold-light); white-space:nowrap; }
+  /* "Next up" theme — purple accent; shown only when no game is live */
+  .mc-nextup { border-color:rgba(154,45,239,0.75); box-shadow:0 0 0 1px rgba(154,45,239,0.45), 0 0 24px rgba(154,45,239,0.22); }
+  .mc-nextup .mc-header { background:rgba(154,45,239,0.18); border-bottom-color:rgba(154,45,239,0.45); }
+  .match-card.mc-nextup:hover { border-color:#BD93E2; box-shadow:0 0 0 1px rgba(189,147,226,0.65), 0 0 32px rgba(154,45,239,0.34); transform:translateY(-2px); }
+  .mc-pill-next { background:rgba(154,45,239,0.28); color:#FFFFFF; white-space:nowrap; }
   .mc-nextup .mc-statusrow { position:relative; z-index:2; }
+  .mc-nextup .match-detail { border-top-color:rgba(154,45,239,0.45); background:rgba(154,45,239,0.06); }
   .match-wrap { margin-bottom: 0.4rem; }
   /* Detail lives inside the card now — no own border; a top line separates it from the head. */
   .match-scorers { display:none; border-top:1px solid var(--border); padding:0.2rem 1.2rem 0.7rem; }
