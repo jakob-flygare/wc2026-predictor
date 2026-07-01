@@ -16,8 +16,8 @@
   }
 
   [data-accent="purple"] {
-    --gold: #B45CFF;
-    --gold-light: #D3A8F5;
+    --gold: #C27AFF;
+    --gold-light: #E0C1FA;
     --bg: #09000F;
     --surface: #14081E;
     --surface2: #21102E;
@@ -424,8 +424,8 @@
   .mc-team > .mc-flag, .mc-team > .mc-team-name { position:relative; z-index:1; }
   /* Winner / loser states */
   .mc-team.mc-lose { opacity:0.4; filter:grayscale(1); }
-  .mc-team.mc-win .mc-flag { border-color:var(--gold); box-shadow:0 0 0 2px var(--gold), 0 0 16px rgba(201,168,76,0.55); }
-  .mc-team.mc-win .mc-team-name { color:var(--gold-light); }
+  .mc-team.mc-win .mc-flag { border-color:#C9A84C; box-shadow:0 0 0 2px #C9A84C, 0 0 16px rgba(201,168,76,0.55); }
+  .mc-team.mc-win .mc-team-name { color:#E8C96A; }
   /* Confetti behind the winning team */
   .mc-confetti { position:absolute; left:-6px; right:-6px; top:-10px; height:62px; pointer-events:none; overflow:hidden; z-index:0; }
   .mc-confetti-piece { position:absolute; top:-12px; border-radius:1px; opacity:0; animation-name:mc-confetti-fall; animation-iteration-count:infinite; animation-timing-function:ease-in; }
@@ -655,7 +655,7 @@
   .match-stars-tip { display:none; position:absolute; top:calc(100% + 6px); left:0; width:max-content; max-width:220px; background:var(--surface2); border:1px solid var(--border); color:var(--text); font-size:0.7rem; letter-spacing:normal; line-height:1.35; text-align:left; white-space:normal; padding:0.4rem 0.6rem; border-radius:6px; box-shadow:0 4px 14px rgba(0,0,0,0.45); z-index:20; pointer-events:none; }
   .match-stars.open .match-stars-tip { display:block; }
   .group-stars { font-size:0.65rem; letter-spacing:1px; margin-left:8px; vertical-align:middle; opacity:0.85; }
-  .star.filled { color:var(--gold); }
+  .star.filled { color:#C9A84C; }
   .star.empty  { color:rgba(255,255,255,0.1); }
   .match-stakes { margin-top:10px; padding-top:8px; border-top:1px solid var(--border); }
   .stakes-label { font-size:0.63rem; letter-spacing:0.12em; text-transform:uppercase; color:var(--text-muted); margin-bottom:5px; }
@@ -1023,4 +1023,15 @@
 /* Neutral score separator — keep dash white/text-colored in all themes */
 .mc-score-sep {
   color: var(--text) !important;
+}
+
+/* Live match cards always keep the strong red treatment, including hover/focus/expanded states. */
+.match-card.mc-live,
+.match-card.mc-live.has-scorers:hover,
+.match-card.mc-live.has-scorers:focus,
+.match-card.mc-live.has-scorers:focus-within,
+.match-card.mc-live:hover,
+.match-card.mc-live:focus-within {
+  border-color: var(--red) !important;
+  box-shadow: 0 0 0 1px var(--red), 0 0 22px rgba(231,76,60,0.22) !important;
 }
