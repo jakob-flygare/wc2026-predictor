@@ -4053,7 +4053,7 @@ function renderPickSimilarity(){
     players.forEach((q,j)=>{
       if(i===j){ body+=`<div class="sm-cell sm-diag">·</div>`; return; }
       const s=S[i][j], t=(mx>mn)?(s-mn)/(mx-mn):0.5, op=(0.08+t*0.82).toFixed(2);
-      body+=`<div class="sm-cell sm-val" style="background:rgba(201,168,76,${op})" title="${p.name} &amp; ${q.name}: ${Math.round(s*100)}% agree">${Math.round(s*100)}</div>`;
+      body+=`<div class="sm-cell sm-val" style="background:rgba(var(--sim-map-rgb),${op})" title="${p.name} &amp; ${q.name}: ${Math.round(s*100)}% agree">${Math.round(s*100)}</div>`;
     });
   });
   let best=null,worst=null;

@@ -10,6 +10,7 @@
     --green: #2ECC71;
     --red: #E74C3C;
     --draw: #E8B84B;
+    --sim-map-rgb: 201,168,76;
     /* Aliases — several rules referenced these undefined vars; map to existing tokens */
     --card: var(--surface2);
     --text-muted: var(--muted);
@@ -25,6 +26,7 @@
     --text: #F6F0FA;
     --muted: #A999B6;
     --draw: #BD93E2;
+    --sim-map-rgb: 194,122,255;
   }
   /* Light mode — overrides the core palette; most components are var-driven. */
   [data-theme="light"] {
