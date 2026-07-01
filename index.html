@@ -605,6 +605,39 @@ function espnFinishLabel(comp, hasPenalties){
   if(txt.includes('extra')||txt.includes('aet')||txt.includes('after et'))return 'After ET';
   return '';
 }
+function espnKnockoutStage(dateStr){
+  if(dateStr>='2026-06-28'&&dateStr<='2026-07-04')return 'r16';
+  if(dateStr>='2026-07-04'&&dateStr<='2026-07-07')return 'qf';
+  if(dateStr>='2026-07-09'&&dateStr<='2026-07-12')return 'sf';
+  if(dateStr>='2026-07-14'&&dateStr<='2026-07-15')return 'final';
+  if(dateStr==='2026-07-18')return 'bronze';
+  if(dateStr==='2026-07-19')return 'winner';
+  return '';
+}
+const ESPN_KO_IDS={r16:Array.from({length:16},(_,i)=>73+i),qf:Array.from({length:8},(_,i)=>89+i),sf:Array.from({length:4},(_,i)=>97+i),final:[101,102],bronze:[103],winner:[104]};
+function groupMatchByTeams(apiHome,apiAway){
+  return DEMO_MATCHES.find(x=>{
+    const xh=shortName(x.home),xa=shortName(x.away);
+    return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome);
+  })||null;
+}
+function espnKnockoutEventMap(events){
+  const counts={},map={};
+  (events||[]).filter(ev=>{
+    const comp=ev.competitions?.[0],st=comp?.status?.type;
+    const hc=comp?.competitors?.find(c=>c.homeAway==='home'),ac=comp?.competitors?.find(c=>c.homeAway==='away');
+    if(!(st?.completed===true||st?.state==='post')||!hc||!ac)return false;
+    const apiHome=espnNorm(hc.team?.displayName||''),apiAway=espnNorm(ac.team?.displayName||'');
+    return !groupMatchByTeams(apiHome,apiAway);
+  }).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.id||'').localeCompare(String(b.id||'')))
+    .forEach(ev=>{
+      const stage=espnKnockoutStage(ev.date?ev.date.slice(0,10):''),ids=ESPN_KO_IDS[stage]||[];
+      const idx=counts[stage]||0;
+      if(ids[idx])map[String(ev.id)]=ids[idx];
+      counts[stage]=idx+1;
+    });
+  return map;
+}
 
 function startLivePolling(){
   pollLiveScores(true);
@@ -629,6 +662,7 @@ async function pollLiveScores(forceMeta=false){
   catch(e){ return; }
   let changed = false;
   const allMatches=getAllMatches();
+  const koEventMap=espnKnockoutEventMap(data.events||[]);
   for (const ev of (data.events || [])){
     const comp = ev.competitions?.[0];
     const apiState=comp?.status?.type?.state;
@@ -637,8 +671,11 @@ async function pollLiveScores(forceMeta=false){
     if (!hc || !ac) continue;
     const apiHome = espnNorm(hc.team?.displayName||''), apiAway = espnNorm(ac.team?.displayName||'');
     const hs = parseInt(hc.score)||0, as = parseInt(ac.score)||0;
-    const m = allMatches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
+    let m = allMatches.find(x => { const xh=shortName(x.home), xa=shortName(x.away);
       return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome); });
+    if(!m&&koEventMap[String(ev.id)]){
+      m=allMatches.find(x=>x.id===koEventMap[String(ev.id)]);
+    }
     if (!m) continue;
     if(ev?.id) m.espnEventId = String(ev.id);
 
@@ -701,6 +738,7 @@ async function pollLiveScores(forceMeta=false){
     try { sessionStorage.setItem('wc2026_live_finish_labels', JSON.stringify(LIVE_FINISH_LABELS)); } catch(e){}
     renderLiveRail();
     if(document.getElementById('matches')?.classList.contains('active')) renderMatches();
+    if(document.getElementById('special')?.classList.contains('active')) renderSpecial();
     renderLeaderboard();
   }
 }
@@ -1892,7 +1930,7 @@ function maxFutureBracketPts(player){
 // ── LIVE STATS HELPERS ────────────────────────────────────────────────────────
 function computeScorerLeaderboard(){
   const counts={};
-  STATE.matches.forEach(m=>{
+  getAllMatches().forEach(m=>{
     if(!m.scorers)return;
     Object.values(m.scorers).forEach(s=>{
       if(s.type==='OWN_GOAL')return;
@@ -1905,7 +1943,7 @@ function computeScorerLeaderboard(){
 
 function computeTeamGoals(){
   const totals={};
-  STATE.matches.forEach(m=>{
+  getAllMatches().forEach(m=>{
     if(!m.score||m.result===null)return;
     const hn=shortName(m.home),an=shortName(m.away);
     totals[hn]=(totals[hn]||0)+(m.score.home||0);
@@ -1916,7 +1954,7 @@ function computeTeamGoals(){
 
 function computeTeamCards(){
   const totals={};
-  STATE.matches.forEach(m=>{
+  getAllMatches().forEach(m=>{
     if(!m.cards)return;
     m.cards.forEach(c=>{
       if(!totals[c.team])totals[c.team]={team:c.team,yellow:0,red:0,total:0};
@@ -1929,11 +1967,23 @@ function computeTeamCards(){
 }
 
 function computeTotalGoalsStats(){
-  let total=0,played=0;
-  STATE.matches.forEach(m=>{if(m.result!==null&&m.score){total+=(m.score.home||0)+(m.score.away||0);played++;}});
+  let total=0,played=0,knockoutTotal=0,knockoutPlayed=0;
+  getAllMatches().forEach(m=>{
+    if(m.result!==null&&m.score){
+      const goals=(m.score.home||0)+(m.score.away||0);
+      total+=goals;
+      played++;
+      if(m.knockout){
+        knockoutTotal+=goals;
+        knockoutPlayed++;
+      }
+    }
+  });
   const TOTAL_MATCHES=104;
-  const projected=played>0?Math.round(total/played*TOTAL_MATCHES):0;
-  return{total,played,projected,totalMatches:TOTAL_MATCHES};
+  const remaining=Math.max(0,TOTAL_MATCHES-played);
+  const avgForRemaining=knockoutPlayed>0?knockoutTotal/knockoutPlayed:(played>0?total/played:0);
+  const projected=played>0?Math.round(total+remaining*avgForRemaining):0;
+  return{total,played,projected,totalMatches:TOTAL_MATCHES,remaining,avgForRemaining,knockoutTotal,knockoutPlayed};
 }
 
 // Fuzzy match: does player's pick refer to this scorer/team name?
@@ -3493,7 +3543,7 @@ function renderSpecial(){
     }
 
     if(key==='totalGoals'&&goalStats.played>0){
-      const {total,played,projected,totalMatches}=goalStats;
+      const {total,played,projected,totalMatches,avgForRemaining,knockoutPlayed}=goalStats;
       const guesses=STATE.players
         .map(p=>({name:p.name,guess:parseInt(p.special?.totalGoals||'0')}))
         .filter(p=>p.guess>0)
@@ -3522,7 +3572,7 @@ function renderSpecial(){
           <div class="goals-summary">
             ${played}/${totalMatches} matches played · <strong style="color:var(--gold)">${total}</strong> goals ·
             Projected: <strong style="color:var(--green)">${projected}</strong>
-            <span style="font-size:0.72rem">(${(total/played).toFixed(1)}/game)</span>
+            <span style="font-size:0.72rem">(${avgForRemaining.toFixed(1)}/${knockoutPlayed>0?'playoff game':'game'} for remaining)</span>
           </div>
           <div class="goals-legend">
             <span><span style="color:var(--gold)">■</span> Current (${total})</span>
