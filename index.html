@@ -9,7 +9,7 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/twemoji@14.0.2/dist/twemoji.min.js" crossorigin="anonymous"></script>
-<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="styles.css?v=20260701-flag-bracket">
 </head>
 <body>
 
@@ -1430,8 +1430,13 @@ function derivedKnockout(){
 function knockoutOdds(m){
   const h=shortName(m.home), a=shortName(m.away);
   if(!m.knockout||h==='TBD'||a==='TBD')return null;
+  const standings=STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings();
   const strengths=computeStrengths();
-  const hs=strengths[h]||0.4, as=strengths[a]||0.4, total=hs+as;
+  const hGlobal=trophyLikelihood(h,standings,strengths);
+  const aGlobal=trophyLikelihood(a,standings,strengths);
+  const hs=hGlobal>0?hGlobal:(strengths[h]||0.4);
+  const as=aGlobal>0?aGlobal:(strengths[a]||0.4);
+  const total=hs+as;
   if(!total)return null;
   return {home:hs/total, draw:0, away:as/total};
 }
@@ -2626,7 +2631,6 @@ function renderLeaderboard(){
     ?scored.map((p,i)=>{
         const rank=i+1;
         const pct=p.total>0?Math.round((p.correct/p.total)*100):0;
-        const bTag=p.bracketPts>0?`<span class="bracket-pts-tag">+${p.bracketPts} bracket</span>`:'';
         const arrow=formArrow(p.name,rank);
         const id=lbId(p.name);
         const streak=calcHotStreak(p);
@@ -2647,7 +2651,7 @@ function renderLeaderboard(){
           <div class="lb-row ${rc[i]||''}${p.eliminated?' lb-eliminated':''}">
             <div class="rank-num">${rank}${arrow}</div>
             <div>
-              <div class="lb-name">${p.name}${bTag}${streakBadge}${bdgHtml}</div>
+              <div class="lb-name">${p.name}${streakBadge}${bdgHtml}</div>
               <div class="lb-meta"><span class="lb-ok">✓</span> ${p.correct}/${p.total} games correct</div>
               ${(()=>{const w=calcSpecialsWon(p,goalsWinners);return `<div class="lb-meta"><span class="lb-ok">✓</span> ${w} special bet${w!==1?'s':''} won</div>`;})()}
             </div>
@@ -3796,7 +3800,7 @@ function renderKnockoutBracket(){
     }
     const c=res.candidates||[];
     const flags=c.slice(0,6).map(t=>`<span class="kb-cand" data-name="${t.replace(/"/g,'&quot;')}">${TEAM_EMOJI[t]||'⚑'}</span>`).join('');
-    return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:'<span class="kb-tbd-txt">TBD</span>'}</div>`;
+    return `<div class="kb-team kb-tbd"><span class="kb-tag">${desc}</span>${c.length?`<span class="kb-cands">${flags}${c.length>6?'<span class="kb-more">+'+(c.length-6)+'</span>':''}</span>`:''}<span class="kb-tbd-txt">TBD</span></div>`;
   };
   const r32Cell=idx=>{
     const slot=R32_BRACKET[idx], m=koById[73+idx];
@@ -3820,7 +3824,7 @@ function renderKnockoutBracket(){
   const matches=(nums,cls)=>nums.map(n=>matchCell(cls,n)).join('');
   const leftR32=[1,4,0,2,10,11,8,9], rightR32=[3,5,6,7,13,15,12,14];
   const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',matches(KO_NUMS.leftR16,'kb-r16'))}${col('kb-col-tbd',matches(KO_NUMS.leftQF,'kb-qf'))}${col('kb-col-tbd',matches(KO_NUMS.leftSF,'kb-sf'))}</div>`;
-  const finalCol=`<div class="kb-final-col"><div class="kb-final-label">FINAL</div>${matchCell('kb-final',104)}<div class="kb-trophy">🏆</div><div class="kb-third-label">3rd place</div>${matchCell('kb-third',103)}</div>`;
+  const finalCol=`<div class="kb-final-col"><img class="kb-trophy" src="world-cup-trophy.png" alt="World Cup trophy"><div class="kb-final-label">FINAL</div>${matchCell('kb-final',104)}<div class="kb-third-label">3rd place</div>${matchCell('kb-third',103)}</div>`;
   const right=`<div class="kb-side">${col('kb-col-tbd',matches(KO_NUMS.rightSF,'kb-sf'))}${col('kb-col-tbd',matches(KO_NUMS.rightQF,'kb-qf'))}${col('kb-col-tbd',matches(KO_NUMS.rightR16,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
   const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place${allComplete?'':' · flags = teams that could still take a TBD spot'}</div>`;
   return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;
