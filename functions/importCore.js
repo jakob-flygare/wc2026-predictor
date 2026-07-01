@@ -131,12 +131,45 @@ const KNOCKOUT_DATE_RANGES = [
   { stage: 'bronze', from: '2026-07-18', to: '2026-07-18' },
   { stage: 'winner', from: '2026-07-19', to: '2026-07-19' },
 ];
+const KNOCKOUT_MATCH_IDS = {
+  r16:    Array.from({ length: 16 }, (_, i) => 73 + i),
+  qf:     Array.from({ length: 8 },  (_, i) => 89 + i),
+  sf:     Array.from({ length: 4 },  (_, i) => 97 + i),
+  final:  [101, 102],
+  bronze: [103],
+  winner: [104],
+};
 
 function knockoutStageForDate(dateStr) {
   for (const { stage, from, to } of KNOCKOUT_DATE_RANGES) {
     if (dateStr >= from && dateStr <= to) return stage;
   }
   return null;
+}
+
+function buildKnockoutEventMap(events) {
+  const counts = {};
+  const map = {};
+  events
+    .filter(event => {
+      const comp = event.competitions?.[0];
+      const status = comp?.status?.type;
+      const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
+      const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
+      const isFinished = status?.completed === true || status?.state === 'post';
+      return isFinished && homeComp && awayComp &&
+        !findOurMatch(homeComp.team?.displayName || '', awayComp.team?.displayName || '');
+    })
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) ||
+      String(a.id || '').localeCompare(String(b.id || '')))
+    .forEach(event => {
+      const stage = knockoutStageForDate(event.date ? event.date.slice(0, 10) : '');
+      const ids = KNOCKOUT_MATCH_IDS[stage] || [];
+      const idx = counts[stage] || 0;
+      if (ids[idx]) map[String(event.id)] = ids[idx];
+      counts[stage] = idx + 1;
+    });
+  return map;
 }
 
 function americanToProb(oddsStr) {
@@ -169,6 +202,39 @@ function knockoutWinner(homeComp, awayComp, homeScore, awayScore) {
   return null;
 }
 
+function resultSideFromWinner(winner, homeComp, awayComp) {
+  if (!winner) return null;
+  if (norm(homeComp.team?.displayName || '') === winner) return 'home';
+  if (norm(awayComp.team?.displayName || '') === winner) return 'away';
+  return null;
+}
+
+function parseMatchDetails(comp) {
+  const teamById = {};
+  (comp.competitors || []).forEach(c => {
+    if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
+  });
+  const details = comp.details || [];
+  const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
+  const scorers = goalDetails.map(d => ({
+    player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+    team:   norm(teamById[d.team?.id] || ''),
+    minute: parseInt(d.clock?.displayValue) || 0,
+    type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
+    assist: null,
+  }));
+  const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
+  const cards = cardDetails.map(d => ({
+    player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+    team:   norm(teamById[d.team?.id] || ''),
+    minute: parseInt(d.clock?.displayValue) || 0,
+    type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
+          : d.redCard                   ? 'Red Card'
+          :                               'Yellow Card',
+  }));
+  return { scorers, cards };
+}
+
 // ── Parse the scoreboard payload ──────────────────────────────────────────────
 // Returns everything we might write plus counters used for the live-only gate.
 function parseScoreboard(sbData, alreadyImported, existingResults) {
@@ -181,6 +247,7 @@ function parseScoreboard(sbData, alreadyImported, existingResults) {
   };
 
   const events = sbData.events || [];
+  const knockoutEventMap = buildKnockoutEventMap(events);
 
   // Pre-match odds from ALL events (they disappear after kickoff).
   for (const event of events) {
@@ -242,32 +309,9 @@ function parseScoreboard(sbData, alreadyImported, existingResults) {
 
       // Scorers + cards — import once, then lock.
       if (!alreadyImported[String(ourMatch.id)]) {
-        const teamById = {};
-        (comp.competitors || []).forEach(c => {
-          if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
-        });
-        const details = comp.details || [];
-
-        const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
-        out.scorers[ourMatch.id] = goalDetails.map(d => ({
-          player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
-          team:   norm(teamById[d.team?.id] || ''),
-          minute: parseInt(d.clock?.displayValue) || 0,
-          type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
-          assist: null,
-        }));
-
-        const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
-        if (cardDetails.length > 0) {
-          out.cards[ourMatch.id] = cardDetails.map(d => ({
-            player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
-            team:   norm(teamById[d.team?.id] || ''),
-            minute: parseInt(d.clock?.displayValue) || 0,
-            type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
-                  : d.redCard                   ? 'Red Card'
-                  :                               'Yellow Card',
-          }));
-        }
+        const { scorers, cards } = parseMatchDetails(comp);
+        out.scorers[ourMatch.id] = scorers;
+        if (cards.length > 0) out.cards[ourMatch.id] = cards;
         out.processed.add(String(ourMatch.id));
       }
     } else {
@@ -278,6 +322,19 @@ function parseScoreboard(sbData, alreadyImported, existingResults) {
       const winner = knockoutWinner(homeComp, awayComp, homeScore, awayScore);
       if (winner && !out.knockoutWinners[stage].includes(winner)) {
         out.knockoutWinners[stage].push(winner);
+      }
+      const matchId = knockoutEventMap[String(event.id)];
+      if (matchId) {
+        const winnerSide = resultSideFromWinner(winner, homeComp, awayComp);
+        if (winnerSide) out.results[matchId] = winnerSide;
+        out.scores[matchId] = { home: homeScore, away: awayScore };
+        if (existingResults[String(matchId)] === undefined) out.newlyFinishedCount++;
+        if (!alreadyImported[String(matchId)]) {
+          const { scorers, cards } = parseMatchDetails(comp);
+          out.scorers[matchId] = scorers;
+          if (cards.length > 0) out.cards[matchId] = cards;
+          out.processed.add(String(matchId));
+        }
       }
     }
   }
@@ -386,13 +443,17 @@ async function importLiveScores(db) {
     return { skipped: `scoreboard-error:${e.message}` };
   }
 
-  const [eventsImportedSnap, existingSnap, highlightsSnap] = await Promise.all([
+  const [eventsImportedSnap, existingSnap, scoresSnap, scorersSnap, highlightsSnap] = await Promise.all([
     db.ref('wc2026/eventsImported').once('value'),
     db.ref('wc2026/results').once('value'),
+    db.ref('wc2026/scores').once('value'),
+    db.ref('wc2026/scorers').once('value'),
     db.ref('wc2026/highlights').once('value'),
   ]);
   const alreadyImported   = eventsImportedSnap.val() || {};
   const existingResults   = existingSnap.val() || {};
+  const existingScores    = scoresSnap.val() || {};
+  const existingScorers   = scorersSnap.val() || {};
   const existingHighlights = highlightsSnap.val() || {};
 
   const p = parseScoreboard(sbData, alreadyImported, existingResults);
@@ -411,8 +472,8 @@ async function importLiveScores(db) {
   for (const [id, r] of Object.entries(p.results)) updates[`results/${id}`] = r;
   for (const [id, s] of Object.entries(p.scores))  updates[`scores/${id}`]  = s;
 
-  // Total goals (live + finished scores we know about).
-  const allScores = { ...p.liveScores, ...p.scores };
+  // Total goals (all persisted scores + current live/finished updates).
+  const allScores = { ...existingScores, ...p.scores, ...p.liveScores };
   const totalGoals = Object.values(allScores).reduce((sum, s) => sum + (s.home || 0) + (s.away || 0), 0);
   if (totalGoals > 0) updates['results/total_goals'] = String(totalGoals);
 
@@ -435,7 +496,8 @@ async function importLiveScores(db) {
 
   // Golden Boot leader.
   const totals = {};
-  Object.values(p.scorers).forEach(list => list.forEach(s => {
+  const allScorers = { ...existingScorers, ...p.scorers };
+  Object.values(allScorers).forEach(list => Object.values(list || {}).forEach(s => {
     if (!totals[s.player]) totals[s.player] = { goals: 0 };
     totals[s.player].goals++;
   }));

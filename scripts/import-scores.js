@@ -139,6 +139,14 @@ const KNOCKOUT_DATE_RANGES = [
   { stage: 'bronze', from: '2026-07-18', to: '2026-07-18' },
   { stage: 'winner', from: '2026-07-19', to: '2026-07-19' },
 ];
+const KNOCKOUT_MATCH_IDS = {
+  r16:    Array.from({ length: 16 }, (_, i) => 73 + i),
+  qf:     Array.from({ length: 8 },  (_, i) => 89 + i),
+  sf:     Array.from({ length: 4 },  (_, i) => 97 + i),
+  final:  [101, 102],
+  bronze: [103],
+  winner: [104],
+};
 
 function knockoutStageForDate(dateStr) {
   // dateStr: 'YYYY-MM-DD'
@@ -146,6 +154,31 @@ function knockoutStageForDate(dateStr) {
     if (dateStr >= from && dateStr <= to) return stage;
   }
   return null;
+}
+
+function buildKnockoutEventMap(events) {
+  const counts = {};
+  const map = {};
+  events
+    .filter(event => {
+      const comp = event.competitions?.[0];
+      const status = comp?.status?.type;
+      const homeComp = comp?.competitors?.find(c => c.homeAway === 'home');
+      const awayComp = comp?.competitors?.find(c => c.homeAway === 'away');
+      const isFinished = status?.completed === true || status?.state === 'post';
+      return isFinished && homeComp && awayComp &&
+        !findOurMatch(homeComp.team?.displayName || '', awayComp.team?.displayName || '');
+    })
+    .sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')) ||
+      String(a.id || '').localeCompare(String(b.id || '')))
+    .forEach(event => {
+      const stage = knockoutStageForDate(event.date ? event.date.slice(0, 10) : '');
+      const ids = KNOCKOUT_MATCH_IDS[stage] || [];
+      const idx = counts[stage] || 0;
+      if (ids[idx]) map[String(event.id)] = ids[idx];
+      counts[stage] = idx + 1;
+    });
+  return map;
 }
 
 function knockoutWinner(homeComp, awayComp, homeScore, awayScore) {
@@ -159,6 +192,39 @@ function knockoutWinner(homeComp, awayComp, homeScore, awayScore) {
     return homePens > awayPens ? norm(homeComp.team?.displayName || '') : norm(awayComp.team?.displayName || '');
   }
   return null;
+}
+
+function resultSideFromWinner(winner, homeComp, awayComp) {
+  if (!winner) return null;
+  if (norm(homeComp.team?.displayName || '') === winner) return 'home';
+  if (norm(awayComp.team?.displayName || '') === winner) return 'away';
+  return null;
+}
+
+function parseMatchDetails(comp) {
+  const teamById = {};
+  (comp?.competitors || []).forEach(c => {
+    if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
+  });
+  const details = comp?.details || [];
+  const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
+  const scorers = goalDetails.map(d => ({
+    player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+    team:   norm(teamById[d.team?.id] || ''),
+    minute: parseInt(d.clock?.displayValue) || 0,
+    type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
+    assist: null,
+  }));
+  const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
+  const cards = cardDetails.map(d => ({
+    player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
+    team:   norm(teamById[d.team?.id] || ''),
+    minute: parseInt(d.clock?.displayValue) || 0,
+    type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
+          : d.redCard                   ? 'Red Card'
+          :                               'Yellow Card',
+  }));
+  return { scorers, cards };
 }
 
 // ── American odds → implied probability (raw, before normalisation) ───────────
@@ -233,6 +299,7 @@ async function fetchESPNData(alreadyImported) {
     const s = e.competitions?.[0]?.status?.type;
     return s?.completed === true || s?.state === 'post';
   });
+  const knockoutEventMap = buildKnockoutEventMap(events);
   console.log(`ESPN: ${events.length} total events, ${finished.length} finished`);
 
   // Pre-match odds from ALL events (disappear after kickoff — grab while available)
@@ -293,37 +360,13 @@ async function fetchESPNData(alreadyImported) {
 
       // Scorers + cards (skip if already imported)
       if (!alreadyImported[String(ourMatch.id)]) {
-        const teamById = {};
-        (comp?.competitors || []).forEach(c => {
-          if (c.team?.id) teamById[c.team.id] = c.team.displayName || '';
-        });
-
-        const details = comp?.details || [];
-
-        const goalDetails = details.filter(d => d.scoringPlay === true && !d.ownGoal);
-        result.scorers[ourMatch.id] = goalDetails.map(d => ({
-          player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
-          team:   norm(teamById[d.team?.id] || ''),
-          minute: parseInt(d.clock?.displayValue) || 0,
-          type:   d.penaltyKick ? 'PENALTY' : 'REGULAR',
-          assist: null,
-        }));
-
-        const cardDetails = details.filter(d => d.yellowCard === true || d.redCard === true);
-        if (cardDetails.length > 0) {
-          result.cards[ourMatch.id] = cardDetails.map(d => ({
-            player: d.athletesInvolved?.[0]?.displayName || 'Unknown',
-            team:   norm(teamById[d.team?.id] || ''),
-            minute: parseInt(d.clock?.displayValue) || 0,
-            type:   (d.redCard && d.yellowCard) ? 'Yellow Red Card'
-                  : d.redCard                   ? 'Red Card'
-                  :                               'Yellow Card',
-          }));
-        }
+        const { scorers, cards } = parseMatchDetails(comp);
+        result.scorers[ourMatch.id] = scorers;
+        if (cards.length > 0) result.cards[ourMatch.id] = cards;
 
         result.processed.add(String(ourMatch.id));
         console.log(`  Group match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
-          `${ourHome}-${ourAway}, ${goalDetails.length} goals, ${cardDetails.length} cards`);
+          `${ourHome}-${ourAway}, ${scorers.length} goals, ${cards.length} cards`);
       } else {
         // Still log the result even for already-imported scorers
         console.log(`  Group match ${ourMatch.id} (${ourMatch.home} vs ${ourMatch.away}): ` +
@@ -342,6 +385,19 @@ async function fetchESPNData(alreadyImported) {
       if (winner) {
         result.knockoutWinners[stage].push(winner);
         console.log(`  Knockout [${stage}]: ${winner} (${homeScore}-${awayScore})`);
+      }
+      const matchId = knockoutEventMap[String(event.id)];
+      if (matchId) {
+        const winnerSide = resultSideFromWinner(winner, homeComp, awayComp);
+        if (winnerSide) result.results[matchId] = winnerSide;
+        result.scores[matchId] = { home: homeScore, away: awayScore };
+        if (!alreadyImported[String(matchId)]) {
+          const { scorers, cards } = parseMatchDetails(comp);
+          result.scorers[matchId] = scorers;
+          if (cards.length > 0) result.cards[matchId] = cards;
+          result.processed.add(String(matchId));
+          console.log(`    Knockout match ${matchId}: ${scorers.length} goals, ${cards.length} cards`);
+        }
       }
     }
   }
@@ -400,12 +456,16 @@ async function run() {
   }
 
   // Read existing state from Firebase
-  const [existingSnap, eventsImportedSnap] = await Promise.all([
+  const [existingSnap, eventsImportedSnap, scoresSnap, scorersSnap] = await Promise.all([
     db.ref('wc2026/results').once('value'),
     db.ref('wc2026/eventsImported').once('value'),
+    db.ref('wc2026/scores').once('value'),
+    db.ref('wc2026/scorers').once('value'),
   ]);
   const existingResults = existingSnap.val() || {};
   const alreadyImported = eventsImportedSnap.val() || {};
+  const existingScores  = scoresSnap.val() || {};
+  const existingScorers = scorersSnap.val() || {};
   const ranksBefore     = await snapshotRanks(existingResults);
 
   // ── ESPN: all data in one request ──────────────────────────────────────────
@@ -422,8 +482,9 @@ async function run() {
     updates[`scores/${id}`] = score;
   }
 
-  // Total goals
-  const totalGoals = Object.values(scores).reduce((sum, s) => sum + (s.home || 0) + (s.away || 0), 0);
+  // Total goals across all persisted scores + newly imported scores.
+  const allScores = { ...existingScores, ...scores };
+  const totalGoals = Object.values(allScores).reduce((sum, s) => sum + (s.home || 0) + (s.away || 0), 0);
   if (totalGoals > 0) updates['results/total_goals'] = String(totalGoals);
 
   // Knockout progression
@@ -458,8 +519,9 @@ async function run() {
 
   // Golden Boot leader
   const scorerTotals = {};
-  Object.values(scorers).forEach(list => {
-    list.forEach(s => {
+  const allScorers = { ...existingScorers, ...scorers };
+  Object.values(allScorers).forEach(list => {
+    Object.values(list || {}).forEach(s => {
       if (!scorerTotals[s.player]) scorerTotals[s.player] = { player: s.player, team: s.team, goals: 0 };
       scorerTotals[s.player].goals++;
     });
