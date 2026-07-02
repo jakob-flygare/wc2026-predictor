@@ -1084,12 +1084,12 @@
 .mg-pitch { position:relative; background-color:#347f39; background-image:url('penalty-bg.png'); background-size:cover; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; border:2px solid var(--border); border-radius:10px; width:100%; aspect-ratio:1448 / 1086; overflow:hidden; }
 /* Invisible overlay aligned to the goal mouth in the background image. */
 .mg-goal { position:absolute; top:27.5%; left:14.5%; width:71%; height:33%;
-  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr 1fr; }
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr; }
 .mg-zone { border:0; background:transparent; cursor:pointer; transition:background .12s; padding:0; border-radius:2px; }
 .mg-zone:hover { background:rgba(244,209,106,0.3); }
 [data-accent="purple"] .mg-zone:hover { background:rgba(194,122,255,0.3); }
 .mg-keeper { position:absolute; left:50%; top:90%; transform:translate(-50%,-50%); line-height:0; z-index:3; pointer-events:none; transition:left .34s ease, top .34s ease; }
-.mg-gk { display:block; width:auto; height:clamp(58px,22vw,88px); object-fit:contain; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
+.mg-gk { display:block; width:auto; height:clamp(87px,33vw,132px); object-fit:contain; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
 .mg-ball { position:absolute; left:50%; top:150%; transform:translate(-50%,-50%); font-size:1.5rem; line-height:1; z-index:2; pointer-events:none;
   transition:left .4s cubic-bezier(.35,1.3,.6,1), top .4s cubic-bezier(.35,1.3,.6,1); }
 .mg-spot { display:none; }

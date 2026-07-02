@@ -5613,7 +5613,7 @@ function closeMobileNav(){
 
 // ── MINI GAME: PENALTY SHOOTOUT ───────────────────────────────────────────────
 const MG={goals:0,shots:0,streak:0,best:0,busy:false};
-const MG_ZX=[18,50,82], MG_ZY=[30,72]; // zone centre %: cols L/C/R, rows top/bottom
+const MG_ZX=[20,50,80]; // three aim zones: left / centre / right (centre %)
 function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function mgSyncScore(){ mgSet('mg-goals',MG.goals); mgSet('mg-shots',MG.shots); mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
 function renderMiniGame(){
@@ -5629,43 +5629,40 @@ function renderMiniGame(){
       </div>
       <div class="mg-pitch">
         <div class="mg-goal">
-          ${[0,1,2,3,4,5].map(z=>`<button class="mg-zone" onclick="mgShoot(${z})" aria-label="Aim ${z}"></button>`).join('')}
+          ${['Left','Centre','Right'].map((lbl,z)=>`<button class="mg-zone" onclick="mgShoot(${z})" aria-label="Shoot ${lbl}"></button>`).join('')}
           <div class="mg-keeper" id="mg-keeper"><img src="buffon-ready.png" alt="Goalkeeper" class="mg-gk"></div>
           <div class="mg-ball" id="mg-ball">⚽</div>
         </div>
         <div class="mg-spot"></div>
       </div>
-      <div class="mg-msg" id="mg-msg">Pick a corner to shoot 👆</div>
+      <div class="mg-msg" id="mg-msg">Shoot left, centre or right 👆</div>
       <button class="btn mg-reset" onclick="mgReset()">Reset</button>
     </div>`;
   mgSyncScore();
 }
-function mgReset(){ MG.goals=0;MG.shots=0;MG.streak=0;MG.best=0; mgSyncScore(); const m=document.getElementById('mg-msg'); if(m){m.textContent='Pick a corner to shoot 👆';m.className='mg-msg';} }
+function mgReset(){ MG.goals=0;MG.shots=0;MG.streak=0;MG.best=0; mgSyncScore(); const m=document.getElementById('mg-msg'); if(m){m.textContent='Shoot left, centre or right 👆';m.className='mg-msg';} }
 function mgShoot(z){
   if(MG.busy) return;
   const ball=document.getElementById('mg-ball'), keeper=document.getElementById('mg-keeper'), msg=document.getElementById('mg-msg');
   if(!ball||!keeper) return;
   MG.busy=true;
-  const kz=Math.floor(Math.random()*6);
-  const col=z%3, row=(z/3)|0, kcol=kz%3, krow=(kz/3)|0;
-  ball.style.left=MG_ZX[col]+'%'; ball.style.top=MG_ZY[row]+'%';
-  keeper.style.left=MG_ZX[kcol]+'%'; keeper.style.top=MG_ZY[krow]+'%';
-  // Top corners beat the keeper more often but risk sailing over the bar.
-  const missed = row===0 && Math.random()<0.12;
-  const outcome = missed ? 'miss' : (z===kz ? 'save' : 'goal');
+  const kz=Math.floor(Math.random()*3); // keeper dives left / centre / right
+  ball.style.left=MG_ZX[z]+'%'; ball.style.top='46%';
+  keeper.style.left=MG_ZX[kz]+'%'; keeper.style.top='82%';
+  const outcome = z===kz ? 'save' : 'goal';
   setTimeout(()=>{
     MG.shots++;
     if(outcome==='goal'){ MG.goals++; MG.streak++; if(MG.streak>MG.best)MG.best=MG.streak; }
     else { MG.streak=0; }
     mgSyncScore();
     if(msg){
-      msg.textContent = outcome==='goal' ? 'GOAL! ⚽🥅' : outcome==='save' ? 'SAVED! 🧤' : 'OVER THE BAR! 😬';
+      msg.textContent = outcome==='goal' ? 'GOAL! ⚽🥅' : 'SAVED! 🧤';
       msg.className = 'mg-msg '+(outcome==='goal'?'goal':'save');
     }
     setTimeout(()=>{
       ball.style.left='50%'; ball.style.top='150%';
       keeper.style.left='50%'; keeper.style.top='90%';
-      if(msg){msg.textContent='Pick a corner to shoot 👆';msg.className='mg-msg';}
+      if(msg){msg.textContent='Shoot left, centre or right 👆';msg.className='mg-msg';}
       MG.busy=false;
     },1000);
   },420);
