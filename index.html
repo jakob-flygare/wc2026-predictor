@@ -746,10 +746,13 @@ async function pollLiveScores(forceMeta=false){
         changed=true;
       }
       if(m.knockout){
+        // Authoritatively sync the finish label. espnFinishLabel returns '' for a
+        // regulation full-time result — clear any stale/misfiled 'After ET'/'After
+        // Pen.' so a decisive FT game doesn't keep showing an extra-time/shootout tag.
         const finishLabel=espnFinishLabel(comp,hasPenalties);
-        if(finishLabel&&LIVE_FINISH_LABELS[m.id]!==finishLabel){
-          LIVE_FINISH_LABELS[m.id]=finishLabel;
-          m.finishLabel=finishLabel;
+        if((LIVE_FINISH_LABELS[m.id]||'')!==finishLabel){
+          if(finishLabel){ LIVE_FINISH_LABELS[m.id]=finishLabel; m.finishLabel=finishLabel; }
+          else { delete LIVE_FINISH_LABELS[m.id]; m.finishLabel=null; }
           changed=true;
         }
       }
@@ -3125,7 +3128,10 @@ function renderMatches(){
     const whenStr=inDateMode?(t||friendlyDate(m)):`${friendlyDate(m)}${t?' · '+t:''}`;
     const showScore=m.score&&!spoilerMode;
     const scoreStr=showScore?`${m.score.home}<span class="mc-score-sep">-</span>${m.score.away}`:'';
-    const finishLabel=m.penalties?'After Pen.':(m.finishLabel||'FT');
+    // "After Pen." is only valid when there's a shootout score — ignore a stale
+    // penalty tag on a decisive result so it never flashes before the poll clears it.
+    const rawFinish=(m.finishLabel==='After Pen.'&&!m.penalties)?'':m.finishLabel;
+    const finishLabel=m.penalties?'After Pen.':(rawFinish||'FT');
     const penaltyStr=showScore&&m.penalties?`<div class="mc-penalties">(${m.penalties.home}<span class="mc-score-sep">-</span>${m.penalties.away})</div>`:'';
     const dashScore=`<span class="mc-score-spoiler">-</span>`;   // shown when No Spoilers is on
     const tvCh=getTV(m);
