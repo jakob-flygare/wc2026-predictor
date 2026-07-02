@@ -257,7 +257,10 @@
   .kb-col { display:flex; flex-direction:column; justify-content:space-around; align-items:center; gap:6px; min-width:var(--kb-card-w); width:100%; }
   .kb-final-col { display:flex; flex:0 0 clamp(76px,9vw,120px); flex-direction:column; justify-content:center; align-items:center; gap:0.5rem; min-width:0; }
   .kb-final-label { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.08em; color:var(--gold); }
-  .kb-trophy { display:block; width:clamp(60px,6vw,92px); height:auto; object-fit:contain; margin-bottom:-0.15rem; }
+  /* Final + 3rd-place cards form one group, vertically centred in the column;
+     the trophy floats at the top so it doesn't offset the group's centring. */
+  .kb-final-group { display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+  .kb-trophy { position:absolute; top:0; left:50%; transform:translateX(-50%); width:clamp(60px,6vw,92px); height:auto; object-fit:contain; }
   .kb-match { width:var(--kb-card-w); max-width:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; cursor:pointer; transition:border-color .12s; }
   .kb-match .kb-team { display:flex; align-items:center; justify-content:center; width:100%; min-height:42px; padding:0; line-height:1; box-sizing:border-box; overflow:hidden; }
   .kb-match .kb-team img.emoji { display:block; margin:0 auto; height:20px; width:20px; }
