@@ -772,16 +772,22 @@ async function pollLiveScores(forceMeta=false){
       const espnScore=LIVE_SCORES[m.id], espnResult=LIVE_RESULTS[m.id];
       const curScore=(STATE.scores||{})[m.id], curResult=(STATE.results||{})[m.id];
       const curScorers=(STATE.scorers||{})[m.id]?Object.values((STATE.scorers||{})[m.id]):[];
+      const curCards=(STATE.cards||{})[m.id]?Object.values((STATE.cards||{})[m.id]):[];
+      const teams=j=>(j||[]).map(x=>x.team+':'+x.player).join(',');
       const scoreDiff=!curScore||curScore.home!==espnScore.home||curScore.away!==espnScore.away;
       const resultDiff=curResult!==espnResult;
       const scorersDiff=JSON.stringify(curScorers)!==JSON.stringify(newEvents.scorers||[]);
-      if(scoreDiff||resultDiff||scorersDiff){
+      // Cards are frequently misfiled from another game — compare by team:player so a
+      // stale card (e.g. a Norway booking in France–Sweden) is detected and cleared.
+      const cardsDiff=teams(curCards)!==teams(newEvents.cards);
+      if(scoreDiff||resultDiff||scorersDiff||cardsDiff){
         fbHeal[`scores/${m.id}`]=espnScore;
         fbHeal[`results/${m.id}`]=espnResult;
-        // Only rewrite scorers/cards when ESPN actually returned them, so a transient
-        // empty feed can't blank legitimately-stored goals.
+        // Only rewrite scorers when ESPN returned them, so a transient empty feed can't
+        // blank legitimately-stored goals. Cards are re-keyed authoritatively (an empty
+        // list clears a misfiled booking, since the game is finished per ESPN).
         if(newEvents.scorers?.length) fbHeal[`scorers/${m.id}`]=newEvents.scorers;
-        if(newEvents.cards?.length)   fbHeal[`cards/${m.id}`]=newEvents.cards;
+        fbHeal[`cards/${m.id}`]=newEvents.cards||[];
       }
     }
   }
@@ -1547,9 +1553,15 @@ function applyRuntimeMatchData(m){
   if(LIVE_RESULTS[m.id]) m.result = LIVE_RESULTS[m.id];
   const ev = LIVE_EVENTS[m.id];
   if(ev){
-    if(ev.scorers?.length) m.scorers = ev.scorers;
-    if(ev.cards?.length) m.cards = ev.cards;
-    if(ev.subs?.length) m.subs = ev.subs;
+    // For a finished match, the team-matched ESPN timeline is authoritative and
+    // fully replaces the (possibly misfiled) Firebase scorers/cards/subs — including
+    // clearing them when ESPN has none, so e.g. another game's card can't linger.
+    // While a match is still live, only override with non-empty data to avoid
+    // wiping legit events during ESPN scoreboard lag.
+    const finished = !!LIVE_RESULTS[m.id];
+    if(ev.scorers?.length) m.scorers = ev.scorers; else if(finished) m.scorers = null;
+    if(ev.cards?.length)   m.cards   = ev.cards;   else if(finished) m.cards   = null;
+    if(ev.subs?.length)    m.subs    = ev.subs;    else if(finished) m.subs    = null;
   }
   // Team-matched ESPN scores are authoritative — let them override a persisted
   // (possibly misfiled) Firebase score so reconciled knockout results self-heal.
