@@ -5,8 +5,24 @@
 
 const admin = require('firebase-admin');
 
-const DB_URL = process.env.FIREBASE_DATABASE_URL;
-const SA     = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+const DB_URL  = process.env.FIREBASE_DATABASE_URL;
+const RAW_SA  = process.env.FIREBASE_SERVICE_ACCOUNT;
+
+// Deploy-safe: if the Firebase credentials aren't configured (or are malformed),
+// log clearly and skip the import with a success exit code so the GitHub Action
+// — which runs on every push — doesn't fail the deploy.
+if (!RAW_SA || !DB_URL) {
+  console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT / FIREBASE_DATABASE_URL not set — skipping score import (deploy continues).');
+  process.exit(0);
+}
+
+let SA;
+try {
+  SA = JSON.parse(RAW_SA);
+} catch (e) {
+  console.warn('⚠️  FIREBASE_SERVICE_ACCOUNT is not valid JSON — skipping score import (deploy continues): ' + e.message);
+  process.exit(0);
+}
 
 admin.initializeApp({ credential: admin.credential.cert(SA), databaseURL: DB_URL });
 const db = admin.database();
