@@ -2002,6 +2002,85 @@ function maxFutureBracketPts(player){
   return max;
 }
 
+// ── PROJECTED POINTS ──────────────────────────────────────────────────────────
+// Expected final score = current points + Σ(remaining points × likelihood). The
+// likelihood of a bracket pick paying off is the team's chance of reaching that
+// stage, from the same strength model used by "Road to the Cup" / knockout odds.
+// Scope matches the "▲ possible" figure: bracket picks + any unplayed group games.
+// (Special bets resolve at tournament end and aren't projected.)
+function bracketProjContext(standings,str){
+  const best3rd=getBest3rdPlace(standings);
+  const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
+  const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
+  const r32=R32_BRACKET.map(m=>({
+    home:resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map).team,
+    away:resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map).team
+  }));
+  const r32W=i=>pickStronger(r32[i].home,r32[i].away,str);
+  const r16W=i=>pickStronger(r32W(R16_FEED[i][0]),r32W(R16_FEED[i][1]),str);
+  const qfW =i=>pickStronger(r16W(QF_FEED[i][0]),r16W(QF_FEED[i][1]),str);
+  const sfW =i=>pickStronger(qfW(SF_FEED[i][0]),qfW(SF_FEED[i][1]),str);
+  return {r32,r32W,r16W,qfW,sfW,str,_cache:{}};
+}
+// Cumulative model probabilities of surviving each round from the R32 start:
+// p[0]=reach R16, p[1]=QF, p[2]=SF, p[3]=Final, p[4]=win. null if the team isn't
+// placed in a resolved R32 slot yet.
+function bracketStageReach(team,ctx){
+  const key=(team||'').toLowerCase().trim();
+  if(key in ctx._cache) return ctx._cache[key];
+  const {r32,r32W,r16W,qfW,sfW,str}=ctx;
+  let ti=-1; r32.forEach((x,i)=>{ if(x.home===team||x.away===team) ti=i; });
+  if(ti<0){ ctx._cache[key]=null; return null; }
+  const r16i=R16_FEED.findIndex(f=>f.includes(ti)), sibR32=R16_FEED[r16i]?.find(x=>x!==ti);
+  const qfi =QF_FEED.findIndex(f=>f.includes(r16i)), sibR16=QF_FEED[qfi]?.find(x=>x!==r16i);
+  const sfi =SF_FEED.findIndex(f=>f.includes(qfi)), sibQf=SF_FEED[sfi]?.find(x=>x!==qfi);
+  const otherSf=FINAL_FEED.find(x=>x!==sfi);
+  const opponents=[r32[ti].home===team?r32[ti].away:r32[ti].home,r32W(sibR32),r16W(sibR16),qfW(sibQf),sfW(otherSf)];
+  const sT=str[team]||0.4;
+  const p=[]; let cum=1;
+  opponents.forEach(opp=>{ const sO=opp?(str[opp]||0.4):0; cum*=(opp?sT/(sT+sO):0.99); p.push(cum); });
+  ctx._cache[key]=p; return p;
+}
+// Expected points a player will still earn from bracket picks (official scoring),
+// conditioned on how far each team has actually progressed and who's eliminated.
+function expectedRemainingBracketPts(player,ctx,ko,elim){
+  const norm=t=>(t||'').toLowerCase().trim();
+  const br=player.bracket||{};
+  const idxOf={r16:0,qf:1,sf:2,final:3,winner:4};
+  const clamp=x=>Math.max(0,Math.min(1,x));
+  const reachedIdx=t=>{ const n=norm(t); let idx=-1;
+    ['r16','qf','sf','final'].forEach((s,i)=>{ if((ko[s]||[]).some(x=>norm(x)===n)) idx=Math.max(idx,i); });
+    if(ko.winner&&norm(ko.winner)===n) idx=4;
+    return idx; };
+  // Conditional probability the team reaches `si` given where it is now.
+  const condReach=(team,si)=>{ const p=bracketStageReach(team,ctx); if(!p) return 0;
+    const rIdx=reachedIdx(team), denom=rIdx>=0?p[rIdx]:1;
+    return denom>0?clamp(p[si]/denom):clamp(p[si]); };
+  let exp=0;
+  ['r16','qf','sf','final','winner'].forEach(stage=>{
+    const picks = stage==='winner' ? (br.winner?[br.winner]:[]) : (br[stage]||[]);
+    picks.forEach(team=>{
+      const n=norm(team);
+      const earned = stage==='winner' ? (ko.winner&&norm(ko.winner)===n) : (ko[stage]||[]).some(x=>norm(x)===n);
+      if(earned||elim.has(n)) return;               // already counted, or impossible
+      exp += condReach(team,idxOf[stage])*BRACKET_PTS[stage];
+    });
+  });
+  // Bronze (approx): reach the semis, lose them, then win the third-place match.
+  if(br.bronze && !ko.bronze && !elim.has(norm(br.bronze))){
+    const n=norm(br.bronze), inFinal=(ko.final||[]).some(x=>norm(x)===n)||norm(ko.winner||'')===n;
+    if(!inFinal) exp += condReach(br.bronze,2)*0.25*BRACKET_PTS.bronze;
+  }
+  return exp;
+}
+// Expected points from group games not yet played (weighted by pre-match odds).
+function expectedRemainingGroupPts(player){
+  let exp=0;
+  STATE.matches.forEach(m=>{ if(m.result)return; const pk=player.picks?.[m.id]; if(!pk)return;
+    exp += m.odds?(m.odds[pk]||0):(1/3); });
+  return exp;
+}
+
 // ── LIVE STATS HELPERS ────────────────────────────────────────────────────────
 function computeScorerLeaderboard(){
   const counts={};
@@ -2700,7 +2779,19 @@ function computeBadges(){
 // ── RENDER LEADERBOARD ────────────────────────────────────────────────────────
 function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
-  const scored=STATE.players.map(p=>({...p,...calcScoreByMode(p,goalsWinners),maxFuturePts:maxFutureBracketPts(p)})).sort((a,b)=>b.pts-a.pts);
+  // Projected-points context (official scoring only): shared strength model + progress.
+  let projCtx=null,projKo=null,projElim=null;
+  if(LB_SCORING_MODE==='official'){
+    const st=STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings();
+    projCtx=bracketProjContext(st,computeStrengths());
+    projKo=derivedKnockout();
+    projElim=new Set(); buildKnockoutMatches().forEach(m=>{const l=koLoser(m);if(l)projElim.add(l.toLowerCase().trim());});
+  }
+  const scored=STATE.players.map(p=>{
+    const s={...p,...calcScoreByMode(p,goalsWinners),maxFuturePts:maxFutureBracketPts(p)};
+    if(projCtx) s.projPts=Math.round(s.pts+expectedRemainingBracketPts(p,projCtx,projKo,projElim)+expectedRemainingGroupPts(p));
+    return s;
+  }).sort((a,b)=>b.pts-a.pts);
   // Eliminated: can't reach the leader even winning everything, or is behind someone with identical picks.
   const leaderPts=scored.length?scored[0].pts:0;
   const picksKey=p=>JSON.stringify(p.picks||{})+'|'+JSON.stringify(p.bracket||{})+'|'+JSON.stringify(p.special||{});
@@ -2780,7 +2871,7 @@ function renderLeaderboard(){
               <div class="lb-meta"><span class="lb-ok">✓</span> ${p.correct}/${p.total} games correct</div>
               ${(()=>{const w=calcSpecialsWon(p,goalsWinners);return `<div class="lb-meta"><span class="lb-ok">✓</span> ${w} special bet${w!==1?'s':''} won</div>`;})()}
             </div>
-            <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div>${p.maxFuturePts>0?`<div class="lb-pts-future">▲${p.maxFuturePts} possible</div>`:''}</div>
+            <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div>${p.maxFuturePts>0?`<div class="lb-pts-future">▲${p.maxFuturePts} possible</div>`:''}${p.projPts!=null&&p.projPts>p.pts?`<div class="lb-pts-proj" title="Projected final total: current points plus points still up for grabs, weighted by each pick's chance of landing (bracket advancement odds + unplayed group games). Special bets not included.">◈ ${p.projPts} projected</div>`:''}</div>
           </div>
           <div class="lb-breakdown" id="${id}">${renderPlayerBreakdown(p,goalsWinners,bdg)}</div>
         </div>`;

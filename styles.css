@@ -231,6 +231,7 @@
   .lb-points { font-family: 'Bebas Neue', sans-serif; font-size: 2rem; color: var(--gold); text-align: right; line-height: 1; }
   .lb-pts-label { font-size: 0.65rem; color: var(--muted); text-align: right; text-transform: uppercase; letter-spacing: 0.1em; }
   .lb-pts-future { font-size: 0.65rem; color: var(--green); text-align: right; margin-top: 2px; }
+  .lb-pts-proj { font-size: 0.65rem; color: var(--gold-light); text-align: right; margin-top: 2px; opacity: 0.85; }
   .progress-bar-wrap { background: var(--surface2); border-radius: 999px; height: 4px; overflow: hidden; margin-top: 6px; }
   .progress-bar-fill { height: 100%; background: var(--gold); border-radius: 999px; }
 
