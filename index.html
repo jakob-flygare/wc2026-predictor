@@ -2157,6 +2157,7 @@ function calcPoints(player){
 
 // ── ALTERNATIVE SCORING MODES ─────────────────────────────────────────────────
 let LB_SCORING_MODE='official'; // 'official' | 'copabet' | 'odds'
+let SHOW_PROJECTED_PTS=false; // toggle the "◈ projected" line on the leaderboard
 let LB_CHART_MODE='normalized';  // 'normalized' | 'actual'
 
 function calcCopabetGroupPoints(player){
@@ -2781,7 +2782,7 @@ function renderLeaderboard(){
   const goalsWinners=calcGoalsWinners();
   // Projected-points context (official scoring only): shared strength model + progress.
   let projCtx=null,projKo=null,projElim=null;
-  if(LB_SCORING_MODE==='official'){
+  if(SHOW_PROJECTED_PTS&&LB_SCORING_MODE==='official'){
     const st=STATE.standings&&Object.keys(STATE.standings).length?STATE.standings:computeActualStandings();
     projCtx=bracketProjContext(st,computeStrengths());
     projKo=derivedKnockout();
