@@ -984,6 +984,11 @@
 [data-accent="purple"] .kb-match:hover {
   border-color: rgba(194,122,255,0.6) !important;
 }
+/* Gold theme: match-card hover uses the same gold border as bracket game cards */
+[data-accent="gold"] .match-card.has-scorers:hover,
+[data-accent="gold"] .match-card.has-scorers:focus-within {
+  border-color: rgba(201,168,76,0.55) !important;
+}
 
 [data-accent="purple"] .mc-nextup {
   border-color: rgba(154,45,239,0.9) !important;
