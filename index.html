@@ -4068,7 +4068,7 @@ function renderKnockoutBracket(){
   const matches=(nums,cls)=>nums.map(n=>matchCell(cls,n)).join('');
   const leftR32=[1,4,0,2,10,11,8,9], rightR32=[3,5,6,7,13,15,12,14];
   const left=`<div class="kb-side">${col('',leftR32.map(r32Cell).join(''))}${col('kb-col-tbd',matches(KO_NUMS.leftR16,'kb-r16'))}${col('kb-col-tbd',matches(KO_NUMS.leftQF,'kb-qf'))}${col('kb-col-tbd',matches(KO_NUMS.leftSF,'kb-sf'))}</div>`;
-  const finalCol=`<div class="kb-final-col"><img class="kb-trophy" src="world-cup-trophy.png" alt="World Cup trophy"><div class="kb-final-group"><div class="kb-final-label">FINAL</div>${matchCell('kb-final',104)}<div class="kb-third-label">3rd place</div>${matchCell('kb-third',103)}</div></div>`;
+  const finalCol=`<div class="kb-final-col"><div class="kb-final-group"><img class="kb-trophy" src="world-cup-trophy.png" alt="World Cup trophy"><div class="kb-final-label">FINAL</div>${matchCell('kb-final',104)}<div class="kb-third-label">3rd place</div>${matchCell('kb-third',103)}</div></div>`;
   const right=`<div class="kb-side">${col('kb-col-tbd',matches(KO_NUMS.rightSF,'kb-sf'))}${col('kb-col-tbd',matches(KO_NUMS.rightQF,'kb-qf'))}${col('kb-col-tbd',matches(KO_NUMS.rightR16,'kb-r16'))}${col('',rightR32.map(r32Cell).join(''))}</div>`;
   const legend=`<div class="kb-legend">1·X = group winner · 2·X = runner-up · 3 = best third-place${allComplete?'':' · flags = teams that could still take a TBD spot'}</div>`;
   return `<div class="kbracket-scroll"><div class="kbracket"><svg class="kb-lines" aria-hidden="true"></svg>${left}${finalCol}${right}</div></div>${legend}`;

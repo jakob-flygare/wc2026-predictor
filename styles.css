@@ -188,6 +188,18 @@
   [data-accent="purple"] .sm-btn.active {
     color:#fff;
   }
+  /* Purple theme: buttons use a slightly darker purple than the (unchanged) text
+     accent (--gold #C27AFF), so filled/active buttons read as a distinct shade. */
+  [data-accent="purple"] .btn,
+  [data-accent="purple"] .sort-btn.active,
+  [data-accent="purple"] .bvt-btn.active,
+  [data-accent="purple"] .sm-btn.active,
+  [data-accent="purple"] .fant-add-btn {
+    background:#A24BE0;
+    border-color:#A24BE0;
+  }
+  [data-accent="purple"] .btn:hover,
+  [data-accent="purple"] .fant-add-btn:hover { background:#933FCF; }
   /* Broadcaster channel badge (Swedish: SVT/TV4 · UK: BBC/ITV) */
   .mc-tv-badge { display:inline-flex; align-items:center; }
   .mc-tv-logo { display:block; width:auto; transform:translateY(-1.5px); }
@@ -259,8 +271,8 @@
   .kb-final-label { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; letter-spacing:0.08em; color:var(--gold); }
   /* Final + 3rd-place cards form one group, vertically centred in the column;
      the trophy floats at the top so it doesn't offset the group's centring. */
-  .kb-final-group { display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
-  .kb-trophy { position:absolute; top:0; left:50%; transform:translateX(-50%); width:clamp(60px,6vw,92px); height:auto; object-fit:contain; }
+  .kb-final-group { position:relative; display:flex; flex-direction:column; align-items:center; gap:0.5rem; }
+  .kb-trophy { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:0.15rem; width:clamp(60px,6vw,92px); height:auto; object-fit:contain; }
   .kb-match { width:var(--kb-card-w); max-width:none; background:var(--surface); border:1px solid var(--border); border-radius:8px; cursor:pointer; transition:border-color .12s; }
   .kb-match .kb-team { display:flex; align-items:center; justify-content:center; width:100%; min-height:42px; padding:0; line-height:1; box-sizing:border-box; overflow:hidden; }
   .kb-match .kb-team img.emoji { display:block; margin:0 auto; height:20px; width:20px; }
