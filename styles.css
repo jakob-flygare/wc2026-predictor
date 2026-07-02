@@ -1079,21 +1079,19 @@
 .mg-wrap { max-width:420px; margin:0 auto; text-align:center; }
 .mg-scorebar { display:flex; justify-content:space-around; gap:0.5rem; font-size:0.85rem; color:var(--muted); margin-bottom:1.1rem; flex-wrap:wrap; }
 .mg-scorebar b { color:var(--gold); font-family:'Bebas Neue',sans-serif; font-size:1.25rem; }
-.mg-pitch { position:relative; background:repeating-linear-gradient(#3a8f3f 0 22px,#347f39 22px 44px); border:2px solid var(--border); border-radius:10px; height:230px; overflow:hidden; }
-.mg-goal { position:absolute; top:18px; left:50%; transform:translateX(-50%); width:min(320px,82%); height:120px;
-  border:5px solid #f4f4f4; border-bottom:none; border-radius:5px 5px 0 0;
-  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr 1fr;
-  background:
-    repeating-linear-gradient(90deg,rgba(255,255,255,0.13) 0 1px,transparent 1px 15px),
-    repeating-linear-gradient(0deg,rgba(255,255,255,0.13) 0 1px,transparent 1px 15px);
-  box-shadow:0 0 0 2px rgba(0,0,0,0.12) inset; }
-.mg-zone { border:1px dashed rgba(255,255,255,0.16); background:transparent; cursor:pointer; transition:background .12s; padding:0; }
-.mg-zone:hover { background:rgba(244,209,106,0.22); }
-[data-accent="purple"] .mg-zone:hover { background:rgba(194,122,255,0.22); }
-.mg-keeper { position:absolute; left:50%; top:84%; transform:translate(-50%,-50%); font-size:2rem; line-height:1; z-index:3; pointer-events:none; transition:left .34s ease, top .34s ease; }
-.mg-ball { position:absolute; left:50%; top:118%; transform:translate(-50%,-50%); font-size:1.6rem; line-height:1; z-index:2; pointer-events:none;
+/* Pixel-art stadium background. Falls back to a plain green pitch if the image
+   isn't present yet. image-rendering:pixelated keeps the lo-fi look crisp. */
+.mg-pitch { position:relative; background-color:#347f39; background-image:url('penalty-bg.png'); background-size:cover; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; border:2px solid var(--border); border-radius:10px; width:100%; aspect-ratio:1448 / 1086; overflow:hidden; }
+/* Invisible overlay aligned to the goal mouth in the background image. */
+.mg-goal { position:absolute; top:27.5%; left:14.5%; width:71%; height:33%;
+  display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr 1fr; }
+.mg-zone { border:0; background:transparent; cursor:pointer; transition:background .12s; padding:0; border-radius:2px; }
+.mg-zone:hover { background:rgba(244,209,106,0.3); }
+[data-accent="purple"] .mg-zone:hover { background:rgba(194,122,255,0.3); }
+.mg-keeper { position:absolute; left:50%; top:90%; transform:translate(-50%,-50%); font-size:1.9rem; line-height:1; z-index:3; pointer-events:none; transition:left .34s ease, top .34s ease; }
+.mg-ball { position:absolute; left:50%; top:150%; transform:translate(-50%,-50%); font-size:1.5rem; line-height:1; z-index:2; pointer-events:none;
   transition:left .4s cubic-bezier(.35,1.3,.6,1), top .4s cubic-bezier(.35,1.3,.6,1); }
-.mg-spot { position:absolute; left:50%; bottom:20px; width:9px; height:4px; border-radius:50%; background:rgba(255,255,255,0.55); transform:translateX(-50%); }
+.mg-spot { display:none; }
 .mg-msg { margin-top:1rem; min-height:1.5rem; font-size:1.05rem; font-weight:700; letter-spacing:0.02em; color:var(--text); font-family:'Bebas Neue',sans-serif; }
 .mg-msg.goal { color:var(--green); }
 .mg-msg.save { color:var(--red); }
