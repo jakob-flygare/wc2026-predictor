@@ -3027,12 +3027,14 @@ document.addEventListener('click', () => {
 // Opened by tapping a team on a match card: shows the team's games + top scorers.
 function openTeamPage(team){
   const ov=document.getElementById('team-overlay'); if(!ov||!team)return;
-  const games=STATE.matches
+  // Include knockout games/goals, not just the group stage.
+  const allMatches=getAllMatches();
+  const games=allMatches
     .filter(m=>shortName(m.home)===team||shortName(m.away)===team)
     .sort((a,b)=>matchSortKey(a)-matchSortKey(b));
-  // Top 3 scorers for this team across all matches
+  // Top 3 scorers for this team across all matches (group + knockout)
   const counts={};
-  STATE.matches.forEach(m=>{ if(!m.scorers)return; Object.values(m.scorers).forEach(s=>{
+  allMatches.forEach(m=>{ if(!m.scorers)return; Object.values(m.scorers).forEach(s=>{
     if(s.type==='OWN_GOAL'||s.team!==team)return; counts[s.player]=(counts[s.player]||0)+1; }); });
   const topScorers=Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3);
   let gf=0,ga=0,played=0;

@@ -977,8 +977,12 @@
 [data-accent="purple"] .match-card.has-scorers:hover,
 [data-accent="purple"] .match-card.has-scorers:focus,
 [data-accent="purple"] .match-card.has-scorers:focus-within {
-  border-color: var(--border) !important;
-  box-shadow: none !important;
+  border-color: rgba(194,122,255,0.6) !important;
+  box-shadow: 0 0 0 1px rgba(194,122,255,0.4), 0 0 18px rgba(194,122,255,0.14) !important;
+}
+/* Bracket game cards: purple hover in the purple theme */
+[data-accent="purple"] .kb-match:hover {
+  border-color: rgba(194,122,255,0.6) !important;
 }
 
 [data-accent="purple"] .mc-nextup {
