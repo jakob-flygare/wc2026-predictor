@@ -5387,6 +5387,10 @@ function showTab(id,el){
   if(id==='road')    renderRoadTab();
   if(id==='stats')   renderStatsTab();
   if(id==='fantasy') renderFantasyTab();
+  // Re-render the list on open so reconciled scores show immediately — otherwise the
+  // tab keeps whatever was painted before the async ESPN reconcile finished, and the
+  // score only corrected once a card was interacted with (which forces a re-render).
+  if(id==='matches') renderMatches();
   if(id==='matches'&&matchSortMode==='date') setTimeout(scrollToNextMatch, 80);
   else window.scrollTo(0,0);
 }
