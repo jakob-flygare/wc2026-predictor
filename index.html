@@ -698,7 +698,11 @@ async function pollLiveScores(forceMeta=false){
       if(prevLineups!==JSON.stringify(newLineups)) changed = true;
     }
 
-    if ((apiState!=='in'&&apiState!=='post') || (m.result&&!LIVE_RESULTS[m.id])) continue;
+    // Process live ('in') and completed ('post') games. We intentionally reconcile
+    // completed games from ESPN even when Firebase already has a result: the admin
+    // import can misfile knockout scores/results/scorers under the wrong match number,
+    // and team-matched ESPN data is authoritative, so it self-heals the display.
+    if (apiState!=='in'&&apiState!=='post') continue;
     const flipped = shortName(m.home) !== apiHome;
     const score = { home: flipped?as:hs, away: flipped?hs:as };
     const prev = LIVE_SCORES[m.id];
@@ -723,6 +727,12 @@ async function pollLiveScores(forceMeta=false){
           m.penalties=pen;
           changed=true;
         }
+      } else if(score.home!==score.away&&LIVE_PENALTIES[m.id]){
+        // Decisive result — clear any stale/misfiled shootout score so it self-heals.
+        delete LIVE_PENALTIES[m.id];
+        m.penalties=null;
+        hasPenalties=false;
+        changed=true;
       }
       if(m.knockout){
         const finishLabel=espnFinishLabel(comp,hasPenalties);
@@ -1497,7 +1507,6 @@ function knockoutOdds(m){
 }
 
 function applyRuntimeMatchData(m){
-  const hasPersistedScore=!!m.score;
   if(LIVE_RESULTS[m.id]) m.result = LIVE_RESULTS[m.id];
   const ev = LIVE_EVENTS[m.id];
   if(ev){
@@ -1505,12 +1514,10 @@ function applyRuntimeMatchData(m){
     if(ev.cards?.length) m.cards = ev.cards;
     if(ev.subs?.length) m.subs = ev.subs;
   }
-  if(!m.result){
-    if(LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id];
-    if(LIVE_CLOCK[m.id]) m.liveClock = LIVE_CLOCK[m.id];
-  } else if(!hasPersistedScore&&LIVE_SCORES[m.id]) {
-    m.score = LIVE_SCORES[m.id];
-  }
+  // Team-matched ESPN scores are authoritative — let them override a persisted
+  // (possibly misfiled) Firebase score so reconciled knockout results self-heal.
+  if(LIVE_SCORES[m.id]) m.score = LIVE_SCORES[m.id];
+  if(!m.result && LIVE_CLOCK[m.id]) m.liveClock = LIVE_CLOCK[m.id];
   if(LIVE_LINEUPS[m.id]) m.lineups = LIVE_LINEUPS[m.id];
   if(LIVE_PENALTIES[m.id]) m.penalties = LIVE_PENALTIES[m.id];
   if(LIVE_FINISH_LABELS[m.id]) m.finishLabel = LIVE_FINISH_LABELS[m.id];
