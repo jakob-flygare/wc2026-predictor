@@ -31,6 +31,7 @@
     <button class="tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
     <button class="tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
     <button class="tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
+    <button class="tab" data-tab="minigame" onclick="showTab('minigame',this)">Mini Game</button>
     <button class="tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   </nav>
@@ -51,6 +52,7 @@
   <button class="mobile-tab" data-tab="special" onclick="showTab('special',this)">Special Bets</button>
   <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
   <button class="mobile-tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
+  <button class="mobile-tab" data-tab="minigame" onclick="showTab('minigame',this)">Mini Game</button>
   <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
   <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   <button id="spoiler-btn" class="spoiler-toggle" onclick="toggleSpoiler()" aria-pressed="false">
@@ -149,6 +151,17 @@
       <div class="section-sub">Pick a team to see its most likely path to the trophy — projected opponents and win odds at every round</div>
     </div>
     <div id="road-content"></div>
+  </div>
+</div>
+
+<!-- MINI GAME -->
+<div id="minigame" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="section-title">Penalty Shootout</div>
+      <div class="section-sub">Pick a corner, beat the keeper, chase a streak ⚽</div>
+    </div>
+    <div id="minigame-content"></div>
   </div>
 </div>
 
@@ -5598,6 +5611,66 @@ function closeMobileNav(){
   drawer.setAttribute('aria-hidden','true');
 }
 
+// ── MINI GAME: PENALTY SHOOTOUT ───────────────────────────────────────────────
+const MG={goals:0,shots:0,streak:0,best:0,busy:false};
+const MG_ZX=[18,50,82], MG_ZY=[30,72]; // zone centre %: cols L/C/R, rows top/bottom
+function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
+function mgSyncScore(){ mgSet('mg-goals',MG.goals); mgSet('mg-shots',MG.shots); mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
+function renderMiniGame(){
+  const c=document.getElementById('minigame-content'); if(!c) return;
+  if(c.dataset.built){ mgSyncScore(); return; }
+  c.dataset.built='1';
+  c.innerHTML=`
+    <div class="mg-wrap">
+      <div class="mg-scorebar">
+        <span>⚽ <b id="mg-goals">0</b>/<span id="mg-shots">0</span></span>
+        <span>🔥 <b id="mg-streak">0</b> streak</span>
+        <span>🏆 <b id="mg-best">0</b> best</span>
+      </div>
+      <div class="mg-pitch">
+        <div class="mg-goal">
+          ${[0,1,2,3,4,5].map(z=>`<button class="mg-zone" onclick="mgShoot(${z})" aria-label="Aim ${z}"></button>`).join('')}
+          <div class="mg-keeper" id="mg-keeper">🧤</div>
+          <div class="mg-ball" id="mg-ball">⚽</div>
+        </div>
+        <div class="mg-spot"></div>
+      </div>
+      <div class="mg-msg" id="mg-msg">Pick a corner to shoot 👆</div>
+      <button class="btn mg-reset" onclick="mgReset()">Reset</button>
+    </div>`;
+  mgSyncScore();
+}
+function mgReset(){ MG.goals=0;MG.shots=0;MG.streak=0;MG.best=0; mgSyncScore(); const m=document.getElementById('mg-msg'); if(m){m.textContent='Pick a corner to shoot 👆';m.className='mg-msg';} }
+function mgShoot(z){
+  if(MG.busy) return;
+  const ball=document.getElementById('mg-ball'), keeper=document.getElementById('mg-keeper'), msg=document.getElementById('mg-msg');
+  if(!ball||!keeper) return;
+  MG.busy=true;
+  const kz=Math.floor(Math.random()*6);
+  const col=z%3, row=(z/3)|0, kcol=kz%3, krow=(kz/3)|0;
+  ball.style.left=MG_ZX[col]+'%'; ball.style.top=MG_ZY[row]+'%';
+  keeper.style.left=MG_ZX[kcol]+'%'; keeper.style.top=MG_ZY[krow]+'%';
+  // Top corners beat the keeper more often but risk sailing over the bar.
+  const missed = row===0 && Math.random()<0.12;
+  const outcome = missed ? 'miss' : (z===kz ? 'save' : 'goal');
+  setTimeout(()=>{
+    MG.shots++;
+    if(outcome==='goal'){ MG.goals++; MG.streak++; if(MG.streak>MG.best)MG.best=MG.streak; }
+    else { MG.streak=0; }
+    mgSyncScore();
+    if(msg){
+      msg.textContent = outcome==='goal' ? 'GOAL! ⚽🥅' : outcome==='save' ? 'SAVED! 🧤' : 'OVER THE BAR! 😬';
+      msg.className = 'mg-msg '+(outcome==='goal'?'goal':'save');
+    }
+    setTimeout(()=>{
+      ball.style.left='50%'; ball.style.top='118%';
+      keeper.style.left='50%'; keeper.style.top='84%';
+      if(msg){msg.textContent='Pick a corner to shoot 👆';msg.className='mg-msg';}
+      MG.busy=false;
+    },1000);
+  },420);
+}
+
 function showTab(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab,.mobile-tab').forEach(t=>t.classList.remove('active'));
@@ -5614,6 +5687,7 @@ function showTab(id,el){
   if(id==='road')    renderRoadTab();
   if(id==='stats')   renderStatsTab();
   if(id==='fantasy') renderFantasyTab();
+  if(id==='minigame') renderMiniGame();
   // Re-render the list on open so reconciled scores show immediately — otherwise the
   // tab keeps whatever was painted before the async ESPN reconcile finished, and the
   // score only corrected once a card was interacted with (which forces a re-render).
