@@ -188,6 +188,14 @@
   [data-accent="purple"] .sm-btn.active {
     color:#fff;
   }
+  /* Purple theme: the active theme-toggle option is purple (not gold). */
+  [data-accent="purple"] .theme-toggle[data-mode="light"] .thm-opt[data-m="light"],
+  [data-accent="purple"] .theme-toggle[data-mode="dark"] .thm-opt[data-m="dark"],
+  [data-accent="purple"] .theme-toggle[data-mode="gold"] .thm-opt[data-m="gold"],
+  [data-accent="purple"] .theme-toggle[data-mode="purple"] .thm-opt[data-m="purple"] {
+    background:#A24BE0;
+    border-color:#A24BE0;
+  }
   /* Purple theme: buttons use a slightly darker purple than the (unchanged) text
      accent (--gold #C27AFF), so filled/active buttons read as a distinct shade. */
   [data-accent="purple"] .btn,
@@ -233,9 +241,7 @@
   .lbd-pts { font-family:'Bebas Neue',sans-serif; font-size:1rem; }
   .lb-row { display: grid; grid-template-columns: 2.5rem 1fr auto; align-items: center; gap: 1rem; padding: 0.9rem 1.2rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; transition: border-color 0.2s; }
   .lb-eliminated { opacity: 0.4; }
-  .lb-row.rank-1 { border-color: rgba(201,168,76,0.35); }
-  .lb-row.rank-2 { border-color: rgba(180,180,180,0.25); }
-  .lb-row.rank-3 { border-color: rgba(176,110,60,0.3); }
+  /* Top-three rows use the default row border (no gold/silver/bronze tint). */
   .rank-num { font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem; line-height: 1; color: var(--text); display:flex; flex-direction:column; align-items:center; justify-content:center; }
   .lb-name { font-weight: 500; font-size: 0.95rem; }
   .lb-meta { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
@@ -417,6 +423,7 @@
   @media (max-width:600px){ .kb-path-row { grid-template-columns:74px 1fr 84px; gap:0.4rem; } }
 
   .group-label { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.15em; text-transform: uppercase; color: var(--gold); margin: 2rem 0 0.75rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(201,168,76,0.2); }
+  [data-accent="purple"] .group-label { border-bottom-color: rgba(194,122,255,0.2); }
   #matches-sort-bar { display:none; }
   .sort-bar { display:flex; align-items:center; gap:8px; padding:12px 0; }
   .sort-btn { padding:0.45rem 0.95rem; border-radius:999px; border:1px solid var(--border); background:var(--surface); color:var(--muted); cursor:pointer; font-size:0.78rem; font-family:inherit; font-weight:700; transition:background .15s,color .15s,border-color .15s; }
