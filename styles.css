@@ -1020,31 +1020,36 @@
   background: rgba(154,45,239,0.08) !important;
 }
 
-/* Gold match-card overrides — keep next-up state gold in Gold theme */
+/* Gold match-card overrides — prominent gold "next up" treatment (mirrors the
+   purple theme's next-up prominence, but in gold). */
 [data-accent="gold"] .mc-nextup {
-  border-color: rgba(201,168,76,0.45) !important;
-  box-shadow: 0 0 16px rgba(201,168,76,0.12) !important;
+  border-color: rgba(201,168,76,0.9) !important;
+  box-shadow:
+    0 0 0 1px rgba(201,168,76,0.65),
+    0 0 30px rgba(201,168,76,0.3) !important;
 }
 
 [data-accent="gold"] .mc-nextup .mc-header {
-  background: rgba(201,168,76,0.12) !important;
-  border-bottom-color: rgba(201,168,76,0.3) !important;
+  background: rgba(201,168,76,0.24) !important;
+  border-bottom-color: rgba(201,168,76,0.65) !important;
 }
 
 [data-accent="gold"] .match-card.mc-nextup:hover,
 [data-accent="gold"] .match-card.mc-nextup:focus-within {
-  border-color: var(--gold) !important;
-  box-shadow: 0 0 22px rgba(201,168,76,0.22) !important;
+  border-color: #E8C96A !important;
+  box-shadow:
+    0 0 0 1px rgba(232,201,106,0.8),
+    0 0 36px rgba(201,168,76,0.42) !important;
 }
 
 [data-accent="gold"] .mc-pill-next {
-  background: rgba(201,168,76,0.2) !important;
-  color: var(--gold-light) !important;
+  background: rgba(201,168,76,0.9) !important;
+  color: #1a1409 !important;
 }
 
 [data-accent="gold"] .mc-nextup .match-detail {
-  border-top-color: rgba(201,168,76,0.3) !important;
-  background: rgba(201,168,76,0.04) !important;
+  border-top-color: rgba(201,168,76,0.65) !important;
+  background: rgba(201,168,76,0.08) !important;
 }
 
 /* Neutral score separator — keep dash white/text-colored in all themes */
