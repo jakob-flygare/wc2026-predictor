@@ -5648,7 +5648,7 @@ function mgShoot(z){
   MG.busy=true;
   const kz=Math.floor(Math.random()*3); // keeper dives left / centre / right
   ball.style.left=MG_ZX[z]+'%'; ball.style.top='46%';
-  keeper.style.left=MG_ZX[kz]+'%'; keeper.style.top='82%';
+  keeper.style.left=MG_ZX[kz]+'%';
   const outcome = z===kz ? 'save' : 'goal';
   setTimeout(()=>{
     MG.shots++;
@@ -5661,7 +5661,7 @@ function mgShoot(z){
     }
     setTimeout(()=>{
       ball.style.left='50%'; ball.style.top='150%';
-      keeper.style.left='50%'; keeper.style.top='90%';
+      keeper.style.left='50%';
       if(msg){msg.textContent='Shoot left, centre or right 👆';msg.className='mg-msg';}
       MG.busy=false;
     },1000);
