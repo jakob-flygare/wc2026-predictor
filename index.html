@@ -2155,6 +2155,24 @@ function calcPoints(player){
   return{pts,correct,total};
 }
 
+// Correct/total over finished knockout games (for the "x/x games correct" line).
+// A knockout game is "correct" if the player picked the advancing team for the
+// stage that game feeds into (the same bracket pick that scores points).
+function calcKnockoutGamesRecord(player){
+  const norm=t=>(t||'').toLowerCase().trim();
+  let correct=0,total=0;
+  buildKnockoutMatches().forEach(m=>{
+    if(!m.result)return;
+    const winner=koWinner(m); if(!winner)return;
+    const advanceKey=m.id<=88?'r16':m.id<=96?'qf':m.id<=100?'sf':m.id<=102?'final':m.id===103?'bronze':'winner';
+    const val=player.bracket?.[advanceKey];
+    const picks=Array.isArray(val)?val:(val?[val]:[]);
+    total++;
+    if(picks.some(t=>norm(t)===norm(winner)))correct++;
+  });
+  return{correct,total};
+}
+
 // ── ALTERNATIVE SCORING MODES ─────────────────────────────────────────────────
 let LB_SCORING_MODE='official'; // 'official' | 'copabet' | 'odds'
 let SHOW_PROJECTED_PTS=false; // toggle the "◈ projected" line on the leaderboard
@@ -2388,16 +2406,19 @@ function calcMatchDeltaByMode(player){
 }
 
 function calcScoreByMode(player,goalsWinners){
+  // Games-correct count spans group + finished knockout games (bracket points are
+  // already in bp.total; kg only affects the "x/x games correct" tally, not points).
+  const kg=calcKnockoutGamesRecord(player);
   if(LB_SCORING_MODE==='copabet'){
     const gp=calcCopabetGroupPoints(player),bp=calcCopabetBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
-    return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total,_bp:bp};
+    return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct+kg.correct,total:gp.total+kg.total,_bp:bp};
   }
   if(LB_SCORING_MODE==='odds'){
     const gp=calcOddsGroupPoints(player),bp=calcBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
-    return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total,_bp:bp};
+    return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct+kg.correct,total:gp.total+kg.total,_bp:bp};
   }
   const gp=calcPoints(player),bp=calcBracketPoints(player),sp=calcSpecialPoints(player,goalsWinners);
-  return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct,total:gp.total,_bp:bp};
+  return{groupPts:gp.pts,bracketPts:bp.total,specialPts:sp,pts:gp.pts+bp.total+sp,correct:gp.correct+kg.correct,total:gp.total+kg.total,_bp:bp};
 }
 
 function setLbMode(mode,btn){
@@ -2433,7 +2454,10 @@ function toggleLbBreakdown(name,e){
 
 function renderPlayerBreakdown(player, goalsWinners, badge){
   const score=calcScoreByMode(player,goalsWinners);
-  const gp={pts:score.groupPts,correct:score.correct,total:score.total};
+  // Group-stage section shows group-only games; the leaderboard's combined "x/x
+  // games correct" (score.correct/total) includes knockout games separately.
+  const grpRec=calcPoints(player);
+  const gp={pts:score.groupPts,correct:grpRec.correct,total:grpRec.total};
   const bp=score._bp;
   const ko=STATE.knockout||{};
   const sp=STATE.special||{};
