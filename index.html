@@ -332,11 +332,15 @@ function loadLiveCache(storage,key){
 function saveLiveCache(storage,key,data){
   try{ storage.setItem(key,JSON.stringify({v:2,savedAt:Date.now(),data})); }catch(e){}
 }
+// All reconcile caches use localStorage so corrected knockout scores/results
+// render synchronously on the very first paint after any reload — sessionStorage
+// doesn't survive new tabs, tab discards, or a fresh visit, which left the wrong
+// (misfiled) Firebase scores showing until the async ESPN fetch returned.
 Object.assign(LIVE_SCORES, loadLiveCache(localStorage,'wc2026_live_scores'));
-Object.assign(LIVE_EVENTS, loadLiveCache(sessionStorage,'wc2026_live_events'));
-Object.assign(LIVE_RESULTS, loadLiveCache(sessionStorage,'wc2026_live_results'));
-Object.assign(LIVE_PENALTIES, loadLiveCache(sessionStorage,'wc2026_live_penalties'));
-Object.assign(LIVE_FINISH_LABELS, loadLiveCache(sessionStorage,'wc2026_live_finish_labels'));
+Object.assign(LIVE_EVENTS, loadLiveCache(localStorage,'wc2026_live_events'));
+Object.assign(LIVE_RESULTS, loadLiveCache(localStorage,'wc2026_live_results'));
+Object.assign(LIVE_PENALTIES, loadLiveCache(localStorage,'wc2026_live_penalties'));
+Object.assign(LIVE_FINISH_LABELS, loadLiveCache(localStorage,'wc2026_live_finish_labels'));
 const ESPN_TEAM_MAP = {'United States':'USA','Korea Republic':'South Korea','Czech Republic':'Czechia','Turkey':'Türkiye','Bosnia and Herzegovina':'Bosnia-Herzegovina','Congo DR':'DR Congo','Democratic Republic of Congo':'DR Congo',"Cote d'Ivoire":'Ivory Coast',"Côte d'Ivoire":'Ivory Coast','Curacao':'Curaçao'};
 const espnNorm = n => ESPN_TEAM_MAP[n] || n;
 // Game clock label for the LIVE pill, e.g. "'16", "PAUS", "'90+2".
@@ -569,7 +573,7 @@ async function loadLineupForMatch(id){
     if(subs.length){
       LIVE_EVENTS[m.id]={scorers:m.scorers||[],cards:m.cards||[],...(LIVE_EVENTS[m.id]||{}),subs};
       m.subs=subs;
-      try { sessionStorage.setItem('wc2026_live_events', JSON.stringify(LIVE_EVENTS)); } catch(e){}
+      saveLiveCache(localStorage,'wc2026_live_events',LIVE_EVENTS);
     }
 
     renderMatches();
@@ -753,10 +757,10 @@ async function pollLiveScores(forceMeta=false){
   }
   if (changed){
     saveLiveCache(localStorage,'wc2026_live_scores',LIVE_SCORES);
-    saveLiveCache(sessionStorage,'wc2026_live_events',LIVE_EVENTS);
-    saveLiveCache(sessionStorage,'wc2026_live_results',LIVE_RESULTS);
-    saveLiveCache(sessionStorage,'wc2026_live_penalties',LIVE_PENALTIES);
-    saveLiveCache(sessionStorage,'wc2026_live_finish_labels',LIVE_FINISH_LABELS);
+    saveLiveCache(localStorage,'wc2026_live_events',LIVE_EVENTS);
+    saveLiveCache(localStorage,'wc2026_live_results',LIVE_RESULTS);
+    saveLiveCache(localStorage,'wc2026_live_penalties',LIVE_PENALTIES);
+    saveLiveCache(localStorage,'wc2026_live_finish_labels',LIVE_FINISH_LABELS);
     renderLiveRail();
     if(document.getElementById('matches')?.classList.contains('active')) renderMatches();
     if(document.getElementById('special')?.classList.contains('active')) renderSpecial();
