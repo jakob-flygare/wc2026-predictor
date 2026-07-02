@@ -637,20 +637,22 @@ function groupMatchByTeams(apiHome,apiAway){
   })||null;
 }
 function espnKnockoutEventMap(events){
-  const counts={},map={};
-  (events||[]).filter(ev=>{
+  // Map each completed ESPN knockout event to our match number by TEAM PAIRING,
+  // never by date/order. The bracket (buildKnockoutMatches) already resolves the
+  // correct two teams per match number, so matching on teams is unambiguous — a
+  // date-order mapping mis-assigns games that share a date (this is exactly what
+  // scrambled the stored Firebase knockout results). Groups are matched elsewhere.
+  const map={};
+  const ko=buildKnockoutMatches().filter(m=>m.knockout);
+  (events||[]).forEach(ev=>{
     const comp=ev.competitions?.[0],st=comp?.status?.type;
     const hc=comp?.competitors?.find(c=>c.homeAway==='home'),ac=comp?.competitors?.find(c=>c.homeAway==='away');
-    if(!(st?.completed===true||st?.state==='post')||!hc||!ac)return false;
+    if(!(st?.completed===true||st?.state==='post'||st?.state==='in')||!hc||!ac)return;
     const apiHome=espnNorm(hc.team?.displayName||''),apiAway=espnNorm(ac.team?.displayName||'');
-    return !groupMatchByTeams(apiHome,apiAway);
-  }).sort((a,b)=>String(a.date||'').localeCompare(String(b.date||''))||String(a.id||'').localeCompare(String(b.id||'')))
-    .forEach(ev=>{
-      const stage=espnKnockoutStage(ev.date?ev.date.slice(0,10):''),ids=ESPN_KO_IDS[stage]||[];
-      const idx=counts[stage]||0;
-      if(ids[idx])map[String(ev.id)]=ids[idx];
-      counts[stage]=idx+1;
-    });
+    if(groupMatchByTeams(apiHome,apiAway))return; // handled as a group match
+    const m=ko.find(x=>{const xh=shortName(x.home),xa=shortName(x.away);return (xh===apiHome&&xa===apiAway)||(xh===apiAway&&xa===apiHome);});
+    if(m)map[String(ev.id)]=m.id;
+  });
   return map;
 }
 
@@ -678,6 +680,11 @@ async function pollLiveScores(forceMeta=false){
   let changed = false;
   const allMatches=getAllMatches();
   const koEventMap=espnKnockoutEventMap(data.events||[]);
+  // Admin sessions heal the stored (misfiled) Firebase knockout data back to the
+  // correct match number, so once an admin loads the page the source data is fixed
+  // permanently and every visitor gets a correct first paint with no reconcile.
+  const canHeal = !!db && !isPreviewMode() && sessionStorage.getItem('wc2026_admin_ok')==='1';
+  const fbHeal = {};
   for (const ev of (data.events || [])){
     const comp = ev.competitions?.[0];
     const apiState=comp?.status?.type?.state;
@@ -754,6 +761,29 @@ async function pollLiveScores(forceMeta=false){
     m.scorers = newEvents.scorers.length ? newEvents.scorers : null;
     m.cards   = newEvents.cards.length   ? newEvents.cards   : null;
     m.subs    = newEvents.subs.length    ? newEvents.subs    : null;
+
+    // Heal misfiled Firebase data: write the team-matched ESPN result to the
+    // correct slot when it disagrees with what's stored. Diff-gated, so it stops
+    // once the stored data is correct.
+    if(canHeal && m.knockout && apiState==='post' && LIVE_SCORES[m.id] && LIVE_RESULTS[m.id]){
+      const espnScore=LIVE_SCORES[m.id], espnResult=LIVE_RESULTS[m.id];
+      const curScore=(STATE.scores||{})[m.id], curResult=(STATE.results||{})[m.id];
+      const curScorers=(STATE.scorers||{})[m.id]?Object.values((STATE.scorers||{})[m.id]):[];
+      const scoreDiff=!curScore||curScore.home!==espnScore.home||curScore.away!==espnScore.away;
+      const resultDiff=curResult!==espnResult;
+      const scorersDiff=JSON.stringify(curScorers)!==JSON.stringify(newEvents.scorers||[]);
+      if(scoreDiff||resultDiff||scorersDiff){
+        fbHeal[`scores/${m.id}`]=espnScore;
+        fbHeal[`results/${m.id}`]=espnResult;
+        // Only rewrite scorers/cards when ESPN actually returned them, so a transient
+        // empty feed can't blank legitimately-stored goals.
+        if(newEvents.scorers?.length) fbHeal[`scorers/${m.id}`]=newEvents.scorers;
+        if(newEvents.cards?.length)   fbHeal[`cards/${m.id}`]=newEvents.cards;
+      }
+    }
+  }
+  if(canHeal && Object.keys(fbHeal).length){
+    try{ db.ref('wc2026').update(fbHeal); }catch(e){ console.warn('Firebase heal failed',e); }
   }
   if (changed){
     saveLiveCache(localStorage,'wc2026_live_scores',LIVE_SCORES);
