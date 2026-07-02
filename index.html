@@ -4169,19 +4169,140 @@ function trophyPctLabel(team,standings,str){
   return `${(trophyLikelihood(team,standings,str)*100).toFixed(1)}%`;
 }
 // ── ROAD TO THE CUP TAB (most-likely path for a chosen team) ──────────────────
+function roadTeamKey(team){ return (team||'').toLowerCase().trim(); }
+function roadPlayoffLosers(){
+  const out=new Set();
+  buildKnockoutMatches().forEach(m=>{ const loser=koLoser(m); if(loser) out.add(roadTeamKey(loser)); });
+  return out;
+}
+function roadTeamEliminated(team,standings,losers=roadPlayoffLosers()){
+  if(!team||team==='TBD')return true;
+  return isEliminated(team,standings)||losers.has(roadTeamKey(team));
+}
+function roadAliveTeams(standings){
+  const teams=new Set(),losers=roadPlayoffLosers();
+  buildKnockoutMatches().forEach(m=>{
+    [shortName(m.home),shortName(m.away)].forEach(t=>{
+      if(t&&t!=='TBD'&&!roadTeamEliminated(t,standings,losers))teams.add(t);
+    });
+  });
+  return [...teams].sort();
+}
+function roadMatchSide(m,team){
+  if(!m)return null;
+  if(shortName(m.home)===team)return 'home';
+  if(shortName(m.away)===team)return 'away';
+  return null;
+}
+function roadOpponent(m,team){
+  const side=roadMatchSide(m,team);
+  if(side==='home')return shortName(m.away);
+  if(side==='away')return shortName(m.home);
+  return null;
+}
+function roadWinProb(team,opp,str,match=null){
+  if(!opp||opp==='TBD')return 0.99;
+  const side=roadMatchSide(match,team);
+  if(match?.odds&&side==='home')return match.odds.home||0;
+  if(match?.odds&&side==='away')return match.odds.away||0;
+  const sT=str[team]||0.4,sO=str[opp]||0.4;
+  return sT/(sT+sO);
+}
+function roadPredictedWinner(m,str){
+  if(!m)return null;
+  const winner=koWinner(m);
+  if(winner)return winner;
+  const h=shortName(m.home),a=shortName(m.away);
+  if(h==='TBD'&&a==='TBD')return null;
+  if(h==='TBD')return a;
+  if(a==='TBD')return h;
+  return pickStronger(h,a,str);
+}
+function roadRemainingPath(team,str){
+  const byId=Object.fromEntries(buildKnockoutMatches().map(m=>[m.id,m]));
+  const rounds=[
+    {label:'Round of 32',base:73,count:16,next:'r16'},
+    {label:'Round of 16',base:89,count:8,next:'qf'},
+    {label:'Quarter-final',base:97,count:4,next:'sf'},
+    {label:'Semi-final',base:101,count:2,next:'final'},
+    {label:'Final',base:104,count:1,next:null},
+  ];
+  const stageMatches=rounds.map(r=>Array.from({length:r.count},(_,i)=>byId[r.base+i]));
+  const r32Pred=i=>roadPredictedWinner(stageMatches[0][i],str);
+  const r16Pred=i=>{
+    const winner=koWinner(stageMatches[1][i]); if(winner)return winner;
+    const feed=R16_FEED[i]||[];
+    return pickStronger(r32Pred(feed[0]),r32Pred(feed[1]),str);
+  };
+  const qfPred=i=>{
+    const winner=koWinner(stageMatches[2][i]); if(winner)return winner;
+    const feed=QF_FEED[i]||[];
+    return pickStronger(r16Pred(feed[0]),r16Pred(feed[1]),str);
+  };
+  const sfPred=i=>{
+    const winner=koWinner(stageMatches[3][i]); if(winner)return winner;
+    const feed=SF_FEED[i]||[];
+    return pickStronger(qfPred(feed[0]),qfPred(feed[1]),str);
+  };
+  let stageIdx=-1,matchIdx=-1;
+  stageMatches.some((matches,si)=>{
+    const idx=matches.findIndex(m=>roadMatchSide(m,team)&&!m.result);
+    if(idx>=0){stageIdx=si;matchIdx=idx;return true;}
+    return false;
+  });
+  const final=byId[104];
+  if(stageIdx<0){
+    if(final?.result&&koWinner(final)===team)return {champion:true,rows:[],trophyPct:1};
+    return null;
+  }
+  const rows=[];
+  let cum=1;
+  const addRow=(label,opp,match=null)=>{
+    const p=roadWinProb(team,opp,str,match);
+    cum*=p;
+    rows.push({label,opp,p});
+  };
+  addRow(rounds[stageIdx].label,roadOpponent(stageMatches[stageIdx][matchIdx],team),stageMatches[stageIdx][matchIdx]);
+  if(stageIdx<=0){
+    const r16i=R16_FEED.findIndex(f=>f.includes(matchIdx));
+    const sibR32=R16_FEED[r16i]?.find(x=>x!==matchIdx);
+    addRow('Round of 16',r32Pred(sibR32),stageMatches[1][r16i]);
+    matchIdx=r16i; stageIdx=1;
+  }
+  if(stageIdx<=1){
+    const qfi=QF_FEED.findIndex(f=>f.includes(matchIdx));
+    const sibR16=QF_FEED[qfi]?.find(x=>x!==matchIdx);
+    addRow('Quarter-final',r16Pred(sibR16),stageMatches[2][qfi]);
+    matchIdx=qfi; stageIdx=2;
+  }
+  if(stageIdx<=2){
+    const sfi=SF_FEED.findIndex(f=>f.includes(matchIdx));
+    const sibQf=SF_FEED[sfi]?.find(x=>x!==matchIdx);
+    addRow('Semi-final',qfPred(sibQf),stageMatches[3][sfi]);
+    matchIdx=sfi; stageIdx=3;
+  }
+  if(stageIdx<=3){
+    const otherSf=FINAL_FEED.find(x=>x!==matchIdx);
+    addRow('Final',sfPred(otherSf),stageMatches[4][0]);
+  }
+  return {champion:false,rows,trophyPct:cum};
+}
 function renderRoadTab(){
   const cont=document.getElementById('road-content'); if(!cont)return;
   const official=STATE.standings&&Object.keys(STATE.standings).length>0;
   const standings=official?STATE.standings:computeActualStandings();
   const str=computeStrengths();
-  const teams=[...new Set(STATE.matches.flatMap(m=>[shortName(m.home),shortName(m.away)]))].sort();
-  const opts=['<option value="">— pick a team —</option>'].concat(teams.map(t=>{
-    const e=isEliminated(t,standings);
-    return `<option value="${t.replace(/"/g,'&quot;')}"${e?' disabled':''}${t===pathTeam?' selected':''}>${t} (${trophyPctLabel(t,standings,str)})${e?' — eliminated':''}</option>`;
+  const teamPaths=roadAliveTeams(standings).map(team=>({team,path:roadRemainingPath(team,str)}))
+    .sort((a,b)=>((b.path?.trophyPct||0)-(a.path?.trophyPct||0))||a.team.localeCompare(b.team));
+  const teams=teamPaths.map(x=>x.team);
+  if(pathTeam&&!teams.includes(pathTeam))pathTeam='';
+  const opts=['<option value="">— pick a team —</option>'].concat(teamPaths.map(({team:t,path})=>{
+    const pct=path?`${(path.trophyPct*100).toFixed(1)}%`:'0.0%';
+    return `<option value="${t.replace(/"/g,'&quot;')}"${t===pathTeam?' selected':''}>${t} (${pct})</option>`;
   })).join('');
   const picker=`<div class="kb-path-picker"><span class="kb-path-label">Pick a team</span><select class="kb-path-select" onchange="setPathTeam(this.value)">${opts}</select></div>`;
   const body=pathTeam ? renderTeamPath(pathTeam,standings,str)
-    : '<div class="kb-path-none" style="margin-top:0.25rem">Select a team above to see its projected route to the final — most likely opponents and win probability at every round.</div>';
+    : '<div class="kb-path-none" style="margin-top:0.25rem">Select a team above to see its current route to the trophy — based on the live playoff bracket, with likely future opponents and win probability at every remaining round.</div>';
   cont.innerHTML=picker+body;
   applyFlags('road-content');
 }
@@ -4268,39 +4389,12 @@ function slotTeam(slot,standings,str){
 }
 function renderTeamPath(team,standings,str){
   if(!teamGroupOf(team)) return '';
-  if(isEliminated(team,standings)) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Eliminated — no longer able to reach the knockout stage.</div></div>`;
-  // Use the actual playoff bracket: resolve every R32 match's two teams.
-  const best3rd=getBest3rdPlace(standings);
-  const allComplete=Object.keys(standings).length>=12&&Object.values(standings).every(kbGroupComplete);
-  const b3map=allComplete?assignLiveThirds(standings,best3rd):null;
-  const r32=R32_BRACKET.map(m=>({
-    home:resolveBracketSlot(m.home,standings,best3rd,allComplete,b3map).team,
-    away:resolveBracketSlot(m.away,standings,best3rd,allComplete,b3map).team }));
-  // Locate the selected team in the bracket; its opponent is the other side.
-  let ti=-1, opp=null;
-  r32.forEach((x,i)=>{ if(x.home===team){ti=i;opp=x.away;} else if(x.away===team){ti=i;opp=x.home;} });
-  if(ti<0) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Projected outside the Round of 32 on current standings.</div></div>`;
-  // Most-likely survivor of any subtree, from the bracket's resolved R32 teams.
-  const r32W=i=>pickStronger(r32[i].home,r32[i].away,str);
-  const r16W=i=>pickStronger(r32W(R16_FEED[i][0]),r32W(R16_FEED[i][1]),str);
-  const qfW =i=>pickStronger(r16W(QF_FEED[i][0]),r16W(QF_FEED[i][1]),str);
-  const sfW =i=>pickStronger(qfW(SF_FEED[i][0]),qfW(SF_FEED[i][1]),str);
-  const r16i=R16_FEED.findIndex(f=>f.includes(ti)), sibR32=R16_FEED[r16i].find(x=>x!==ti);
-  const qfi =QF_FEED.findIndex(f=>f.includes(r16i)), sibR16=QF_FEED[qfi].find(x=>x!==r16i);
-  const sfi =SF_FEED.findIndex(f=>f.includes(qfi)), sibQf=SF_FEED[sfi].find(x=>x!==qfi);
-  const otherSf=FINAL_FEED.find(x=>x!==sfi);
-  const rounds=[
-    {label:'Round of 32',  opp},
-    {label:'Round of 16',  opp:r32W(sibR32)},
-    {label:'Quarter-final',opp:r16W(sibR16)},
-    {label:'Semi-final',   opp:qfW(sibQf)},
-    {label:'Final',        opp:sfW(otherSf)},
-  ];
-  const sT=str[team]||0.4; let cum=1;
-  const rowsHtml=rounds.map(r=>{
-    const sO=r.opp?(str[r.opp]||0.4):0;
-    const p=r.opp? sT/(sT+sO) : 0.99; cum*=p;
-    const pct=Math.round(p*100);
+  if(roadTeamEliminated(team,standings)) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Eliminated — no longer able to lift the trophy.</div></div>`;
+  const path=roadRemainingPath(team,str);
+  if(!path) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)}</div><div class="kb-path-none">Not currently placed in the playoff bracket.</div></div>`;
+  if(path.champion) return `<div class="kb-path"><div class="kb-path-head">${withFlag(team)} — champions <span class="kb-path-win">100.0% to lift the trophy</span></div></div>`;
+  const rowsHtml=path.rows.map(r=>{
+    const pct=Math.round(r.p*100);
     return `<div class="kb-path-row">
       <div class="kb-path-round">${r.label}</div>
       <div class="kb-path-opp">${r.opp?'vs '+withFlag(r.opp):'<span class="kb-tbd-txt">TBD</span>'}</div>
@@ -4308,7 +4402,7 @@ function renderTeamPath(team,standings,str){
     </div>`;
   }).join('');
   return `<div class="kb-path">
-    <div class="kb-path-head">${withFlag(team)} — projected run <span class="kb-path-win">${trophyPctLabel(team,standings,str)} to lift the trophy</span></div>
+    <div class="kb-path-head">${withFlag(team)} — current route <span class="kb-path-win">${(path.trophyPct*100).toFixed(1)}% to lift the trophy</span></div>
     ${rowsHtml}
   </div>`;
 }
