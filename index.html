@@ -5723,7 +5723,7 @@ function mgPlayerChooser(){
         <div class="mg-player-title">Choose player</div>
         <div class="mg-player-grid">
           ${names.map(name=>`<button class="mg-player-btn" onclick="mgChoosePlayer('${name.replace(/'/g,"\\'")}')">
-            <span>${name}</span><small>High score: ${mgPlayerBest(name)}</small>
+            <span>${name}</span>
           </button>`).join('')}
         </div>
       </div>

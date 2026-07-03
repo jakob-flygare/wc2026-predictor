@@ -1088,7 +1088,7 @@
 .mg-player-panel { gap:clamp(0.5rem,1.2vw,0.9rem); justify-content:center; min-height:72%; max-height:92%; overflow:visible; }
 .mg-player-title { color:#fff; font-family:'Bebas Neue',sans-serif; font-size:clamp(1.25rem,3.2vw,2.2rem); letter-spacing:0.06em; text-transform:uppercase; text-shadow:0 2px 5px rgba(0,0,0,0.75); flex-shrink:0; }
 .mg-player-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0.36rem; width:100%; max-width:600px; }
-.mg-player-btn { border:1px solid rgba(255,255,255,0.12); border-radius:9px; background:rgba(255,255,255,0.08); color:#fff; padding:0.34rem 0.5rem; cursor:pointer; font-family:'DM Sans',sans-serif; text-align:left; transition:background .15s,border-color .15s,transform .15s; }
+.mg-player-btn { display:flex; align-items:center; justify-content:center; min-height:2.4rem; border:1px solid rgba(255,255,255,0.12); border-radius:9px; background:rgba(255,255,255,0.08); color:#fff; padding:0.34rem 0.5rem; cursor:pointer; font-family:'DM Sans',sans-serif; text-align:center; transition:background .15s,border-color .15s,transform .15s; }
 .mg-player-btn:hover { transform:translateY(-1px); background:rgba(201,168,76,0.18); border-color:var(--gold); }
 [data-accent="purple"] .mg-player-btn:hover { background:rgba(194,122,255,0.18); border-color:#C27AFF; }
 .mg-player-btn span { display:block; font-weight:800; font-size:0.78rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
