@@ -6179,71 +6179,121 @@ function ltMatchRow(m,me){
 }
 
 // ── Picker modal ──────────────────────────────────────────────────────────────
+const LT_POS_BUCKETS=[['GK',['G','GK']],['DEF',['D','DEF','CB','LB','RB','WB']],['MID',['M','MID','CM','DM','AM','LM','RM']],['FWD',['F','FWD','ST','CF','LW','RW','W']]];
+function ltBucketOf(pos){ const p=(pos||'').toUpperCase(); for(const [b,keys] of LT_POS_BUCKETS){ if(keys.includes(p)) return b; } return 'FWD'; }
+// Parse a formation string into pitch lines back→front (GK first).
+function ltFormationLines(formation){
+  const d=(formation||'').split('-').map(n=>parseInt(n,10)).filter(n=>n>0);
+  const lines=[{bucket:'GK',count:1}];
+  d.forEach((c,i)=>lines.push({bucket:i===0?'DEF':(i===d.length-1?'FWD':'MID'),count:c}));
+  return lines;
+}
+// Build the slot array for a formation, preserving prior picks by position line.
+function ltBuildSlots(formation, prevSlots){
+  const lines=ltFormationLines(formation);
+  const prevByBucket={};
+  (prevSlots||[]).forEach(s=>{ if(s.id){ (prevByBucket[s.bucket]=prevByBucket[s.bucket]||[]).push(s.id); } });
+  const slots=[];
+  lines.forEach((ln,li)=>{ for(let i=0;i<ln.count;i++){ const pool=prevByBucket[ln.bucket]||[]; slots.push({bucket:ln.bucket,line:li,idxInLine:i,lineCount:ln.count,id:pool.length?pool.shift():null}); } });
+  return {lines,slots};
+}
+function ltCurMatch(){ return ltMatches().find(x=>x.id===(LT_UI&&LT_UI.matchId)); }
+function ltRosterPlayer(id){ return (LT_UI.roster||[]).find(x=>String(x.id)===String(id)); }
+function ltRosterBucket(id){ const p=ltRosterPlayer(id); return p?ltBucketOf(p.pos):null; }
+function ltPlayerName(id){ const p=ltRosterPlayer(id); return p?p.name:''; }
+function ltSurname(name){ const parts=(name||'').trim().split(/\s+/); return parts.length>1?parts[parts.length-1]:name; }
+function ltAssignPrefill(ids){
+  (ids||[]).forEach(id=>{ id=String(id); const b=ltRosterBucket(id); let s=LT_UI.slots.find(x=>!x.id&&x.bucket===b)||LT_UI.slots.find(x=>!x.id); if(s) s.id=id; });
+}
 async function ltOpenPicker(matchId){
   const m=ltMatches().find(x=>x.id===matchId); if(!m) return;
-  const me=ltMe();
-  if(!me){ alert('Choose your name first (top of the page).'); return; }
+  const me=ltMe(); if(!me){ alert('Choose your name first (top of the page).'); return; }
   const existing=ltMyPrediction(matchId);
-  const side=existing?existing.side:'home';
-  LT_UI={ matchId, side, formation:existing?existing.formation:'4-3-3', ids:new Set((existing?existing.xi:[]).map(p=>String(p.id))), roster:[], team:null, teamId:null };
-  ltRenderPicker(m, true); // show loading
+  const formation=existing?existing.formation:'4-3-3';
+  const built=ltBuildSlots(formation,null);
+  LT_UI={ matchId, side:existing?existing.side:'home', formation, lines:built.lines, slots:built.slots, roster:[], team:null, teamId:null, activeSlot:null, prefill:(existing?existing.xi:[]).map(p=>String(p.id)) };
+  ltRenderPicker(m,true);
   await ltLoadPickerRoster(m);
-  ltRenderPicker(m, false);
+  ltAssignPrefill(LT_UI.prefill); LT_UI.prefill=null;
+  ltRenderPicker(m,false);
 }
 async function ltLoadPickerRoster(m){
-  await ltEnsureTeamIds();
+  ltEnsureTeamIds();
   const teamName=LT_UI.side==='home'?shortName(m.home):shortName(m.away);
   const teamId=(LT_TEAM_IDS||{})[teamName]||null;
   LT_UI.team=teamName; LT_UI.teamId=teamId;
   LT_UI.roster= teamId? await ltFetchRoster(teamId) : [];
 }
-async function ltSwitchSide(m_id,side){
-  const m=ltMatches().find(x=>x.id===m_id); if(!m||LT_UI.side===side) return;
-  LT_UI.side=side; LT_UI.ids=new Set(); // reset selection when switching team
-  const existing=ltMyPrediction(m_id);
-  if(existing&&existing.side===side) LT_UI.ids=new Set((existing.xi||[]).map(p=>String(p.id)));
-  ltRenderPicker(m,true); await ltLoadPickerRoster(m); ltRenderPicker(m,false);
+async function ltSwitchSide(mid,side){
+  const m=ltMatches().find(x=>x.id===mid); if(!m||LT_UI.side===side) return;
+  LT_UI.side=side; LT_UI.activeSlot=null;
+  const built=ltBuildSlots(LT_UI.formation,null); LT_UI.lines=built.lines; LT_UI.slots=built.slots;
+  const existing=ltMyPrediction(mid);
+  const prefill=(existing&&existing.side===side)?(existing.xi||[]).map(p=>String(p.id)):[];
+  ltRenderPicker(m,true); await ltLoadPickerRoster(m); ltAssignPrefill(prefill); ltRenderPicker(m,false);
 }
-function ltTogglePlayer(id){
-  id=String(id);
-  if(LT_UI.ids.has(id)) LT_UI.ids.delete(id);
-  else { if(LT_UI.ids.size>=11) return; LT_UI.ids.add(id); }
-  const m=ltMatches().find(x=>x.id===LT_UI.matchId); ltRenderPicker(m,false);
+function ltSetFormation(f){
+  const built=ltBuildSlots(f,LT_UI.slots);
+  LT_UI.formation=f; LT_UI.lines=built.lines; LT_UI.slots=built.slots; LT_UI.activeSlot=null;
+  ltRenderPicker(ltCurMatch(),false);
 }
-function ltSetFormation(f){ LT_UI.formation=f; const m=ltMatches().find(x=>x.id===LT_UI.matchId); ltRenderPicker(m,false); }
-const LT_POS_BUCKETS=[['GK',['G','GK']],['DEF',['D','DEF','CB','LB','RB','WB']],['MID',['M','MID','CM','DM','AM','LM','RM']],['FWD',['F','FWD','ST','CF','LW','RW','W']]];
-function ltBucketOf(pos){ const p=(pos||'').toUpperCase(); for(const [b,keys] of LT_POS_BUCKETS){ if(keys.includes(p)) return b; } return 'FWD'; }
+function ltTapSlot(i){
+  const m=ltCurMatch(); if(ltStatus(m)!=='open') return;
+  LT_UI.activeSlot=(LT_UI.activeSlot===i)?null:i;
+  ltRenderPicker(m,false);
+}
+function ltClearSlot(i,ev){ if(ev)ev.stopPropagation(); LT_UI.slots[i].id=null; if(LT_UI.activeSlot===i)LT_UI.activeSlot=null; ltRenderPicker(ltCurMatch(),false); }
+function ltAssignPlayer(id){
+  if(LT_UI.activeSlot==null) return; id=String(id);
+  LT_UI.slots.forEach(s=>{ if(s.id===id) s.id=null; });
+  LT_UI.slots[LT_UI.activeSlot].id=id; LT_UI.activeSlot=null;
+  ltRenderPicker(ltCurMatch(),false);
+}
 function ltRenderPicker(m, loading){
   const host=document.getElementById('lineups-modal'); if(!host||!LT_UI||LT_UI.matchId!==m.id) return;
   const readOnly=ltStatus(m)!=='open';
   const hn=shortName(m.home), an=shortName(m.away);
   const teamNm=LT_UI.team||(LT_UI.side==='home'?hn:an);
-  const count=LT_UI.ids.size;
+  const filled=LT_UI.slots.filter(s=>s.id).length;
   const sideBtns=`<div class="lt-side-toggle">
     <button class="lt-side${LT_UI.side==='home'?' active':''}" ${readOnly?'disabled':''} onclick="ltSwitchSide(${m.id},'home')">${flagOf(m.home)} ${mgEsc(hn)}</button>
     <button class="lt-side${LT_UI.side==='away'?' active':''}" ${readOnly?'disabled':''} onclick="ltSwitchSide(${m.id},'away')">${flagOf(m.away)} ${mgEsc(an)}</button>
   </div>`;
-  const formSel=`<div class="lt-form-row"><label>Formation</label><select class="lt-form-select" ${readOnly?'disabled':''} onchange="ltSetFormation(this.value)">${LT_FORMATIONS.map(f=>`<option${f===LT_UI.formation?' selected':''}>${f}</option>`).join('')}</select></div>`;
+  const formSel=`<div class="lt-form-row"><label>Formation</label><select class="lt-form-select" ${readOnly?'disabled':''} onchange="ltSetFormation(this.value)">${LT_FORMATIONS.map(f=>`<option${f===LT_UI.formation?' selected':''}>${f}</option>`).join('')}</select><span class="lt-count">${filled}/11</span></div>`;
   let body;
   if(loading) body=`<div class="lt-loading">Loading ${mgEsc(teamNm)} squad…</div>`;
   else if(!LT_UI.roster.length) body=`<div class="lt-loading">Squad not available for ${mgEsc(teamNm)} yet.</div>`;
   else {
-    const groups=LT_POS_BUCKETS.map(([b])=>{
-      const players=LT_UI.roster.filter(p=>ltBucketOf(p.pos)===b);
-      if(!players.length) return '';
-      return `<div class="lt-pos-group"><div class="lt-pos-label">${b}</div><div class="lt-pos-players">${players.map(p=>{
-        const sel=LT_UI.ids.has(String(p.id));
-        return `<button class="lt-player${sel?' sel':''}" ${readOnly?'disabled':''} onclick="ltTogglePlayer('${p.id}')">${mgEsc(p.name)}</button>`;
-      }).join('')}</div></div>`;
+    const nLines=LT_UI.lines.length;
+    const slotHtml=LT_UI.slots.map((s,i)=>{
+      const y = nLines>1 ? (89 - s.line*(78/(nLines-1))) : 50;
+      const x = (s.idxInLine+1)/(s.lineCount+1)*100;
+      const active=LT_UI.activeSlot===i;
+      const label = s.id ? ltSurname(ltPlayerName(s.id)) : s.bucket;
+      const clearBtn = (s.id && !readOnly) ? `<span class="lt-slot-x" onclick="ltClearSlot(${i},event)">×</span>` : '';
+      return `<button class="lt-slot ${s.id?'filled':'empty'}${active?' active':''}" style="left:${x}%;top:${y}%" ${readOnly?'disabled':''} onclick="ltTapSlot(${i})"><span class="lt-slot-label">${mgEsc(label)}</span>${clearBtn}</button>`;
     }).join('');
-    body=`<div class="lt-roster">${groups}</div>`;
+    let panel='';
+    if(LT_UI.activeSlot!=null && !readOnly && LT_UI.slots[LT_UI.activeSlot]){
+      const slot=LT_UI.slots[LT_UI.activeSlot];
+      const assigned=new Set(LT_UI.slots.map(s=>s.id).filter(Boolean));
+      const avail=LT_UI.roster.filter(p=>!assigned.has(String(p.id)));
+      const match=avail.filter(p=>ltBucketOf(p.pos)===slot.bucket);
+      const others=avail.filter(p=>ltBucketOf(p.pos)!==slot.bucket);
+      const chip=p=>`<button class="lt-pp-player" onclick="ltAssignPlayer('${p.id}')">${mgEsc(p.name)}</button>`;
+      panel=`<div class="lt-pp"><div class="lt-pp-title">Pick a ${slot.bucket}</div>
+        <div class="lt-pp-list">${match.map(chip).join('')||`<span class="lt-pp-none">No ${slot.bucket} available</span>`}</div>
+        ${others.length?`<div class="lt-pp-other">Other positions</div><div class="lt-pp-list">${others.map(chip).join('')}</div>`:''}</div>`;
+    } else if(!readOnly){
+      panel=`<div class="lt-pp-hint">Tap a position on the pitch to place a player</div>`;
+    }
+    body=`<div class="lt-pitch">${slotHtml}</div>${panel}`;
   }
-  const saveBtn = readOnly ? '' :
-    `<button class="btn lt-save" ${count===11?'':'disabled'} onclick="ltSubmit(${m.id})">Save XI (${count}/11)</button>`;
+  const saveBtn = readOnly ? '' : `<button class="btn lt-save" ${filled===11?'':'disabled'} onclick="ltSubmit(${m.id})">Save XI (${filled}/11)</button>`;
   host.innerHTML=`<div class="lt-modal" role="dialog" aria-modal="true">
     <div class="lt-modal-card">
       <button class="lt-modal-close" onclick="ltHideModal()" aria-label="Close">×</button>
-      <div class="lt-modal-title">${readOnly?'XI — '+mgEsc(teamNm):'Tip the XI'}</div>
+      <div class="lt-modal-title">${readOnly?'XI — '+mgEsc(teamNm):'Build your XI'}</div>
       ${sideBtns}${formSel}
       ${body}
       <div class="lt-modal-foot">${readOnly?`<span class="lt-ro-note">Locked (within 2h of kickoff)</span>`:saveBtn}</div>
@@ -6252,15 +6302,15 @@ function ltRenderPicker(m, loading){
 }
 function ltHideModal(){ const h=document.getElementById('lineups-modal'); if(h) h.innerHTML=''; LT_UI=null; }
 function ltSubmit(matchId){
-  if(!LT_UI||LT_UI.ids.size!==11) return;
+  if(!LT_UI) return;
+  const filled=LT_UI.slots.filter(s=>s.id); if(filled.length!==11) return;
   const me=ltMe(); if(!me) return;
   const m=ltMatches().find(x=>x.id===matchId); if(!m||ltStatus(m)!=='open') return;
-  const xi=LT_UI.roster.filter(p=>LT_UI.ids.has(String(p.id))).map(p=>({id:String(p.id),name:p.name}));
+  const xi=filled.map(s=>({id:String(s.id),name:ltPlayerName(s.id)}));
   const rec={ user:me, side:LT_UI.side, team:LT_UI.team, teamId:LT_UI.teamId||null, formation:LT_UI.formation, xi, at:Date.now() };
   if(typeof db!=='undefined' && db && !isPreviewMode()){
     try{ db.ref(LT_PATH+'/'+sanitizeName(me)+'/'+matchId).set(rec); }catch(_){}
   }
-  // optimistic local update
   const k=sanitizeName(me); LT_PREDICTIONS[k]=LT_PREDICTIONS[k]||{}; LT_PREDICTIONS[k][matchId]=rec;
   ltHideModal(); renderLineupTips();
 }
