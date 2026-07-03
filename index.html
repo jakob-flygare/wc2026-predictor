@@ -5626,6 +5626,8 @@ const MG={goals:0,shots:0,streak:0,best:0,busy:false,player:null,keeper:null,sel
 const MG_ZX=[20,50,80]; // three aim zones: left / centre / right (centre %)
 const MG_SHOT_RESOLVE_MS=160;
 const MG_FALLBACK_PLAYERS=['Jakob','Annie','Leo','Daniel','Jeppe','Pontus','Pau','Susana','Caroline','Tänj'];
+// Extra players available only in the Mini Game (not in the predictor/leaderboard).
+const MG_EXTRA_PLAYERS=['Malin'];
 const MG_BALL_TARGETS=[
   {left:3,top:55},
   {left:50,top:51},
@@ -5658,8 +5660,10 @@ const MG_BALL_ORDER=['2002','2006','2010','2014','2018','2022','2026'];
 function mgAssets(){return MG_KEEPERS[MG.keeper]||MG_KEEPERS.italy;}
 function mgBallSrc(){return `ball-${MG.selectedBall}.png`;}
 function mgPlayerNames(){
-  const names=(STATE.players||[]).map(p=>p.name).filter(Boolean);
-  return names.length?names:MG_FALLBACK_PLAYERS;
+  const base=(STATE.players||[]).map(p=>p.name).filter(Boolean);
+  const names=(base.length?base:MG_FALLBACK_PLAYERS).slice();
+  MG_EXTRA_PLAYERS.forEach(n=>{ if(!names.includes(n)) names.push(n); });
+  return names;
 }
 // Shared high scores from Firebase ({sanitisedKey:{name,score}}), populated on
 // each data snapshot. Kept alongside a localStorage fallback for offline/demo.
