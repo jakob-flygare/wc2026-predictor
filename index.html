@@ -5612,9 +5612,10 @@ function closeMobileNav(){
 }
 
 // ── MINI GAME: PENALTY SHOOTOUT ───────────────────────────────────────────────
-const MG={goals:0,shots:0,streak:0,best:0,busy:false,keeper:null,selectedKeeper:'germany',selectedBall:'2026',newHighScore:false};
+const MG={goals:0,shots:0,streak:0,best:0,busy:false,player:null,keeper:null,selectedKeeper:'germany',selectedBall:'2026',newHighScore:false};
 const MG_ZX=[20,50,80]; // three aim zones: left / centre / right (centre %)
 const MG_SHOT_RESOLVE_MS=160;
+const MG_FALLBACK_PLAYERS=['Jakob','Annie','Leo','Daniel','Jeppe','Pontus','Pau','Susana','Caroline','Tänj'];
 const MG_BALL_TARGETS=[
   {left:3,top:55},
   {left:50,top:51},
@@ -5646,6 +5647,26 @@ const MG_KEEPER_ORDER=['germany','italy'];
 const MG_BALL_ORDER=['2002','2006','2010','2014','2018','2022','2026'];
 function mgAssets(){return MG_KEEPERS[MG.keeper]||MG_KEEPERS.italy;}
 function mgBallSrc(){return `ball-${MG.selectedBall}.png`;}
+function mgPlayerNames(){
+  const names=(STATE.players||[]).map(p=>p.name).filter(Boolean);
+  return names.length?names:MG_FALLBACK_PLAYERS;
+}
+function mgHighScores(){
+  try{return JSON.parse(localStorage.getItem('mgHighScores')||'{}')||{};}catch(_){return{};}
+}
+function mgPlayerBest(name=MG.player){
+  if(!name) return 0;
+  const scores=mgHighScores();
+  return Number(scores[name]||0);
+}
+function mgSavePlayerBest(score){
+  if(!MG.player) return;
+  const scores=mgHighScores();
+  if(score>Number(scores[MG.player]||0)){
+    scores[MG.player]=score;
+    localStorage.setItem('mgHighScores',JSON.stringify(scores));
+  }
+}
 function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function mgSyncScore(){ mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
 function mgKeeperAsset(zone,outcome){
@@ -5664,6 +5685,21 @@ function mgFlash(outcome){
   flash.className='mg-flash';
   void flash.offsetWidth;
   flash.classList.add(outcome==='goal'?'goal':'save');
+}
+function mgPlayerChooser(){
+  const names=mgPlayerNames();
+  return `<div class="mg-wrap">
+    <div class="mg-select">
+      <div class="mg-panel mg-player-panel">
+        <div class="mg-player-title">Choose player</div>
+        <div class="mg-player-grid">
+          ${names.map(name=>`<button class="mg-player-btn" onclick="mgChoosePlayer('${name.replace(/'/g,"\\'")}')">
+            <span>${name}</span><small>High score: ${mgPlayerBest(name)}</small>
+          </button>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
 }
 function mgKeeperChooser(){
   const keeper=MG_KEEPERS[MG.selectedKeeper]||MG_KEEPERS.germany;
@@ -5719,10 +5755,22 @@ function mgGameMarkup(){
 }
 function renderMiniGame(){
   const c=document.getElementById('minigame-content'); if(!c) return;
-  if(c.dataset.built){ mgSyncScore(); return; }
+  if(c.dataset.built){
+    if(!MG.player) c.innerHTML=mgPlayerChooser();
+    else if(!MG.keeper) c.innerHTML=mgKeeperChooser();
+    else mgSyncScore();
+    return;
+  }
   c.dataset.built='1';
-  c.innerHTML=MG.keeper?mgGameMarkup():mgKeeperChooser();
+  c.innerHTML=!MG.player?mgPlayerChooser():(MG.keeper?mgGameMarkup():mgKeeperChooser());
   if(MG.keeper) mgSyncScore();
+}
+function mgChoosePlayer(name){
+  MG.player=name;
+  MG.best=mgPlayerBest(name);
+  MG.goals=0;MG.shots=0;MG.streak=0;MG.busy=false;MG.newHighScore=false;MG.keeper=null;
+  const c=document.getElementById('minigame-content'); if(!c) return;
+  c.innerHTML=mgKeeperChooser();
 }
 function mgUpdateKeeperChooser(){
   const keeper=MG_KEEPERS[MG.selectedKeeper]||MG_KEEPERS.germany;
@@ -5751,6 +5799,7 @@ function mgCycleBall(direction){
 }
 function mgStartGame(){
   MG.keeper=MG.selectedKeeper;
+  MG.best=mgPlayerBest();
   MG.goals=0;MG.shots=0;MG.streak=0;MG.busy=false;MG.newHighScore=false;
   const c=document.getElementById('minigame-content'); if(!c) return;
   c.innerHTML=mgGameMarkup();
@@ -5783,7 +5832,7 @@ function mgShoot(z){
     if(outcome==='goal'){
       MG.goals++;
       MG.streak++;
-      if(MG.streak>MG.best){MG.best=MG.streak;if(MG.streak>previousBest)MG.newHighScore=true;}
+      if(MG.streak>MG.best){MG.best=MG.streak;mgSavePlayerBest(MG.best);if(MG.streak>previousBest)MG.newHighScore=true;}
     }
     else { MG.streak=0; }
     mgSyncScore();
