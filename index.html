@@ -829,6 +829,10 @@ function applyDataSnapshot(data) {
   const picksData= data.picks    || {};
   const parseList= s => (s && s.trim()) ? s.split(',').map(t=>t.trim()).filter(Boolean) : null;
 
+  // Shared mini-game high scores (visible to everyone). Live-updated on every snapshot.
+  MG_HS = data.minigameHighScores || {};
+  if(typeof mgRefreshHighScores==='function') mgRefreshHighScores();
+
   // No live data yet — fall back to demo so the site looks populated
   if (!Object.keys(results).length && !Object.keys(picksData).length) {
     loadDemo(); return;
@@ -5655,8 +5659,26 @@ function mgPlayerNames(){
   const names=(STATE.players||[]).map(p=>p.name).filter(Boolean);
   return names.length?names:MG_FALLBACK_PLAYERS;
 }
-function mgHighScores(){
+// Shared high scores from Firebase ({sanitisedKey:{name,score}}), populated on
+// each data snapshot. Kept alongside a localStorage fallback for offline/demo.
+let MG_HS={};
+function mgLocalScores(){
   try{return JSON.parse(localStorage.getItem('mgHighScores')||'{}')||{};}catch(_){return{};}
+}
+// Merged name→score view: the best of the shared (Firebase) and local values.
+function mgHighScores(){
+  const merged={...mgLocalScores()};
+  Object.values(MG_HS||{}).forEach(e=>{
+    if(!e||!e.name) return;
+    const s=Number(e.score||0);
+    if(s>Number(merged[e.name]||0)) merged[e.name]=s;
+  });
+  return merged;
+}
+// Re-render the high-score modal in place when shared data updates.
+function mgRefreshHighScores(){
+  const host=document.getElementById('minigame-scores');
+  if(host && host.querySelector('.mg-score-modal')) mgShowHighScores();
 }
 function mgEsc(value){
   return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
@@ -5668,10 +5690,22 @@ function mgPlayerBest(name=MG.player){
 }
 function mgSavePlayerBest(score){
   if(!MG.player) return;
-  const scores=mgHighScores();
-  if(score>Number(scores[MG.player]||0)){
-    scores[MG.player]=score;
-    localStorage.setItem('mgHighScores',JSON.stringify(scores));
+  // Local cache (offline/demo).
+  const local=mgLocalScores();
+  if(score>Number(local[MG.player]||0)){
+    local[MG.player]=score;
+    localStorage.setItem('mgHighScores',JSON.stringify(local));
+  }
+  // Shared: write to Firebase so the high score is saved and visible for everyone.
+  // Transaction keeps the highest score if two devices submit at once.
+  if(typeof db!=='undefined' && db && !isPreviewMode()){
+    try{
+      const name=MG.player;
+      db.ref('wc2026/minigameHighScores/'+sanitizeName(name)).transaction(cur=>{
+        if(cur && Number(cur.score||0)>=score) return cur;
+        return {name, score};
+      });
+    }catch(_){}
   }
 }
 function mgShowHighScores(){
