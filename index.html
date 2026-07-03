@@ -5614,42 +5614,75 @@ function closeMobileNav(){
 // ── MINI GAME: PENALTY SHOOTOUT ───────────────────────────────────────────────
 const MG={goals:0,shots:0,streak:0,best:0,busy:false};
 const MG_ZX=[20,50,80]; // three aim zones: left / centre / right (centre %)
+const MG_SHOT_RESOLVE_MS=160;
+const MG_BALL_TARGETS=[
+  {left:3,top:55},
+  {left:50,top:51},
+  {left:97,top:55}
+];
+const MG_KEEPER_ASSETS={
+  ready:'buffon-ready.png',
+  middle:'buffon-middle.png',
+  saveLeft:'buffon-dive-save-left.png',
+  missLeft:'buffon-dive-miss-left.png',
+  saveRight:'buffon-dive-save-right.png',
+  missRight:'buffon-dive-miss-right.png'
+};
 function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
-function mgSyncScore(){ mgSet('mg-goals',MG.goals); mgSet('mg-shots',MG.shots); mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
+function mgSyncScore(){ mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
+function mgKeeperAsset(zone,outcome){
+  if(zone===0) return outcome==='save'?MG_KEEPER_ASSETS.saveLeft:MG_KEEPER_ASSETS.missLeft;
+  if(zone===2) return outcome==='save'?MG_KEEPER_ASSETS.saveRight:MG_KEEPER_ASSETS.missRight;
+  return MG_KEEPER_ASSETS.middle;
+}
+function mgSetKeeper(src){
+  const img=document.getElementById('mg-keeper-img');
+  if(img) img.src=src;
+}
+function mgFlash(outcome){
+  const flash=document.getElementById('mg-flash');
+  if(!flash) return;
+  flash.className='mg-flash';
+  void flash.offsetWidth;
+  flash.classList.add(outcome==='goal'?'goal':'save');
+}
 function renderMiniGame(){
   const c=document.getElementById('minigame-content'); if(!c) return;
   if(c.dataset.built){ mgSyncScore(); return; }
   c.dataset.built='1';
   c.innerHTML=`
     <div class="mg-wrap">
-      <div class="mg-scorebar">
-        <span>⚽ <b id="mg-goals">0</b>/<span id="mg-shots">0</span></span>
-        <span>🔥 <b id="mg-streak">0</b> streak</span>
-        <span>🏆 <b id="mg-best">0</b> best</span>
-      </div>
       <div class="mg-pitch">
+        <div class="mg-hud">
+          <span>STREAK: <b id="mg-streak">0</b></span>
+          <span>BEST: <b id="mg-best">0</b></span>
+        </div>
+        <div class="mg-flash" id="mg-flash"></div>
         <div class="mg-goal">
           ${['Left','Centre','Right'].map((lbl,z)=>`<button class="mg-zone" onclick="mgShoot(${z})" aria-label="Shoot ${lbl}"></button>`).join('')}
-          <div class="mg-keeper" id="mg-keeper"><img src="buffon-ready.png" alt="Goalkeeper" class="mg-gk"></div>
-          <div class="mg-ball" id="mg-ball">⚽</div>
+          <div class="mg-keeper" id="mg-keeper"><img src="${MG_KEEPER_ASSETS.ready}" alt="Goalkeeper" class="mg-gk" id="mg-keeper-img" onerror="this.onerror=null;this.src='buffon-ready.png';"></div>
+          <img class="mg-ball" id="mg-ball" src="ball.png" alt="Ball" onerror="this.style.display='none';">
         </div>
         <div class="mg-spot"></div>
       </div>
       <div class="mg-msg" id="mg-msg">Shoot left, centre or right 👆</div>
-      <button class="btn mg-reset" onclick="mgReset()">Reset</button>
     </div>`;
   mgSyncScore();
 }
-function mgReset(){ MG.goals=0;MG.shots=0;MG.streak=0;MG.best=0; mgSyncScore(); const m=document.getElementById('mg-msg'); if(m){m.textContent='Shoot left, centre or right 👆';m.className='mg-msg';} }
 function mgShoot(z){
   if(MG.busy) return;
   const ball=document.getElementById('mg-ball'), keeper=document.getElementById('mg-keeper'), msg=document.getElementById('mg-msg');
   if(!ball||!keeper) return;
   MG.busy=true;
   const kz=Math.floor(Math.random()*3); // keeper dives left / centre / right
-  ball.style.left=MG_ZX[z]+'%'; ball.style.top='46%';
+  const target=MG_BALL_TARGETS[z]||MG_BALL_TARGETS[1];
+  ball.style.left=target.left+'%'; ball.style.top=target.top+'%';
   keeper.style.left=MG_ZX[kz]+'%';
   const outcome = z===kz ? 'save' : 'goal';
+  mgSetKeeper(mgKeeperAsset(kz,outcome));
+  setTimeout(()=>{
+    mgFlash(outcome);
+  },MG_SHOT_RESOLVE_MS);
   setTimeout(()=>{
     MG.shots++;
     if(outcome==='goal'){ MG.goals++; MG.streak++; if(MG.streak>MG.best)MG.best=MG.streak; }
@@ -5662,6 +5695,7 @@ function mgShoot(z){
     setTimeout(()=>{
       ball.style.left='50%'; ball.style.top='150%';
       keeper.style.left='50%';
+      mgSetKeeper(MG_KEEPER_ASSETS.ready);
       if(msg){msg.textContent='Shoot left, centre or right 👆';msg.className='mg-msg';}
       MG.busy=false;
     },1000);

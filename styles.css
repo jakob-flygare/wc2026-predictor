@@ -1076,12 +1076,25 @@
 }
 
 /* ── MINI GAME: PENALTY SHOOTOUT (lo-fi) ───────────────────────────────────── */
-.mg-wrap { max-width:420px; margin:0 auto; text-align:center; }
-.mg-scorebar { display:flex; justify-content:space-around; gap:0.5rem; font-size:0.85rem; color:var(--muted); margin-bottom:1.1rem; flex-wrap:wrap; }
-.mg-scorebar b { color:var(--gold); font-family:'Bebas Neue',sans-serif; font-size:1.25rem; }
+.mg-wrap { width:100%; max-width:none; margin:0 auto; text-align:center; }
+.mg-hud { position:absolute; top:3%; left:4%; right:4%; z-index:6; display:flex; justify-content:space-between; align-items:center; pointer-events:none; color:#fff; font-family:'Bebas Neue',sans-serif; font-size:clamp(1rem,3.1vw,2.2rem); letter-spacing:0.05em; text-shadow:0 2px 4px rgba(0,0,0,0.75); }
+.mg-hud b { color:#fff; font:inherit; }
 /* Pixel-art stadium background. Falls back to a plain green pitch if the image
    isn't present yet. image-rendering:pixelated keeps the lo-fi look crisp. */
 .mg-pitch { position:relative; background-color:#347f39; background-image:url('penalty-bg.png'); background-size:cover; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; border:2px solid var(--border); border-radius:10px; width:100%; aspect-ratio:1448 / 1086; overflow:hidden; }
+.mg-flash { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; mix-blend-mode:screen; }
+.mg-flash.goal { animation:mgFlashGoal .8s ease-out; }
+.mg-flash.save { animation:mgFlashSave .8s ease-out; }
+@keyframes mgFlashGoal {
+  0% { opacity:0; background:rgba(46,204,113,0); }
+  18% { opacity:1; background:rgba(46,204,113,0.58); }
+  100% { opacity:0; background:rgba(46,204,113,0); }
+}
+@keyframes mgFlashSave {
+  0% { opacity:0; background:rgba(231,76,60,0); }
+  18% { opacity:1; background:rgba(231,76,60,0.6); }
+  100% { opacity:0; background:rgba(231,76,60,0); }
+}
 /* Invisible overlay aligned to the goal mouth in the background image. */
 .mg-goal { position:absolute; top:27.5%; left:14.5%; width:71%; height:33%;
   display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr; }
@@ -1091,12 +1104,11 @@
 /* Keeper stands on the goal line: wrapper spans the goal mouth, image is bottom-
    aligned so his feet sit on the line and (at 92% height) his head is just below
    the crossbar. Diving only shifts him sideways along the line. */
-.mg-keeper { position:absolute; left:50%; top:0; bottom:0; transform:translateX(-50%); display:flex; align-items:flex-end; justify-content:center; z-index:3; pointer-events:none; transition:left .34s ease; }
-.mg-gk { display:block; width:auto; height:92%; object-fit:contain; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
-.mg-ball { position:absolute; left:50%; top:150%; transform:translate(-50%,-50%); font-size:1.5rem; line-height:1; z-index:2; pointer-events:none;
+.mg-keeper { position:absolute; left:50%; top:0; bottom:-20%; transform:translateX(-50%); display:flex; align-items:flex-end; justify-content:center; z-index:3; pointer-events:none; transition:left .34s ease; }
+.mg-gk { display:block; width:auto; height:84%; object-fit:contain; filter:drop-shadow(0 2px 3px rgba(0,0,0,0.45)); }
+.mg-ball { position:absolute; left:50%; top:150%; transform:translate(-50%,-50%); width:10%; height:auto; z-index:4; pointer-events:none; filter:drop-shadow(0 1px 2px rgba(0,0,0,0.45));
   transition:left .4s cubic-bezier(.35,1.3,.6,1), top .4s cubic-bezier(.35,1.3,.6,1); }
 .mg-spot { display:none; }
 .mg-msg { margin-top:1rem; min-height:1.5rem; font-size:1.05rem; font-weight:700; letter-spacing:0.02em; color:var(--text); font-family:'Bebas Neue',sans-serif; }
 .mg-msg.goal { color:var(--green); }
 .mg-msg.save { color:var(--red); }
-.mg-reset { margin-top:0.4rem; }
