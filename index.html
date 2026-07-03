@@ -5692,27 +5692,35 @@ function mgPlayerBest(name=MG.player){
   const scores=mgHighScores();
   return Number(scores[name]||0);
 }
+// Write a player's score to the shared Firebase store (transaction keeps the
+// highest). Stored under picks/__minigame_highscores__ because the DB security
+// rules only grant anonymous write access under wc2026/picks; the entry has no
+// top-level "name" so it's never read as a player.
+function mgWriteScore(name,score){
+  if(!name || !(score>0)) return;
+  if(typeof db==='undefined' || !db || isPreviewMode()) return;
+  try{
+    db.ref(MG_HS_PATH+'/'+sanitizeName(name)).transaction(cur=>{
+      if(cur && Number(cur.score||0)>=score) return cur;
+      return {name, score};
+    });
+  }catch(_){}
+}
 function mgSavePlayerBest(score){
   if(!MG.player) return;
-  // Local cache (offline/demo).
   const local=mgLocalScores();
   if(score>Number(local[MG.player]||0)){
     local[MG.player]=score;
     localStorage.setItem('mgHighScores',JSON.stringify(local));
   }
-  // Shared: write to Firebase so the high score is saved and visible for everyone.
-  // Stored under picks/__minigame_highscores__ because the DB security rules only
-  // grant anonymous write access under wc2026/picks. The entry has no top-level
-  // "name", so it's never treated as a player. Transaction keeps the highest score.
-  if(typeof db!=='undefined' && db && !isPreviewMode()){
-    try{
-      const name=MG.player;
-      db.ref(MG_HS_PATH+'/'+sanitizeName(name)).transaction(cur=>{
-        if(cur && Number(cur.score||0)>=score) return cur;
-        return {name, score};
-      });
-    }catch(_){}
-  }
+  mgWriteScore(MG.player,score);
+}
+// Push any locally-stored bests up to the shared store, so existing high scores
+// (set before sharing existed, or offline) become visible to everyone. The
+// transaction keeps whichever is higher, so this is safe to run on every open.
+function mgBackfillLocalScores(){
+  const local=mgLocalScores();
+  Object.keys(local).forEach(name=>mgWriteScore(name,Number(local[name]||0)));
 }
 function mgShowHighScores(){
   const host=document.getElementById('minigame-scores');
@@ -5824,6 +5832,7 @@ function mgGameMarkup(){
 }
 function renderMiniGame(){
   const c=document.getElementById('minigame-content'); if(!c) return;
+  mgBackfillLocalScores(); // share any locally-stored bests with everyone
   if(c.dataset.built){
     if(!MG.player) c.innerHTML=mgPlayerChooser();
     else if(!MG.keeper) c.innerHTML=mgKeeperChooser();
