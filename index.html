@@ -5929,6 +5929,13 @@ function mgStartGame(){
   mgSyncScore();
 }
 function mgTryAgain(){
+  MG.keeper=MG.selectedKeeper;
+  MG.goals=0;MG.shots=0;MG.streak=0;MG.busy=false;MG.newHighScore=false;
+  const c=document.getElementById('minigame-content'); if(!c) return;
+  c.innerHTML=mgGameMarkup();
+  mgSyncScore();
+}
+function mgChangeGoalieOrBall(){
   MG.keeper=null;
   MG.goals=0;MG.shots=0;MG.streak=0;MG.busy=false;MG.newHighScore=false;
   const c=document.getElementById('minigame-content'); if(!c) return;
@@ -6003,6 +6010,7 @@ function mgShoot(z){
             ${MG.newHighScore?'<div class="mg-high-score mg-game-over-high">New High score!</div>':''}
             <div class="mg-game-over-score">Score: ${endedStreak}</div>
             <button class="btn mg-try" onclick="mgTryAgain()">Try again</button>
+            <button class="mg-change-link" onclick="mgChangeGoalieOrBall()">Change goalie or ball</button>
           </div>`;
           overlay.classList.add('show');
           overlay.setAttribute('aria-hidden','false');
