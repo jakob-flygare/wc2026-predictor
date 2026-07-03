@@ -5612,7 +5612,7 @@ function closeMobileNav(){
 }
 
 // ── MINI GAME: PENALTY SHOOTOUT ───────────────────────────────────────────────
-const MG={goals:0,shots:0,streak:0,best:0,busy:false};
+const MG={goals:0,shots:0,streak:0,best:0,busy:false,keeper:null,selectedKeeper:'germany',selectedBall:'2026',newHighScore:false};
 const MG_ZX=[20,50,80]; // three aim zones: left / centre / right (centre %)
 const MG_SHOT_RESOLVE_MS=160;
 const MG_BALL_TARGETS=[
@@ -5620,20 +5620,39 @@ const MG_BALL_TARGETS=[
   {left:50,top:51},
   {left:97,top:55}
 ];
-const MG_KEEPER_ASSETS={
-  ready:'buffon-ready.png',
-  middle:'buffon-middle.png',
-  saveLeft:'buffon-dive-save-left.png',
-  missLeft:'buffon-dive-miss-left.png',
-  saveRight:'buffon-dive-save-right.png',
-  missRight:'buffon-dive-miss-right.png'
+const MG_KEEPERS={
+  italy:{
+    name:'Buffon',
+    logo:'italia-logo.png',
+    ready:'buffon-ready.png',
+    middle:'buffon-middle.png',
+    saveLeft:'buffon-dive-save-left.png',
+    missLeft:'buffon-dive-miss-left.png',
+    saveRight:'buffon-dive-save-right.png',
+    missRight:'buffon-dive-miss-right.png'
+  },
+  germany:{
+    name:'Oliver Kahn',
+    logo:'germany-logo.png',
+    ready:'kahn-ready.png',
+    middle:'kahn-middle.png',
+    saveLeft:'kahn-dive-save-left.png',
+    missLeft:'kahn-dive-miss-left.png',
+    saveRight:'kahn-dive-save-right.png',
+    missRight:'kahn-dive-miss-right.png'
+  }
 };
+const MG_KEEPER_ORDER=['germany','italy'];
+const MG_BALL_ORDER=['2002','2006','2010','2014','2018','2022','2026'];
+function mgAssets(){return MG_KEEPERS[MG.keeper]||MG_KEEPERS.italy;}
+function mgBallSrc(){return `ball-${MG.selectedBall}.png`;}
 function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function mgSyncScore(){ mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
 function mgKeeperAsset(zone,outcome){
-  if(zone===0) return outcome==='save'?MG_KEEPER_ASSETS.saveLeft:MG_KEEPER_ASSETS.missLeft;
-  if(zone===2) return outcome==='save'?MG_KEEPER_ASSETS.saveRight:MG_KEEPER_ASSETS.missRight;
-  return MG_KEEPER_ASSETS.middle;
+  const assets=mgAssets();
+  if(zone===0) return outcome==='save'?assets.saveLeft:assets.missLeft;
+  if(zone===2) return outcome==='save'?assets.saveRight:assets.missRight;
+  return assets.middle;
 }
 function mgSetKeeper(src){
   const img=document.getElementById('mg-keeper-img');
@@ -5646,28 +5665,102 @@ function mgFlash(outcome){
   void flash.offsetWidth;
   flash.classList.add(outcome==='goal'?'goal':'save');
 }
+function mgKeeperChooser(){
+  const keeper=MG_KEEPERS[MG.selectedKeeper]||MG_KEEPERS.germany;
+  return `<div class="mg-wrap">
+    <div class="mg-select">
+      <div class="mg-panel">
+        <div class="mg-selectors">
+          <div class="mg-selector-block">
+            <div class="mg-selector-label" id="mg-team-label">${MG.selectedKeeper==='italy'?'Italy':'Germany'}</div>
+            <div class="mg-carousel">
+              <button class="mg-arrow" onclick="mgCycleKeeper(1)" aria-label="Switch goalkeeper">‹</button>
+              <button class="mg-choice mg-team-choice" onclick="mgCycleKeeper(1)" aria-label="Selected goalkeeper: ${keeper.name}">
+                <img id="mg-selected-logo" class="mg-logo-${MG.selectedKeeper}" src="${keeper.logo}" alt="${keeper.name}">
+              </button>
+              <button class="mg-arrow" onclick="mgCycleKeeper(1)" aria-label="Switch goalkeeper">›</button>
+            </div>
+          </div>
+          <div class="mg-selector-block">
+            <div class="mg-selector-label" id="mg-ball-label">${MG.selectedBall}</div>
+            <div class="mg-carousel">
+              <button class="mg-arrow" onclick="mgCycleBall(-1)" aria-label="Previous ball">‹</button>
+              <button class="mg-choice mg-ball-choice" onclick="mgCycleBall(1)" aria-label="Selected ball: ${MG.selectedBall}">
+                <img id="mg-selected-ball" src="${mgBallSrc()}" alt="World Cup ball ${MG.selectedBall}">
+              </button>
+              <button class="mg-arrow" onclick="mgCycleBall(1)" aria-label="Next ball">›</button>
+            </div>
+          </div>
+        </div>
+        <button class="btn mg-start" onclick="mgStartGame()">Start game</button>
+      </div>
+    </div>
+  </div>`;
+}
+function mgGameMarkup(){
+  const assets=mgAssets();
+  return `<div class="mg-wrap">
+    <div class="mg-pitch">
+      <div class="mg-hud">
+        <span>STREAK: <b id="mg-streak">0</b></span>
+        <span>HIGH SCORE: <b id="mg-best">0</b></span>
+      </div>
+      <div class="mg-flash" id="mg-flash"></div>
+      <div class="mg-overlay" id="mg-game-over" aria-hidden="true"></div>
+      <div class="mg-goal">
+        ${['Left','Centre','Right'].map((lbl,z)=>`<button class="mg-zone" onclick="mgShoot(${z})" aria-label="Shoot ${lbl}"></button>`).join('')}
+        <div class="mg-keeper" id="mg-keeper"><img src="${assets.ready}" alt="${assets.name}" class="mg-gk" id="mg-keeper-img" onerror="this.onerror=null;this.src='buffon-ready.png';"></div>
+        <img class="mg-ball" id="mg-ball" src="${mgBallSrc()}" alt="Ball" onerror="this.style.display='none';">
+      </div>
+      <div class="mg-spot"></div>
+    </div>
+    <div class="mg-msg" id="mg-msg">Shoot left, centre or right 👆</div>
+  </div>`;
+}
 function renderMiniGame(){
   const c=document.getElementById('minigame-content'); if(!c) return;
   if(c.dataset.built){ mgSyncScore(); return; }
   c.dataset.built='1';
-  c.innerHTML=`
-    <div class="mg-wrap">
-      <div class="mg-pitch">
-        <div class="mg-hud">
-          <span>STREAK: <b id="mg-streak">0</b></span>
-          <span>BEST: <b id="mg-best">0</b></span>
-        </div>
-        <div class="mg-flash" id="mg-flash"></div>
-        <div class="mg-goal">
-          ${['Left','Centre','Right'].map((lbl,z)=>`<button class="mg-zone" onclick="mgShoot(${z})" aria-label="Shoot ${lbl}"></button>`).join('')}
-          <div class="mg-keeper" id="mg-keeper"><img src="${MG_KEEPER_ASSETS.ready}" alt="Goalkeeper" class="mg-gk" id="mg-keeper-img" onerror="this.onerror=null;this.src='buffon-ready.png';"></div>
-          <img class="mg-ball" id="mg-ball" src="ball.png" alt="Ball" onerror="this.style.display='none';">
-        </div>
-        <div class="mg-spot"></div>
-      </div>
-      <div class="mg-msg" id="mg-msg">Shoot left, centre or right 👆</div>
-    </div>`;
+  c.innerHTML=MG.keeper?mgGameMarkup():mgKeeperChooser();
+  if(MG.keeper) mgSyncScore();
+}
+function mgUpdateKeeperChooser(){
+  const keeper=MG_KEEPERS[MG.selectedKeeper]||MG_KEEPERS.germany;
+  const logo=document.getElementById('mg-selected-logo');
+  if(logo){logo.src=keeper.logo;logo.alt=keeper.name;logo.className=`mg-logo-${MG.selectedKeeper}`;}
+  const label=document.getElementById('mg-team-label');
+  if(label) label.textContent=MG.selectedKeeper==='italy'?'Italy':'Germany';
+}
+function mgCycleKeeper(direction){
+  const current=Math.max(0,MG_KEEPER_ORDER.indexOf(MG.selectedKeeper));
+  const next=(current+direction+MG_KEEPER_ORDER.length)%MG_KEEPER_ORDER.length;
+  MG.selectedKeeper=MG_KEEPER_ORDER[next];
+  mgUpdateKeeperChooser();
+}
+function mgUpdateBallChooser(){
+  const ball=document.getElementById('mg-selected-ball');
+  if(ball){ball.src=mgBallSrc();ball.alt=`World Cup ball ${MG.selectedBall}`;}
+  const label=document.getElementById('mg-ball-label');
+  if(label) label.textContent=MG.selectedBall;
+}
+function mgCycleBall(direction){
+  const current=Math.max(0,MG_BALL_ORDER.indexOf(MG.selectedBall));
+  const next=(current+direction+MG_BALL_ORDER.length)%MG_BALL_ORDER.length;
+  MG.selectedBall=MG_BALL_ORDER[next];
+  mgUpdateBallChooser();
+}
+function mgStartGame(){
+  MG.keeper=MG.selectedKeeper;
+  MG.goals=0;MG.shots=0;MG.streak=0;MG.busy=false;MG.newHighScore=false;
+  const c=document.getElementById('minigame-content'); if(!c) return;
+  c.innerHTML=mgGameMarkup();
   mgSyncScore();
+}
+function mgTryAgain(){
+  MG.keeper=null;
+  MG.goals=0;MG.shots=0;MG.streak=0;MG.busy=false;MG.newHighScore=false;
+  const c=document.getElementById('minigame-content'); if(!c) return;
+  c.innerHTML=mgKeeperChooser();
 }
 function mgShoot(z){
   if(MG.busy) return;
@@ -5685,17 +5778,39 @@ function mgShoot(z){
   },MG_SHOT_RESOLVE_MS);
   setTimeout(()=>{
     MG.shots++;
-    if(outcome==='goal'){ MG.goals++; MG.streak++; if(MG.streak>MG.best)MG.best=MG.streak; }
+    const endedStreak=MG.streak;
+    const previousBest=MG.best;
+    if(outcome==='goal'){
+      MG.goals++;
+      MG.streak++;
+      if(MG.streak>MG.best){MG.best=MG.streak;if(MG.streak>previousBest)MG.newHighScore=true;}
+    }
     else { MG.streak=0; }
     mgSyncScore();
     if(msg){
-      msg.textContent = outcome==='goal' ? 'GOAL! ⚽' : 'Save! ❌';
+      msg.innerHTML = outcome==='goal' ? 'GOAL! ⚽' : 'Save! ❌';
       msg.className = 'mg-msg '+(outcome==='goal'?'goal':'save');
     }
     setTimeout(()=>{
       ball.style.left='50%'; ball.style.top='150%';
       keeper.style.left='50%';
-      mgSetKeeper(MG_KEEPER_ASSETS.ready);
+      mgSetKeeper(mgAssets().ready);
+      if(outcome==='save'){
+        const overlay=document.getElementById('mg-game-over');
+        if(overlay){
+          overlay.innerHTML=`<div class="mg-panel mg-game-over-panel">
+            <div class="mg-game-over-title">Game over</div>
+            ${MG.newHighScore?'<div class="mg-high-score mg-game-over-high">New High score!</div>':''}
+            <div class="mg-game-over-score">Score: ${endedStreak}</div>
+            <button class="btn mg-try" onclick="mgTryAgain()">Try again</button>
+          </div>`;
+          overlay.classList.add('show');
+          overlay.setAttribute('aria-hidden','false');
+        }
+        if(msg){msg.textContent='';msg.className='mg-msg';}
+        MG.busy=false;
+        return;
+      }
       if(msg){msg.textContent='Shoot left, centre or right 👆';msg.className='mg-msg';}
       MG.busy=false;
     },1000);
