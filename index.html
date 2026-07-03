@@ -5629,9 +5629,9 @@ const MG_FALLBACK_PLAYERS=['Jakob','Annie','Leo','Daniel','Jeppe','Pontus','Pau'
 // Extra players available only in the Mini Game (not in the predictor/leaderboard).
 const MG_EXTRA_PLAYERS=['Malin'];
 const MG_BALL_TARGETS=[
-  {left:3,top:55},
+  {left:3,top:51},
   {left:50,top:51},
-  {left:97,top:55}
+  {left:97,top:51}
 ];
 const MG_KEEPERS={
   italy:{
@@ -5653,12 +5653,25 @@ const MG_KEEPERS={
     missLeft:'kahn-dive-miss-left.png',
     saveRight:'kahn-dive-save-right.png',
     missRight:'kahn-dive-miss-right.png'
+  },
+  spain:{
+    name:'Iker Casillas',
+    logo:'spain-logo.png',
+    ready:'casillas-ready.png',
+    middle:'casillas-middle.png',
+    saveLeft:'casillas-dive-save-left.png',
+    missLeft:'casillas-dive-miss-left.png',
+    saveRight:'casillas-dive-save-right.png',
+    missRight:'casillas-dive-miss-right.png'
   }
 };
-const MG_KEEPER_ORDER=['germany','italy'];
+const MG_KEEPER_ORDER=['germany','italy','spain'];
+const MG_KEEPER_LABELS={germany:'Germany',spain:'Spain',italy:'Italy'};
 const MG_BALL_ORDER=['2002','2006','2010','2014','2018','2022','2026'];
 function mgAssets(){return MG_KEEPERS[MG.keeper]||MG_KEEPERS.italy;}
+function mgKeeperLabel(key=MG.selectedKeeper){return MG_KEEPER_LABELS[key]||MG_KEEPER_LABELS.germany;}
 function mgBallSrc(){return `ball-${MG.selectedBall}.png`;}
+function mgWcLogoSrc(){return `wc-logo-${MG.selectedBall}.png`;}
 function mgPlayerNames(){
   const base=(STATE.players||[]).map(p=>p.name).filter(Boolean);
   const names=(base.length?base:MG_FALLBACK_PLAYERS).slice();
@@ -5758,7 +5771,10 @@ function mgKeeperAsset(zone,outcome){
 }
 function mgSetKeeper(src){
   const img=document.getElementById('mg-keeper-img');
-  if(img) img.src=src;
+  if(img){
+    img.src=src;
+    img.className='mg-gk '+(/^casillas-dive-/.test(src)?'mg-gk-casillas-dive':'');
+  }
 }
 function mgFlash(outcome){
   const flash=document.getElementById('mg-flash');
@@ -5786,25 +5802,26 @@ function mgKeeperChooser(){
   const keeper=MG_KEEPERS[MG.selectedKeeper]||MG_KEEPERS.germany;
   return `<div class="mg-wrap">
     <div class="mg-select">
+      ${mgWcLogoMarkup()}
       <div class="mg-panel">
         <div class="mg-selectors">
           <div class="mg-selector-block">
-            <div class="mg-selector-label" id="mg-team-label">${MG.selectedKeeper==='italy'?'Italy':'Germany'}</div>
+            <div class="mg-selector-label" id="mg-team-label">${mgKeeperLabel()}</div>
             <div class="mg-carousel">
-              <button class="mg-arrow" onclick="mgCycleKeeper(1)" aria-label="Switch goalkeeper">‹</button>
-              <button class="mg-choice mg-team-choice" onclick="mgCycleKeeper(1)" aria-label="Selected goalkeeper: ${keeper.name}">
+              <button class="mg-arrow" onclick="mgCycleKeeper(-1)" aria-label="Previous goalkeeper">‹</button>
+              <div class="mg-choice mg-team-choice" aria-label="Selected goalkeeper: ${keeper.name}">
                 <img id="mg-selected-logo" class="mg-logo-${MG.selectedKeeper}" src="${keeper.logo}" alt="${keeper.name}">
-              </button>
-              <button class="mg-arrow" onclick="mgCycleKeeper(1)" aria-label="Switch goalkeeper">›</button>
+              </div>
+              <button class="mg-arrow" onclick="mgCycleKeeper(1)" aria-label="Next goalkeeper">›</button>
             </div>
           </div>
           <div class="mg-selector-block">
             <div class="mg-selector-label" id="mg-ball-label">${MG.selectedBall}</div>
             <div class="mg-carousel">
               <button class="mg-arrow" onclick="mgCycleBall(-1)" aria-label="Previous ball">‹</button>
-              <button class="mg-choice mg-ball-choice" onclick="mgCycleBall(1)" aria-label="Selected ball: ${MG.selectedBall}">
-                <img id="mg-selected-ball" src="${mgBallSrc()}" alt="World Cup ball ${MG.selectedBall}">
-              </button>
+              <div class="mg-choice mg-ball-choice" aria-label="Selected ball: ${MG.selectedBall}">
+                <img id="mg-selected-ball" class="mg-ball-logo-${MG.selectedBall}" src="${mgBallSrc()}" alt="World Cup ball ${MG.selectedBall}">
+              </div>
               <button class="mg-arrow" onclick="mgCycleBall(1)" aria-label="Next ball">›</button>
             </div>
           </div>
@@ -5818,6 +5835,7 @@ function mgGameMarkup(){
   const assets=mgAssets();
   return `<div class="mg-wrap">
     <div class="mg-pitch">
+      ${mgWcLogoMarkup()}
       <div class="mg-hud">
         <span>STREAK: <b id="mg-streak">0</b></span>
         <span>HIGH SCORE: <b id="mg-best">0</b></span>
@@ -5833,6 +5851,11 @@ function mgGameMarkup(){
     </div>
     <div class="mg-msg" id="mg-msg">Shoot left, centre or right 👆</div>
   </div>`;
+}
+function mgWcLogoMarkup(){
+  const src=mgWcLogoSrc();
+  return `<img class="mg-wc-logo mg-wc-logo-left" src="${src}" alt="" aria-hidden="true" onerror="this.style.display='none';">
+    <img class="mg-wc-logo mg-wc-logo-right" src="${src}" alt="" aria-hidden="true" onerror="this.style.display='none';">`;
 }
 function renderMiniGame(){
   const c=document.getElementById('minigame-content'); if(!c) return;
@@ -5859,7 +5882,7 @@ function mgUpdateKeeperChooser(){
   const logo=document.getElementById('mg-selected-logo');
   if(logo){logo.src=keeper.logo;logo.alt=keeper.name;logo.className=`mg-logo-${MG.selectedKeeper}`;}
   const label=document.getElementById('mg-team-label');
-  if(label) label.textContent=MG.selectedKeeper==='italy'?'Italy':'Germany';
+  if(label) label.textContent=mgKeeperLabel();
 }
 function mgCycleKeeper(direction){
   const current=Math.max(0,MG_KEEPER_ORDER.indexOf(MG.selectedKeeper));
@@ -5869,9 +5892,13 @@ function mgCycleKeeper(direction){
 }
 function mgUpdateBallChooser(){
   const ball=document.getElementById('mg-selected-ball');
-  if(ball){ball.src=mgBallSrc();ball.alt=`World Cup ball ${MG.selectedBall}`;}
+  if(ball){ball.src=mgBallSrc();ball.alt=`World Cup ball ${MG.selectedBall}`;ball.className=`mg-ball-logo-${MG.selectedBall}`;}
   const label=document.getElementById('mg-ball-label');
   if(label) label.textContent=MG.selectedBall;
+  document.querySelectorAll('.mg-wc-logo').forEach(logo=>{
+    logo.style.display='';
+    logo.src=mgWcLogoSrc();
+  });
 }
 function mgCycleBall(direction){
   const current=Math.max(0,MG_BALL_ORDER.indexOf(MG.selectedBall));
@@ -5900,6 +5927,7 @@ function mgShoot(z){
   MG.busy=true;
   const kz=Math.floor(Math.random()*3); // keeper dives left / centre / right
   const target=MG_BALL_TARGETS[z]||MG_BALL_TARGETS[1];
+  ball.classList.add('mg-ball-shot');
   ball.style.left=target.left+'%'; ball.style.top=target.top+'%';
   keeper.style.left=MG_ZX[kz]+'%';
   const outcome = z===kz ? 'save' : 'goal';
@@ -5924,6 +5952,7 @@ function mgShoot(z){
     }
     setTimeout(()=>{
       ball.style.left='50%'; ball.style.top='150%';
+      ball.classList.remove('mg-ball-shot');
       keeper.style.left='50%';
       mgSetKeeper(mgAssets().ready);
       if(outcome==='save'){
