@@ -158,10 +158,14 @@
 <div id="minigame" class="section">
   <div class="container">
     <div class="section-header">
-      <div class="section-title">Penalty Shootout</div>
+      <div class="mg-title-row">
+        <div class="section-title">Penalty Shootout</div>
+        <button class="btn mg-score-btn" onclick="mgShowHighScores()">High Score</button>
+      </div>
       <div class="section-sub">Pick a corner, beat the keeper, chase a streak ⚽</div>
     </div>
     <div id="minigame-content"></div>
+    <div id="minigame-scores"></div>
   </div>
 </div>
 
@@ -5654,6 +5658,9 @@ function mgPlayerNames(){
 function mgHighScores(){
   try{return JSON.parse(localStorage.getItem('mgHighScores')||'{}')||{};}catch(_){return{};}
 }
+function mgEsc(value){
+  return String(value).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
 function mgPlayerBest(name=MG.player){
   if(!name) return 0;
   const scores=mgHighScores();
@@ -5666,6 +5673,28 @@ function mgSavePlayerBest(score){
     scores[MG.player]=score;
     localStorage.setItem('mgHighScores',JSON.stringify(scores));
   }
+}
+function mgShowHighScores(){
+  const host=document.getElementById('minigame-scores');
+  if(!host) return;
+  const scores=mgHighScores();
+  const rows=mgPlayerNames()
+    .map(name=>({name,score:Number(scores[name]||0)}))
+    .filter(row=>row.score>0)
+    .sort((a,b)=>b.score-a.score||a.name.localeCompare(b.name));
+  host.innerHTML=`<div class="mg-score-modal" role="dialog" aria-modal="true" aria-label="High Score">
+    <div class="mg-score-card">
+      <button class="mg-score-close" onclick="mgHideHighScores()" aria-label="Close">×</button>
+      <div class="mg-score-title">High Score</div>
+      ${rows.length
+        ? `<div class="mg-score-list">${rows.map((row,index)=>`<div class="mg-score-row"><span>${index+1}. ${mgEsc(row.name)}</span><b>${row.score}</b></div>`).join('')}</div>`
+        : `<div class="mg-score-empty">No high scores yet</div>`}
+    </div>
+  </div>`;
+}
+function mgHideHighScores(){
+  const host=document.getElementById('minigame-scores');
+  if(host) host.innerHTML='';
 }
 function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function mgSyncScore(){ mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }

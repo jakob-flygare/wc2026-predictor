@@ -1076,6 +1076,11 @@
 }
 
 /* ── MINI GAME: PENALTY SHOOTOUT (lo-fi) ───────────────────────────────────── */
+.mg-title-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; flex-wrap:wrap; }
+.mg-score-btn { border:none; background:var(--gold); color:#1a1409; font-weight:800; box-shadow:0 3px 12px rgba(0,0,0,0.18); }
+.mg-score-btn:hover { background:var(--gold-light); color:#1a1409; }
+[data-accent="purple"] .mg-score-btn { background:#9146F5; color:#fff; }
+[data-accent="purple"] .mg-score-btn:hover { background:#A05BFF; color:#fff; }
 .mg-wrap { width:100%; max-width:none; margin:0 auto; text-align:center; }
 .mg-select { position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; background-color:#05060a; background-image:url('penalty-bg.png'); background-size:cover; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; border:2px solid var(--gold); border-radius:10px; width:100%; aspect-ratio:1448 / 1086; overflow:hidden; padding:2rem; }
 [data-accent="purple"] .mg-select { border-color:#C27AFF; }
@@ -1154,7 +1159,19 @@
 .mg-game-over-high { margin-top:0; font-family:'Bebas Neue',sans-serif; font-size:clamp(1rem,3.2vw,2rem); letter-spacing:0.06em; text-transform:uppercase; }
 .mg-msg.game-over { display:flex; flex-direction:column; align-items:center; gap:0.7rem; font-size:1.5rem; }
 .mg-try { font-family:'DM Sans',sans-serif; text-transform:none; letter-spacing:0; }
+.mg-score-modal { position:fixed; inset:0; z-index:500; display:flex; align-items:center; justify-content:center; padding:1rem; background:rgba(0,0,0,0.68); backdrop-filter:blur(4px); }
+.mg-score-card { position:relative; width:min(92vw,420px); border:2px solid var(--gold); border-radius:18px; background:rgba(10,12,15,0.96); color:var(--text); padding:1.3rem 1.2rem 1.1rem; box-shadow:0 18px 50px rgba(0,0,0,0.45); }
+[data-accent="purple"] .mg-score-card { border-color:#C27AFF; }
+.mg-score-close { position:absolute; top:0.65rem; right:0.8rem; border:none; background:none; color:var(--muted); font-size:1.6rem; line-height:1; cursor:pointer; }
+.mg-score-title { font-family:'Bebas Neue',sans-serif; font-size:2rem; letter-spacing:0.06em; text-transform:uppercase; margin-bottom:0.8rem; }
+.mg-score-list { display:flex; flex-direction:column; gap:0.35rem; }
+.mg-score-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:0.55rem 0.7rem; border-radius:10px; background:rgba(255,255,255,0.06); font-size:0.95rem; }
+.mg-score-row b { color:var(--gold); font-size:1.05rem; }
+[data-accent="purple"] .mg-score-row b { color:#C27AFF; }
+.mg-score-empty { color:var(--muted); padding:1rem 0 0.3rem; }
 @media (max-width: 640px) {
+  .mg-title-row { align-items:flex-start; }
+  .mg-score-btn { padding:0.45rem 0.8rem; }
   .mg-select,
   .mg-pitch { border-radius:12px; }
   .mg-panel { width:78%; min-height:70%; gap:0.55rem; padding:1.05rem 1.1rem; border-radius:14px; }
