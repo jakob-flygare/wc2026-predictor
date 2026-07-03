@@ -32,7 +32,6 @@
     <button class="tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
     <button class="tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
     <button class="tab" data-tab="minigame" onclick="showTab('minigame',this)">Mini Game</button>
-    <button class="tab" data-tab="lineups" onclick="showTab('lineups',this)">Lineup Tips <span class="tab-beta">BETA</span></button>
     <button class="tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   </nav>
@@ -54,7 +53,6 @@
   <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
   <button class="mobile-tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
   <button class="mobile-tab" data-tab="minigame" onclick="showTab('minigame',this)">Mini Game</button>
-  <button class="mobile-tab" data-tab="lineups" onclick="showTab('lineups',this)">Lineup Tips <span class="tab-beta">BETA</span></button>
   <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
   <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   <button id="spoiler-btn" class="spoiler-toggle" onclick="toggleSpoiler()" aria-pressed="false">
@@ -168,21 +166,6 @@
     </div>
     <div id="minigame-content"></div>
     <div id="minigame-scores"></div>
-  </div>
-</div>
-
-<!-- LINEUP TIPS -->
-<div id="lineups" class="section">
-  <div class="container">
-    <div class="section-header">
-      <div class="lt-title-row">
-        <div class="section-title">Lineup Tips</div>
-        <button class="btn lt-score-btn" onclick="ltShowLeaderboard()">Standings</button>
-      </div>
-      <div class="section-sub">Predict a team's starting XI &amp; formation before kickoff · +1 per correct starter, +2 for the right formation · separate scoreboard (not the official competition)</div>
-    </div>
-    <div id="lineups-content"></div>
-    <div id="lineups-modal"></div>
   </div>
 </div>
 
@@ -1684,7 +1667,8 @@ function renderLineups(m){
           ${renderLineupList(away,'away',awaySubs)}
         </div>
       `:`<div class="lu-empty">No confirmed lineups yet</div>`}
-    </div>`;
+    </div>
+    ${(shortName(m.home)!=='TBD'&&shortName(m.away)!=='TBD'&&m.kickoff)?`<div class="lt-block" id="lt-block-${m.id}">${ltCardBlockInner(m)}</div>`:''}`;
 }
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -6067,7 +6051,7 @@ const LT_XI_CACHE={};         // {matchId:'loading'|{home,away}|{failed:true}}  
 let LT_UI=null;               // {matchId,side,formation,ids:Set,roster,team,teamId} while picking
 
 function ltMe(){ return (FORM_STATE&&FORM_STATE.name||'').trim(); }
-function ltSetMe(v){ FORM_STATE.name=(v||'').trim(); saveFormState(); renderLineupTips(); }
+function ltSetMe(v){ FORM_STATE.name=(v||'').trim(); saveFormState(); ltRefresh(); }
 function ltMatches(){
   return getAllMatches()
     .filter(m=>m.kickoff && shortName(m.home)!=='TBD' && shortName(m.away)!=='TBD')
@@ -6133,49 +6117,41 @@ function ltMyPrediction(matchId){
   return (LT_PREDICTIONS[sanitizeName(me)]||{})[matchId]||null;
 }
 
-// ── Rendering ─────────────────────────────────────────────────────────────────
-function renderLineupTips(){
-  const c=document.getElementById('lineups-content'); if(!c) return;
-  ltEnsureTeamIds();
-  const me=ltMe();
-  const players=mgPlayerNames();
-  const idSel=`<div class="lt-identity"><span class="lt-id-label">Tipping as</span>
-    <select class="lt-id-select" onchange="ltSetMe(this.value)"><option value="">— choose your name —</option>${players.map(n=>`<option value="${mgEsc(n)}"${n===me?' selected':''}>${mgEsc(n)}</option>`).join('')}</select></div>`;
-  const matches=ltMatches();
-  if(!matches.length){ c.innerHTML=idSel+`<div class="lt-empty">No matches with confirmed teams to tip yet.</div>`; return; }
-  c.innerHTML=idSel+`<div class="lt-match-list">${matches.map(m=>ltMatchRow(m,me)).join('')}</div>`;
-  // Lazily load actual XIs for finished matches so scores can show.
-  matches.filter(m=>ltStatus(m)==='done' && (ltHasAnyPrediction(m.id))).forEach(m=>ltEnsureActualXI(m));
-}
-function ltHasAnyPrediction(matchId){
-  return Object.values(LT_PREDICTIONS||{}).some(u=>u&&u[matchId]);
-}
-function ltMatchRow(m,me){
-  const hn=shortName(m.home), an=shortName(m.away);
+// ── Match-card tip block + shared modal host ──────────────────────────────────
+function ltModalHost(){ let h=document.getElementById('lt-modal-host'); if(!h){ h=document.createElement('div'); h.id='lt-modal-host'; document.body.appendChild(h); } return h; }
+function ltHasAnyPrediction(matchId){ return Object.values(LT_PREDICTIONS||{}).some(u=>u&&u[matchId]); }
+// Inner HTML for a match card's lineup-tip block: identity prompt → pick button →
+// once the official XI is out, "your XI vs official" with correct picks ticked.
+function ltCardBlockInner(m){
   const st=ltStatus(m);
-  const badge = st==='open'?'<span class="lt-badge lt-open">Open</span>'
-    : st==='locked'?'<span class="lt-badge lt-locked">Locked</span>'
-    : '<span class="lt-badge lt-done">Result in</span>';
-  const when=friendlyDate(m)+(matchTimeStr(m)?' · '+matchTimeStr(m):'');
-  const pred=ltMyPrediction(m.id);
-  let sub='';
-  if(pred){
-    const sc=ltScorePrediction(m.id,pred);
-    const teamNm=pred.team;
-    if(sc) sub=`<div class="lt-yourpick lt-scored">Your ${mgEsc(teamNm)} XI · <b>${sc.correct}/${sc.of}</b> correct${sc.formationHit?' · <b>+2</b> formation':''} → <b>${sc.points} pts</b></div>`;
-    else sub=`<div class="lt-yourpick">Your pick: ${mgEsc(teamNm)} · ${mgEsc(pred.formation)}${st==='done'?' · scoring…':''}</div>`;
+  const head=`<div class="lt-block-head"><span class="lt-block-title">🎽 Lineup tip</span><button class="lt-standings-link" onclick="ltShowLeaderboard()">Standings</button></div>`;
+  const me=ltMe();
+  if(!me){
+    const players=mgPlayerNames();
+    return head+`<div class="lt-block-sub">Pick your name to tip this XI:</div>
+      <select class="lt-id-select" onchange="ltSetMe(this.value)"><option value="">— choose your name —</option>${players.map(n=>`<option value="${mgEsc(n)}">${mgEsc(n)}</option>`).join('')}</select>`;
   }
-  const action = st==='open'
-    ? `<button class="btn lt-pick-btn" onclick="ltOpenPicker(${m.id})">${pred?'Edit XI':'Tip XI'}</button>`
-    : (pred? `<button class="btn-outline lt-pick-btn" onclick="ltOpenPicker(${m.id})">View</button>` : `<span class="lt-nopick">${st==='done'?'—':'Closed'}</span>`);
-  return `<div class="lt-match">
-    <div class="lt-match-main">
-      <div class="lt-teams">${flagOf(m.home)} ${mgEsc(hn)} <span class="lt-vs">v</span> ${flagOf(m.away)} ${mgEsc(an)}</div>
-      <div class="lt-when">${when} ${badge}</div>
-      ${sub}
-    </div>
-    <div class="lt-match-action">${action}</div>
-  </div>`;
+  const pred=ltMyPrediction(m.id);
+  if(pred){
+    const xi=LT_XI_CACHE[m.id];
+    const ready = xi && xi!=='loading' && !xi.failed && xi[pred.side] && xi[pred.side].ids.length;
+    if(!ready && st!=='open') ltEnsureActualXI(m);   // fetch official XI once locked/done
+    if(ready){
+      const off=new Set(xi[pred.side].ids.map(String));
+      const chips=(pred.xi||[]).map(p=>{const ok=off.has(String(p.id));return `<span class="lt-cmp ${ok?'hit':'miss'}">${ok?'✓':'✗'} ${mgEsc(ltSurname(p.name))}</span>`;}).join('');
+      const sc=ltScorePrediction(m.id,pred);
+      const score=sc?`<div class="lt-block-score">${sc.correct}/11 in the XI${sc.formationHit?' · +2 formation':''} → <b>${sc.points} pts</b></div>`:'';
+      return head+`<div class="lt-block-sub">Your ${mgEsc(pred.team)} XI (${mgEsc(pred.formation)}) vs the official lineup:</div><div class="lt-cmp-list">${chips}</div>${score}`;
+    }
+    const btn = st==='open'?`<button class="btn lt-pick-btn" onclick="ltOpenPicker(${m.id})">Edit XI</button>`:`<button class="btn-outline lt-pick-btn" onclick="ltOpenPicker(${m.id})">View XI</button>`;
+    return head+`<div class="lt-block-sub">Your pick: ${mgEsc(pred.team)} · ${mgEsc(pred.formation)}${st!=='open'?' · waiting for official XI…':''}</div>${btn}`;
+  }
+  if(st==='open') return head+`<button class="btn lt-pick-btn" onclick="ltOpenPicker(${m.id})">Predict the starting XI</button>`;
+  return head+`<div class="lt-block-sub">No lineup tipped for this match.</div>`;
+}
+function ltRenderCardBlock(matchId){
+  const el=document.getElementById('lt-block-'+matchId); if(!el) return;
+  const m=getAllMatches().find(x=>x.id===matchId); if(m) el.innerHTML=ltCardBlockInner(m);
 }
 
 // ── Picker modal ──────────────────────────────────────────────────────────────
@@ -6250,7 +6226,7 @@ function ltAssignPlayer(id){
   ltRenderPicker(ltCurMatch(),false);
 }
 function ltRenderPicker(m, loading){
-  const host=document.getElementById('lineups-modal'); if(!host||!LT_UI||LT_UI.matchId!==m.id) return;
+  const host=ltModalHost(); if(!host||!LT_UI||LT_UI.matchId!==m.id) return;
   const readOnly=ltStatus(m)!=='open';
   const hn=shortName(m.home), an=shortName(m.away);
   const teamNm=LT_UI.team||(LT_UI.side==='home'?hn:an);
@@ -6300,7 +6276,7 @@ function ltRenderPicker(m, loading){
     </div>
   </div>`;
 }
-function ltHideModal(){ const h=document.getElementById('lineups-modal'); if(h) h.innerHTML=''; LT_UI=null; }
+function ltHideModal(){ const h=document.getElementById('lt-modal-host'); if(h) h.innerHTML=''; LT_UI=null; }
 function ltSubmit(matchId){
   if(!LT_UI) return;
   const filled=LT_UI.slots.filter(s=>s.id); if(filled.length!==11) return;
@@ -6312,12 +6288,12 @@ function ltSubmit(matchId){
     try{ db.ref(LT_PATH+'/'+sanitizeName(me)+'/'+matchId).set(rec); }catch(_){}
   }
   const k=sanitizeName(me); LT_PREDICTIONS[k]=LT_PREDICTIONS[k]||{}; LT_PREDICTIONS[k][matchId]=rec;
-  ltHideModal(); renderLineupTips();
+  ltHideModal(); ltRenderCardBlock(matchId);
 }
 
 // ── Separate scoreboard ───────────────────────────────────────────────────────
 function ltShowLeaderboard(){
-  const host=document.getElementById('lineups-modal'); if(!host) return;
+  const host=ltModalHost(); if(!host) return;
   // make sure actual XIs are loaded for any predicted+finished match
   ltMatches().filter(m=>ltStatus(m)==='done' && ltHasAnyPrediction(m.id)).forEach(m=>ltEnsureActualXI(m));
   const totals={}; // userName -> {pts, correct, matches}
@@ -6342,11 +6318,15 @@ function ltShowLeaderboard(){
 }
 // Re-render whatever lineup view is showing (called on Firebase updates / async loads).
 function ltRefresh(){
-  const sec=document.getElementById('lineups'); if(!sec||!sec.classList.contains('active')) return;
-  const modal=document.getElementById('lineups-modal');
-  if(modal && modal.querySelector('.lt-lb')) { ltShowLeaderboard(); return; }
-  if(LT_UI){ const m=ltMatches().find(x=>x.id===LT_UI.matchId); if(m){ ltRenderPicker(m,false); return; } }
-  renderLineupTips();
+  const host=document.getElementById('lt-modal-host');
+  if(host && host.querySelector('.lt-lb')){ ltShowLeaderboard(); }
+  else if(host && LT_UI){ const m=ltMatches().find(x=>x.id===LT_UI.matchId); if(m) ltRenderPicker(m,false); }
+  // Update any match-card tip blocks currently rendered in the DOM.
+  document.querySelectorAll('[id^="lt-block-"]').forEach(el=>{
+    const id=parseInt(el.id.replace('lt-block-',''),10);
+    const m=getAllMatches().find(x=>x.id===id);
+    if(m) el.innerHTML=ltCardBlockInner(m);
+  });
 }
 
 function showTab(id,el){
@@ -6366,7 +6346,6 @@ function showTab(id,el){
   if(id==='stats')   renderStatsTab();
   if(id==='fantasy') renderFantasyTab();
   if(id==='minigame') renderMiniGame();
-  if(id==='lineups') renderLineupTips();
   // Re-render the list on open so reconciled scores show immediately — otherwise the
   // tab keeps whatever was painted before the async ESPN reconcile finished, and the
   // score only corrected once a card was interacted with (which forces a re-render).

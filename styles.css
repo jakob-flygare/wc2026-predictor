@@ -1296,3 +1296,22 @@
 .lt-pp-none { font-size:0.78rem; color:var(--muted); }
 .lt-pp-other { font-size:0.64rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--muted); margin:0.35rem 0 0.25rem; }
 .lt-pp-hint { margin-top:0.6rem; font-size:0.78rem; color:var(--muted); text-align:center; }
+
+/* ── LINEUP TIP block inside match cards ───────────────────────────────────── */
+.lt-block { border-top:1px solid var(--border); margin-top:0.6rem; padding-top:0.7rem; }
+.lt-block-head { display:flex; align-items:center; justify-content:space-between; gap:0.6rem; margin-bottom:0.5rem; }
+.lt-block-title { font-family:'Bebas Neue',sans-serif; font-size:1rem; letter-spacing:0.04em; color:var(--gold); }
+[data-accent="purple"] .lt-block-title { color:#C27AFF; }
+.lt-standings-link { background:none; border:1px solid var(--border); color:var(--muted); border-radius:999px; padding:0.2rem 0.7rem; font-size:0.72rem; font-family:'DM Sans',sans-serif; cursor:pointer; transition:border-color .12s,color .12s; }
+.lt-standings-link:hover { border-color:var(--gold); color:var(--gold); }
+[data-accent="purple"] .lt-standings-link:hover { border-color:#C27AFF; color:#C27AFF; }
+.lt-block-sub { font-size:0.8rem; color:var(--muted); margin-bottom:0.5rem; }
+.lt-block .lt-pick-btn { margin:0; font-size:0.82rem; }
+.lt-block .lt-id-select { width:100%; }
+.lt-cmp-list { display:flex; flex-wrap:wrap; gap:0.3rem; }
+.lt-cmp { font-size:0.76rem; padding:0.22rem 0.55rem; border-radius:999px; border:1px solid var(--border); white-space:nowrap; }
+.lt-cmp.hit { background:rgba(46,204,113,0.14); color:var(--green); border-color:rgba(46,204,113,0.4); font-weight:600; }
+.lt-cmp.miss { background:rgba(138,136,128,0.1); color:var(--muted); }
+.lt-block-score { margin-top:0.5rem; font-size:0.85rem; color:var(--text); }
+.lt-block-score b { color:var(--gold); }
+[data-accent="purple"] .lt-block-score b { color:#C27AFF; }
