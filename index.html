@@ -2636,12 +2636,17 @@ function calcColdStreak(player){
 
 // ── FEATURE: LIVE MATCH / COUNTDOWN ───────────────────────────────────────────
 function getMatchStatus(m){
-  if(m.result)return'finished';
-  if(!m.kickoff)return null;
+  if(!m.kickoff)return m.result?'finished':null;
   const now=new Date();
   const ko=new Date(m.kickoff);
-  const end=new Date(ko.getTime()+2.5*60*60*1000); // ~2.5 hr match window
-  if(now>=ko&&now<=end)return'live';
+  const activeEnd=new Date(ko.getTime()+4*60*60*1000); // covers ET + pens + ESPN lag
+  const pendingEnd=new Date(ko.getTime()+8*60*60*1000); // don't fall back to "upcoming" while final data lags
+  // Time/live status must win over stored results during the active match window:
+  // Firebase/admin data can briefly contain stale knockout results before ESPN live
+  // polling reconciles the real state.
+  if(now>=ko&&now<=activeEnd&&!LIVE_RESULTS[m.id])return'live';
+  if(m.result)return'finished';
+  if(now>=ko&&now<=pendingEnd)return'live';
   // Same calendar date (UTC) counts as "today"
   const nowDate=now.toISOString().slice(0,10);
   const koDate=ko.toISOString().slice(0,10);
@@ -3318,7 +3323,7 @@ function renderMatches(){
     const starsRow=starsHtml?`<div class="mc-stars-row">${starsHtml}</div>`:'';
     // Winner highlight: gold ring + confetti on the winning team, grey out the loser.
     let homeCls='',awayCls='',homeConfetti='',awayConfetti='';
-    if(m.result&&m.result!=='draw'&&!spoilerMode){
+    if(mStatus==='finished'&&m.result&&m.result!=='draw'&&!spoilerMode){
       if(m.result==='home'){homeCls=' mc-win';awayCls=' mc-lose';homeConfetti=confettiHtml(hn);}
       else{awayCls=' mc-win';homeCls=' mc-lose';awayConfetti=confettiHtml(an);}
     }
