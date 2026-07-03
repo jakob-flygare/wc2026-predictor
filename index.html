@@ -830,7 +830,9 @@ function applyDataSnapshot(data) {
   const parseList= s => (s && s.trim()) ? s.split(',').map(t=>t.trim()).filter(Boolean) : null;
 
   // Shared mini-game high scores (visible to everyone). Live-updated on every snapshot.
-  MG_HS = data.minigameHighScores || {};
+  // Stored under picks/__minigame_highscores__ (see MG_HS_PATH) as it's the only
+  // anonymously-writable path; the entry has no "name" so it's not read as a player.
+  MG_HS = (data.picks && data.picks.__minigame_highscores__) || {};
   if(typeof mgRefreshHighScores==='function') mgRefreshHighScores();
 
   // No live data yet — fall back to demo so the site looks populated
@@ -5661,6 +5663,8 @@ function mgPlayerNames(){
 }
 // Shared high scores from Firebase ({sanitisedKey:{name,score}}), populated on
 // each data snapshot. Kept alongside a localStorage fallback for offline/demo.
+// Stored under the picks node — the only path anonymous clients may write to.
+const MG_HS_PATH='wc2026/picks/__minigame_highscores__';
 let MG_HS={};
 function mgLocalScores(){
   try{return JSON.parse(localStorage.getItem('mgHighScores')||'{}')||{};}catch(_){return{};}
@@ -5697,11 +5701,13 @@ function mgSavePlayerBest(score){
     localStorage.setItem('mgHighScores',JSON.stringify(local));
   }
   // Shared: write to Firebase so the high score is saved and visible for everyone.
-  // Transaction keeps the highest score if two devices submit at once.
+  // Stored under picks/__minigame_highscores__ because the DB security rules only
+  // grant anonymous write access under wc2026/picks. The entry has no top-level
+  // "name", so it's never treated as a player. Transaction keeps the highest score.
   if(typeof db!=='undefined' && db && !isPreviewMode()){
     try{
       const name=MG.player;
-      db.ref('wc2026/minigameHighScores/'+sanitizeName(name)).transaction(cur=>{
+      db.ref(MG_HS_PATH+'/'+sanitizeName(name)).transaction(cur=>{
         if(cur && Number(cur.score||0)>=score) return cur;
         return {name, score};
       });
