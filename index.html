@@ -5625,6 +5625,7 @@ function closeMobileNav(){
 const MG={goals:0,shots:0,streak:0,best:0,busy:false,player:null,keeper:null,selectedKeeper:'germany',selectedBall:'2026',newHighScore:false};
 const MG_ZX=[20,50,80]; // three aim zones: left / centre / right (centre %)
 const MG_SHOT_RESOLVE_MS=160;
+const MG_RAVELLI_FLASH_DELAY_MS=910;
 const MG_FALLBACK_PLAYERS=['Jakob','Annie','Leo','Daniel','Jeppe','Pontus','Pau','Susana','Caroline','Tänj'];
 // Extra players available only in the Mini Game (not in the predictor/leaderboard).
 const MG_EXTRA_PLAYERS=['Malin'];
@@ -5633,6 +5634,7 @@ const MG_BALL_TARGETS=[
   {left:50,top:51},
   {left:97,top:51}
 ];
+const MG_RAVELLI_HAND_TARGET={left:99,top:66};
 const MG_KEEPERS={
   italy:{
     name:'Buffon',
@@ -5663,10 +5665,21 @@ const MG_KEEPERS={
     missLeft:'casillas-dive-miss-left.png',
     saveRight:'casillas-dive-save-right.png',
     missRight:'casillas-dive-miss-right.png'
+  },
+  sweden:{
+    name:'Thomas Ravelli',
+    logo:'sweden-logo.png',
+    ready:'ravelli-ready.png',
+    middle:'ravelli-ready.png',
+    saveLeft:'ravelli-dive-save-right.png',
+    missLeft:'ravelli-dive-save-right.png',
+    saveRight:'ravelli-dive-save-right.png',
+    missRight:'ravelli-dive-save-right.png',
+    alwaysSaveRight:true
   }
 };
-const MG_KEEPER_ORDER=['germany','italy','spain'];
-const MG_KEEPER_LABELS={germany:'Germany',spain:'Spain',italy:'Italy'};
+const MG_KEEPER_ORDER=['germany','italy','spain','sweden'];
+const MG_KEEPER_LABELS={germany:'Germany',italy:'Italy',spain:'Spain',sweden:'Sweden'};
 const MG_BALL_ORDER=['2002','2006','2010','2014','2018','2022','2026'];
 function mgAssets(){return MG_KEEPERS[MG.keeper]||MG_KEEPERS.italy;}
 function mgKeeperLabel(key=MG.selectedKeeper){return MG_KEEPER_LABELS[key]||MG_KEEPER_LABELS.germany;}
@@ -5765,6 +5778,7 @@ function mgSet(id,v){const e=document.getElementById(id);if(e)e.textContent=v;}
 function mgSyncScore(){ mgSet('mg-streak',MG.streak); mgSet('mg-best',MG.best); }
 function mgKeeperAsset(zone,outcome){
   const assets=mgAssets();
+  if(assets.alwaysSaveRight) return assets.saveRight;
   if(zone===0) return outcome==='save'?assets.saveLeft:assets.missLeft;
   if(zone===2) return outcome==='save'?assets.saveRight:assets.missRight;
   return assets.middle;
@@ -5773,7 +5787,7 @@ function mgSetKeeper(src){
   const img=document.getElementById('mg-keeper-img');
   if(img){
     img.src=src;
-    img.className='mg-gk '+(/^casillas-dive-/.test(src)?'mg-gk-casillas-dive':'');
+    img.className='mg-gk '+(/^casillas-dive-/.test(src)?'mg-gk-casillas-dive':'')+' '+(/^ravelli-dive-/.test(src)?'mg-gk-ravelli-dive':'');
   }
 }
 function mgFlash(outcome){
@@ -5925,16 +5939,41 @@ function mgShoot(z){
   const ball=document.getElementById('mg-ball'), keeper=document.getElementById('mg-keeper'), msg=document.getElementById('mg-msg');
   if(!ball||!keeper) return;
   MG.busy=true;
-  const kz=Math.floor(Math.random()*3); // keeper dives left / centre / right
-  const target=MG_BALL_TARGETS[z]||MG_BALL_TARGETS[1];
+  const assets=mgAssets();
+  const ravelliMode=!!assets.alwaysSaveRight;
+  const kz=ravelliMode?2:Math.floor(Math.random()*3); // keeper dives left / centre / right
+  const target=ravelliMode ? MG_RAVELLI_HAND_TARGET : (MG_BALL_TARGETS[z]||MG_BALL_TARGETS[1]);
   ball.classList.add('mg-ball-shot');
-  ball.style.left=target.left+'%'; ball.style.top=target.top+'%';
   keeper.style.left=MG_ZX[kz]+'%';
-  const outcome = z===kz ? 'save' : 'goal';
+  if(ravelliMode){
+    ball.classList.add('mg-ball-ravelli-curve');
+    ball.getAnimations().forEach(animation=>animation.cancel());
+    const curveStart=[
+      {left:42,top:124},
+      {left:51,top:125},
+      {left:61,top:124}
+    ][z]||{left:51,top:125};
+    const curveMid=[
+      {left:59,top:95},
+      {left:66,top:93},
+      {left:76,top:92}
+    ][z]||{left:66,top:93};
+    ball.animate([
+      {left:'50%',top:'150%',width:'10%',transform:'translate(-50%,-50%) rotate(0deg)',offset:0},
+      {left:curveStart.left+'%',top:curveStart.top+'%',width:'9.2%',transform:'translate(-50%,-50%) rotate(115deg)',offset:0.36},
+      {left:curveMid.left+'%',top:curveMid.top+'%',width:'8.3%',transform:'translate(-50%,-50%) rotate(295deg)',offset:0.68},
+      {left:target.left+'%',top:target.top+'%',width:'7.4%',transform:'translate(-50%,-50%) rotate(540deg)',offset:1}
+    ],{duration:980,easing:'cubic-bezier(.33,.03,.2,1)',fill:'forwards'});
+    ball.style.left=target.left+'%';
+    ball.style.top=target.top+'%';
+  } else {
+    ball.style.left=target.left+'%'; ball.style.top=target.top+'%';
+  }
+  const outcome = ravelliMode ? 'save' : (z===kz ? 'save' : 'goal');
   mgSetKeeper(mgKeeperAsset(kz,outcome));
   setTimeout(()=>{
     mgFlash(outcome);
-  },MG_SHOT_RESOLVE_MS);
+  },ravelliMode?MG_RAVELLI_FLASH_DELAY_MS:MG_SHOT_RESOLVE_MS);
   setTimeout(()=>{
     MG.shots++;
     const endedStreak=MG.streak;
@@ -5951,8 +5990,9 @@ function mgShoot(z){
       msg.className = 'mg-msg '+(outcome==='goal'?'goal':'save');
     }
     setTimeout(()=>{
+      ball.getAnimations().forEach(animation=>animation.cancel());
       ball.style.left='50%'; ball.style.top='150%';
-      ball.classList.remove('mg-ball-shot');
+      ball.classList.remove('mg-ball-shot','mg-ball-ravelli-curve');
       keeper.style.left='50%';
       mgSetKeeper(mgAssets().ready);
       if(outcome==='save'){
