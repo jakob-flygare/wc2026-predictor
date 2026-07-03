@@ -5689,7 +5689,7 @@ function mgShoot(z){
     else { MG.streak=0; }
     mgSyncScore();
     if(msg){
-      msg.textContent = outcome==='goal' ? 'GOAL! ⚽🥅' : 'SAVED! 🧤';
+      msg.textContent = outcome==='goal' ? 'GOAL! ⚽' : 'Save! ❌';
       msg.className = 'mg-msg '+(outcome==='goal'?'goal':'save');
     }
     setTimeout(()=>{

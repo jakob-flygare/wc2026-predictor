@@ -1081,7 +1081,8 @@
 .mg-hud b { color:#fff; font:inherit; }
 /* Pixel-art stadium background. Falls back to a plain green pitch if the image
    isn't present yet. image-rendering:pixelated keeps the lo-fi look crisp. */
-.mg-pitch { position:relative; background-color:#347f39; background-image:url('penalty-bg.png'); background-size:cover; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; border:2px solid var(--border); border-radius:10px; width:100%; aspect-ratio:1448 / 1086; overflow:hidden; }
+.mg-pitch { position:relative; background-color:#05060a; background-image:url('penalty-bg.png'); background-size:cover; background-position:center; background-repeat:no-repeat; image-rendering:pixelated; border:2px solid var(--gold); border-radius:10px; width:100%; aspect-ratio:1448 / 1086; overflow:hidden; }
+[data-accent="purple"] .mg-pitch { border-color:#C27AFF; }
 .mg-flash { position:absolute; inset:0; z-index:5; pointer-events:none; opacity:0; mix-blend-mode:screen; }
 .mg-flash.goal { animation:mgFlashGoal .8s ease-out; }
 .mg-flash.save { animation:mgFlashSave .8s ease-out; }
@@ -1099,6 +1100,8 @@
 .mg-goal { position:absolute; top:27.5%; left:14.5%; width:71%; height:33%;
   display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:1fr; }
 .mg-zone { border:0; background:transparent; cursor:pointer; transition:background .12s; padding:0; border-radius:2px; }
+.mg-zone:focus,
+.mg-zone:focus-visible { outline:none; box-shadow:none; }
 .mg-zone:hover { background:rgba(244,209,106,0.3); }
 [data-accent="purple"] .mg-zone:hover { background:rgba(194,122,255,0.3); }
 /* Keeper stands on the goal line: wrapper spans the goal mouth, image is bottom-
