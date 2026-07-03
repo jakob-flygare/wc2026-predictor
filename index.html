@@ -32,6 +32,7 @@
     <button class="tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
     <button class="tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
     <button class="tab" data-tab="minigame" onclick="showTab('minigame',this)">Mini Game</button>
+    <button class="tab" data-tab="lineups" onclick="showTab('lineups',this)">Lineup Tips <span class="tab-beta">BETA</span></button>
     <button class="tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
     <button class="tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   </nav>
@@ -53,6 +54,7 @@
   <button class="mobile-tab" data-tab="stats" onclick="showTab('stats',this)">Stats</button>
   <button class="mobile-tab" data-tab="fantasy" onclick="showTab('fantasy',this)">Fantasy <span class="tab-beta">BETA</span></button>
   <button class="mobile-tab" data-tab="minigame" onclick="showTab('minigame',this)">Mini Game</button>
+  <button class="mobile-tab" data-tab="lineups" onclick="showTab('lineups',this)">Lineup Tips <span class="tab-beta">BETA</span></button>
   <button class="mobile-tab" data-tab="scoring" onclick="showTab('scoring',this)">How it works</button>
   <button class="mobile-tab" data-tab="admin" onclick="showTab('admin',this)">Settings</button>
   <button id="spoiler-btn" class="spoiler-toggle" onclick="toggleSpoiler()" aria-pressed="false">
@@ -166,6 +168,21 @@
     </div>
     <div id="minigame-content"></div>
     <div id="minigame-scores"></div>
+  </div>
+</div>
+
+<!-- LINEUP TIPS -->
+<div id="lineups" class="section">
+  <div class="container">
+    <div class="section-header">
+      <div class="lt-title-row">
+        <div class="section-title">Lineup Tips</div>
+        <button class="btn lt-score-btn" onclick="ltShowLeaderboard()">Standings</button>
+      </div>
+      <div class="section-sub">Predict a team's starting XI &amp; formation before kickoff · +1 per correct starter, +2 for the right formation · separate scoreboard (not the official competition)</div>
+    </div>
+    <div id="lineups-content"></div>
+    <div id="lineups-modal"></div>
   </div>
 </div>
 
@@ -473,6 +490,7 @@ function espnSummaryLineups(summary){
         const a=x.athlete||{};
         const pos=a.position||x.position||{};
         return {
+          id:String(a.id||a.uid||x.id||''),
           name:a.displayName||a.fullName||a.name||x.displayName||x.name||'Unknown',
           number:a.jersey||a.uniform||x.jersey||x.uniform||x.number||x.formationPlace||'',
           position:(pos.abbreviation||pos.name||'').toString(),
@@ -834,6 +852,10 @@ function applyDataSnapshot(data) {
   // anonymously-writable path; the entry has no "name" so it's not read as a player.
   MG_HS = (data.picks && data.picks.__minigame_highscores__) || {};
   if(typeof mgRefreshHighScores==='function') mgRefreshHighScores();
+
+  // Shared lineup-tip predictions (separate scoreboard). Live-updated each snapshot.
+  LT_PREDICTIONS = (data.picks && data.picks.__lineup_predictions__) || {};
+  if(typeof ltRefresh==='function') ltRefresh();
 
   // No live data yet — fall back to demo so the site looks populated
   if (!Object.keys(results).length && !Object.keys(picksData).length) {
@@ -6030,6 +6052,253 @@ function mgShoot(z){
   },420);
 }
 
+// ── LINEUP TIPS (predict a team's starting XI + formation) ────────────────────
+const ESPN_TEAMS_BASE='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world';
+const LT_FORMATIONS=['4-4-2','4-3-3','4-2-3-1','3-5-2','3-4-3','5-3-2','5-4-1','4-5-1'];
+const LT_LOCK_MS=2*60*60*1000;                       // predictions lock 2h before kickoff
+const LT_PATH='wc2026/picks/__lineup_predictions__'; // only anonymously-writable path
+let LT_PREDICTIONS={};        // {userKey:{matchId:{user,side,team,teamId,formation,xi:[{id,name}],at}}}
+let LT_TEAM_IDS=null;         // {ourTeamName: espnTeamId}  (built from LT_TEAM_ID_RAW)
+const LT_ROSTER_CACHE={};     // {espnTeamId:[{id,name,pos}]}
+// ESPN team ids (the /teams list endpoint is CORS-blocked in the browser, so this
+// is baked in; the per-team /roster endpoint works client-side and is fetched live).
+const LT_TEAM_ID_RAW={'Algeria':'624','Argentina':'202','Australia':'628','Austria':'474','Belgium':'459','Bosnia-Herzegovina':'452','Brazil':'205','Canada':'206','Cape Verde':'2597','Colombia':'208','Congo DR':'2850','Croatia':'477','Curaçao':'11678','Czechia':'450','Ecuador':'209','Egypt':'2620','England':'448','France':'478','Germany':'481','Ghana':'4469','Haiti':'2654','Iran':'469','Iraq':'4375','Ivory Coast':'4789','Japan':'627','Jordan':'2917','Mexico':'203','Morocco':'2869','Netherlands':'449','New Zealand':'2666','Norway':'464','Panama':'2659','Paraguay':'210','Portugal':'482','Qatar':'4398','Saudi Arabia':'655','Scotland':'580','Senegal':'654','South Africa':'467','South Korea':'451','Spain':'164','Sweden':'466','Switzerland':'475','Tunisia':'659','Türkiye':'465','United States':'660','Uruguay':'212','Uzbekistan':'2570'};
+const LT_XI_CACHE={};         // {matchId:'loading'|{home,away}|{failed:true}}  actual starting XIs
+let LT_UI=null;               // {matchId,side,formation,ids:Set,roster,team,teamId} while picking
+
+function ltMe(){ return (FORM_STATE&&FORM_STATE.name||'').trim(); }
+function ltSetMe(v){ FORM_STATE.name=(v||'').trim(); saveFormState(); renderLineupTips(); }
+function ltMatches(){
+  return getAllMatches()
+    .filter(m=>m.kickoff && shortName(m.home)!=='TBD' && shortName(m.away)!=='TBD')
+    .sort((a,b)=>new Date(a.kickoff)-new Date(b.kickoff)||a.id-b.id);
+}
+function ltStatus(m){
+  const ko=new Date(m.kickoff).getTime();
+  if(m.result) return 'done';
+  if(Date.now() >= ko-LT_LOCK_MS) return 'locked';
+  return 'open';
+}
+function ltEnsureTeamIds(){
+  if(LT_TEAM_IDS) return LT_TEAM_IDS;
+  LT_TEAM_IDS={};
+  Object.entries(LT_TEAM_ID_RAW).forEach(([nm,id])=>{ LT_TEAM_IDS[espnNorm(nm)]=String(id); });
+  return LT_TEAM_IDS;
+}
+function ltParseRoster(data){
+  const out=[]; const seen=new Set();
+  const push=a=>{ if(!a) return; const id=String(a.id||a.uid||''); const name=a.displayName||a.fullName||a.name; if(!id||!name||seen.has(id)) return; seen.add(id);
+    out.push({id,name,pos:((a.position||{}).abbreviation||(a.position||{}).name||'').toString()}); };
+  (data.athletes||[]).forEach(g=>{ if(g&&Array.isArray(g.items)) g.items.forEach(push); else push(g); });
+  return out;
+}
+async function ltFetchRoster(teamId){
+  if(!teamId) return [];
+  if(LT_ROSTER_CACHE[teamId]) return LT_ROSTER_CACHE[teamId];
+  try{
+    const r=await fetch(ESPN_TEAMS_BASE+'/teams/'+teamId+'/roster'); if(!r.ok) return [];
+    const d=await r.json(); const list=ltParseRoster(d);
+    if(list.length) LT_ROSTER_CACHE[teamId]=list;
+    return list;
+  }catch(_){ return []; }
+}
+function ltNormalizeXI(lineups){
+  const side=s=>{ const o=lineups[s]; if(!o) return null;
+    return { formation:(o.formation||'').toString().trim(), ids:(o.players||[]).map(p=>String(p.id||'')).filter(Boolean), names:(o.players||[]).map(p=>p.name) }; };
+  return { home:side('home'), away:side('away') };
+}
+async function ltEnsureActualXI(m){
+  if(m.id in LT_XI_CACHE) return;
+  if(LIVE_LINEUPS[m.id]){ LT_XI_CACHE[m.id]=ltNormalizeXI(LIVE_LINEUPS[m.id]); ltRefresh(); return; }
+  LT_XI_CACHE[m.id]='loading';
+  try{
+    const eid=await ensureEspnEventId(m);
+    if(eid){ const r=await fetch(ESPN_SUMMARY+encodeURIComponent(eid)); if(r.ok){ const s=await r.json(); const lu=espnSummaryLineups(s);
+      if(lu){ LT_XI_CACHE[m.id]=ltNormalizeXI(lu); ltRefresh(); return; } } }
+  }catch(_){}
+  LT_XI_CACHE[m.id]={failed:true};
+}
+// Score a stored prediction against the actual XI (once available). null = not scorable yet.
+function ltScorePrediction(matchId,pred){
+  const xi=LT_XI_CACHE[matchId];
+  if(!xi||xi==='loading'||xi.failed) return null;
+  const act=xi[pred.side]; if(!act||!act.ids.length) return null;
+  const predIds=(pred.xi||[]).map(p=>String(p.id));
+  const correct=predIds.filter(id=>act.ids.includes(id)).length;
+  const formationHit=!!(act.formation && pred.formation && act.formation===pred.formation);
+  return { correct, formationHit, points:correct+(formationHit?2:0), of:act.ids.length, actualFormation:act.formation };
+}
+function ltMyPrediction(matchId){
+  const me=ltMe(); if(!me) return null;
+  return (LT_PREDICTIONS[sanitizeName(me)]||{})[matchId]||null;
+}
+
+// ── Rendering ─────────────────────────────────────────────────────────────────
+function renderLineupTips(){
+  const c=document.getElementById('lineups-content'); if(!c) return;
+  ltEnsureTeamIds();
+  const me=ltMe();
+  const players=mgPlayerNames();
+  const idSel=`<div class="lt-identity"><span class="lt-id-label">Tipping as</span>
+    <select class="lt-id-select" onchange="ltSetMe(this.value)"><option value="">— choose your name —</option>${players.map(n=>`<option value="${mgEsc(n)}"${n===me?' selected':''}>${mgEsc(n)}</option>`).join('')}</select></div>`;
+  const matches=ltMatches();
+  if(!matches.length){ c.innerHTML=idSel+`<div class="lt-empty">No matches with confirmed teams to tip yet.</div>`; return; }
+  c.innerHTML=idSel+`<div class="lt-match-list">${matches.map(m=>ltMatchRow(m,me)).join('')}</div>`;
+  // Lazily load actual XIs for finished matches so scores can show.
+  matches.filter(m=>ltStatus(m)==='done' && (ltHasAnyPrediction(m.id))).forEach(m=>ltEnsureActualXI(m));
+}
+function ltHasAnyPrediction(matchId){
+  return Object.values(LT_PREDICTIONS||{}).some(u=>u&&u[matchId]);
+}
+function ltMatchRow(m,me){
+  const hn=shortName(m.home), an=shortName(m.away);
+  const st=ltStatus(m);
+  const badge = st==='open'?'<span class="lt-badge lt-open">Open</span>'
+    : st==='locked'?'<span class="lt-badge lt-locked">Locked</span>'
+    : '<span class="lt-badge lt-done">Result in</span>';
+  const when=friendlyDate(m)+(matchTimeStr(m)?' · '+matchTimeStr(m):'');
+  const pred=ltMyPrediction(m.id);
+  let sub='';
+  if(pred){
+    const sc=ltScorePrediction(m.id,pred);
+    const teamNm=pred.team;
+    if(sc) sub=`<div class="lt-yourpick lt-scored">Your ${mgEsc(teamNm)} XI · <b>${sc.correct}/${sc.of}</b> correct${sc.formationHit?' · <b>+2</b> formation':''} → <b>${sc.points} pts</b></div>`;
+    else sub=`<div class="lt-yourpick">Your pick: ${mgEsc(teamNm)} · ${mgEsc(pred.formation)}${st==='done'?' · scoring…':''}</div>`;
+  }
+  const action = st==='open'
+    ? `<button class="btn lt-pick-btn" onclick="ltOpenPicker(${m.id})">${pred?'Edit XI':'Tip XI'}</button>`
+    : (pred? `<button class="btn-outline lt-pick-btn" onclick="ltOpenPicker(${m.id})">View</button>` : `<span class="lt-nopick">${st==='done'?'—':'Closed'}</span>`);
+  return `<div class="lt-match">
+    <div class="lt-match-main">
+      <div class="lt-teams">${flagOf(m.home)} ${mgEsc(hn)} <span class="lt-vs">v</span> ${flagOf(m.away)} ${mgEsc(an)}</div>
+      <div class="lt-when">${when} ${badge}</div>
+      ${sub}
+    </div>
+    <div class="lt-match-action">${action}</div>
+  </div>`;
+}
+
+// ── Picker modal ──────────────────────────────────────────────────────────────
+async function ltOpenPicker(matchId){
+  const m=ltMatches().find(x=>x.id===matchId); if(!m) return;
+  const me=ltMe();
+  if(!me){ alert('Choose your name first (top of the page).'); return; }
+  const existing=ltMyPrediction(matchId);
+  const side=existing?existing.side:'home';
+  LT_UI={ matchId, side, formation:existing?existing.formation:'4-3-3', ids:new Set((existing?existing.xi:[]).map(p=>String(p.id))), roster:[], team:null, teamId:null };
+  ltRenderPicker(m, true); // show loading
+  await ltLoadPickerRoster(m);
+  ltRenderPicker(m, false);
+}
+async function ltLoadPickerRoster(m){
+  await ltEnsureTeamIds();
+  const teamName=LT_UI.side==='home'?shortName(m.home):shortName(m.away);
+  const teamId=(LT_TEAM_IDS||{})[teamName]||null;
+  LT_UI.team=teamName; LT_UI.teamId=teamId;
+  LT_UI.roster= teamId? await ltFetchRoster(teamId) : [];
+}
+async function ltSwitchSide(m_id,side){
+  const m=ltMatches().find(x=>x.id===m_id); if(!m||LT_UI.side===side) return;
+  LT_UI.side=side; LT_UI.ids=new Set(); // reset selection when switching team
+  const existing=ltMyPrediction(m_id);
+  if(existing&&existing.side===side) LT_UI.ids=new Set((existing.xi||[]).map(p=>String(p.id)));
+  ltRenderPicker(m,true); await ltLoadPickerRoster(m); ltRenderPicker(m,false);
+}
+function ltTogglePlayer(id){
+  id=String(id);
+  if(LT_UI.ids.has(id)) LT_UI.ids.delete(id);
+  else { if(LT_UI.ids.size>=11) return; LT_UI.ids.add(id); }
+  const m=ltMatches().find(x=>x.id===LT_UI.matchId); ltRenderPicker(m,false);
+}
+function ltSetFormation(f){ LT_UI.formation=f; const m=ltMatches().find(x=>x.id===LT_UI.matchId); ltRenderPicker(m,false); }
+const LT_POS_BUCKETS=[['GK',['G','GK']],['DEF',['D','DEF','CB','LB','RB','WB']],['MID',['M','MID','CM','DM','AM','LM','RM']],['FWD',['F','FWD','ST','CF','LW','RW','W']]];
+function ltBucketOf(pos){ const p=(pos||'').toUpperCase(); for(const [b,keys] of LT_POS_BUCKETS){ if(keys.includes(p)) return b; } return 'FWD'; }
+function ltRenderPicker(m, loading){
+  const host=document.getElementById('lineups-modal'); if(!host||!LT_UI||LT_UI.matchId!==m.id) return;
+  const readOnly=ltStatus(m)!=='open';
+  const hn=shortName(m.home), an=shortName(m.away);
+  const teamNm=LT_UI.team||(LT_UI.side==='home'?hn:an);
+  const count=LT_UI.ids.size;
+  const sideBtns=`<div class="lt-side-toggle">
+    <button class="lt-side${LT_UI.side==='home'?' active':''}" ${readOnly?'disabled':''} onclick="ltSwitchSide(${m.id},'home')">${flagOf(m.home)} ${mgEsc(hn)}</button>
+    <button class="lt-side${LT_UI.side==='away'?' active':''}" ${readOnly?'disabled':''} onclick="ltSwitchSide(${m.id},'away')">${flagOf(m.away)} ${mgEsc(an)}</button>
+  </div>`;
+  const formSel=`<div class="lt-form-row"><label>Formation</label><select class="lt-form-select" ${readOnly?'disabled':''} onchange="ltSetFormation(this.value)">${LT_FORMATIONS.map(f=>`<option${f===LT_UI.formation?' selected':''}>${f}</option>`).join('')}</select></div>`;
+  let body;
+  if(loading) body=`<div class="lt-loading">Loading ${mgEsc(teamNm)} squad…</div>`;
+  else if(!LT_UI.roster.length) body=`<div class="lt-loading">Squad not available for ${mgEsc(teamNm)} yet.</div>`;
+  else {
+    const groups=LT_POS_BUCKETS.map(([b])=>{
+      const players=LT_UI.roster.filter(p=>ltBucketOf(p.pos)===b);
+      if(!players.length) return '';
+      return `<div class="lt-pos-group"><div class="lt-pos-label">${b}</div><div class="lt-pos-players">${players.map(p=>{
+        const sel=LT_UI.ids.has(String(p.id));
+        return `<button class="lt-player${sel?' sel':''}" ${readOnly?'disabled':''} onclick="ltTogglePlayer('${p.id}')">${mgEsc(p.name)}</button>`;
+      }).join('')}</div></div>`;
+    }).join('');
+    body=`<div class="lt-roster">${groups}</div>`;
+  }
+  const saveBtn = readOnly ? '' :
+    `<button class="btn lt-save" ${count===11?'':'disabled'} onclick="ltSubmit(${m.id})">Save XI (${count}/11)</button>`;
+  host.innerHTML=`<div class="lt-modal" role="dialog" aria-modal="true">
+    <div class="lt-modal-card">
+      <button class="lt-modal-close" onclick="ltHideModal()" aria-label="Close">×</button>
+      <div class="lt-modal-title">${readOnly?'XI — '+mgEsc(teamNm):'Tip the XI'}</div>
+      ${sideBtns}${formSel}
+      ${body}
+      <div class="lt-modal-foot">${readOnly?`<span class="lt-ro-note">Locked (within 2h of kickoff)</span>`:saveBtn}</div>
+    </div>
+  </div>`;
+}
+function ltHideModal(){ const h=document.getElementById('lineups-modal'); if(h) h.innerHTML=''; LT_UI=null; }
+function ltSubmit(matchId){
+  if(!LT_UI||LT_UI.ids.size!==11) return;
+  const me=ltMe(); if(!me) return;
+  const m=ltMatches().find(x=>x.id===matchId); if(!m||ltStatus(m)!=='open') return;
+  const xi=LT_UI.roster.filter(p=>LT_UI.ids.has(String(p.id))).map(p=>({id:String(p.id),name:p.name}));
+  const rec={ user:me, side:LT_UI.side, team:LT_UI.team, teamId:LT_UI.teamId||null, formation:LT_UI.formation, xi, at:Date.now() };
+  if(typeof db!=='undefined' && db && !isPreviewMode()){
+    try{ db.ref(LT_PATH+'/'+sanitizeName(me)+'/'+matchId).set(rec); }catch(_){}
+  }
+  // optimistic local update
+  const k=sanitizeName(me); LT_PREDICTIONS[k]=LT_PREDICTIONS[k]||{}; LT_PREDICTIONS[k][matchId]=rec;
+  ltHideModal(); renderLineupTips();
+}
+
+// ── Separate scoreboard ───────────────────────────────────────────────────────
+function ltShowLeaderboard(){
+  const host=document.getElementById('lineups-modal'); if(!host) return;
+  // make sure actual XIs are loaded for any predicted+finished match
+  ltMatches().filter(m=>ltStatus(m)==='done' && ltHasAnyPrediction(m.id)).forEach(m=>ltEnsureActualXI(m));
+  const totals={}; // userName -> {pts, correct, matches}
+  Object.entries(LT_PREDICTIONS||{}).forEach(([uk,byMatch])=>{
+    Object.entries(byMatch||{}).forEach(([mid,pred])=>{
+      const sc=ltScorePrediction(mid,pred); if(!sc) return;
+      const name=pred.user||uk;
+      const t=totals[name]||(totals[name]={pts:0,correct:0,matches:0});
+      t.pts+=sc.points; t.correct+=sc.correct; t.matches++;
+    });
+  });
+  const rows=Object.entries(totals).map(([name,t])=>({name,...t})).sort((a,b)=>b.pts-a.pts||b.correct-a.correct||a.name.localeCompare(b.name));
+  host.innerHTML=`<div class="lt-modal" role="dialog" aria-modal="true">
+    <div class="lt-modal-card">
+      <button class="lt-modal-close" onclick="ltHideModal()" aria-label="Close">×</button>
+      <div class="lt-modal-title">Lineup Standings</div>
+      ${rows.length
+        ? `<div class="lt-lb">${rows.map((r,i)=>`<div class="lt-lb-row"><span>${i+1}. ${mgEsc(r.name)}</span><span class="lt-lb-meta">${r.correct} correct · ${r.matches} game${r.matches!==1?'s':''}</span><b>${r.pts}</b></div>`).join('')}</div>`
+        : `<div class="lt-lb-empty">No scored lineup tips yet — points show once a match's official XI is out.</div>`}
+    </div>
+  </div>`;
+}
+// Re-render whatever lineup view is showing (called on Firebase updates / async loads).
+function ltRefresh(){
+  const sec=document.getElementById('lineups'); if(!sec||!sec.classList.contains('active')) return;
+  const modal=document.getElementById('lineups-modal');
+  if(modal && modal.querySelector('.lt-lb')) { ltShowLeaderboard(); return; }
+  if(LT_UI){ const m=ltMatches().find(x=>x.id===LT_UI.matchId); if(m){ ltRenderPicker(m,false); return; } }
+  renderLineupTips();
+}
+
 function showTab(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab,.mobile-tab').forEach(t=>t.classList.remove('active'));
@@ -6047,6 +6316,7 @@ function showTab(id,el){
   if(id==='stats')   renderStatsTab();
   if(id==='fantasy') renderFantasyTab();
   if(id==='minigame') renderMiniGame();
+  if(id==='lineups') renderLineupTips();
   // Re-render the list on open so reconciled scores show immediately — otherwise the
   // tab keeps whatever was painted before the async ESPN reconcile finished, and the
   // score only corrected once a card was interacted with (which forces a re-render).
