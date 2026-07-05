@@ -1619,20 +1619,22 @@ function subMinuteLabel(minute){
   return minute ? ` ${String(minute).replace(/'$/,'')}'` : '';
 }
 
-function renderLineupList(lineup, side, subs=[]){
+function renderLineupList(lineup, side, subs=[], tippedIds=null){
   if(!lineup||!lineup.players?.length)return `<div class="lu-list lu-${side}"><div class="lu-empty">No confirmed lineups yet</div></div>`;
   const starters=lineup.players.slice(0,11);
   const inSubs=subs.filter(s=>s.playerIn&&!starters.some(p=>samePlayerName(p.name,s.playerIn)));
-  const playerLabel=(num,name)=>{
+  const playerLabel=(num,name,hit)=>{
     const numHtml=num?`<span class="lu-num-text">${num}</span>`:'';
-    const nameHtml=`<span class="lu-name-text">${lineupLastName(name)}</span>`;
+    const chk=hit?'<span class="lu-tip-hit" title="In your tipped XI">✓</span>':'';
+    const nameHtml=`<span class="lu-name-text">${lineupLastName(name)}${chk}</span>`;
     return side==='away' ? `${nameHtml}${numHtml}` : `${numHtml}${nameHtml}`;
   };
   const starterRows=starters.map(p=>{
     const num=p.number||p.formationPlace||'';
+    const hit=tippedIds && p.id && tippedIds.has(String(p.id));
     const outSub=subs.find(s=>s.playerOut&&lineupLastName(s.playerOut).toLowerCase()===lineupLastName(p.name).toLowerCase());
     return `<div class="lu-row${outSub?' lu-row-out':''}">
-      <span class="lu-player-main">${playerLabel(num,p.name)}</span>
+      <span class="lu-player-main">${playerLabel(num,p.name,hit)}</span>
       ${outSub?`<span class="lu-sub lu-sub-out">OUT${subMinuteLabel(outSub.minute)}</span>`:''}
     </div>`;
   }).join('');
@@ -1649,11 +1651,25 @@ function renderLineupList(lineup, side, subs=[]){
 const SHOW_LINEUPS = true;
 function renderLineups(m){
   if(!SHOW_LINEUPS)return '';
+  return `<div class="lu-section" id="lu-sec-${m.id}">${ltLineupInner(m)}</div>`;
+}
+function ltLineupInner(m){
   const lu=m.lineups;
+  const teamsKnown = shortName(m.home)!=='TBD' && shortName(m.away)!=='TBD' && m.kickoff;
+  // >2h before kickoff: no official lineup yet — just the centred predict button.
+  if(teamsKnown && ltStatus(m)==='open' && !lu){
+    const pred=ltMyPrediction(m.id);
+    return `<div class="md-section-title">Lineups</div>
+      <div class="lu-predict"><button class="btn lt-predict-btn" onclick="ltOpenPicker(${m.id})">${pred?'Edit starting XI':'Predict starting XI'}</button></div>`;
+  }
   const home=lu?.home, away=lu?.away;
   const formation=[home?.formation,away?.formation].filter(Boolean).join(' · ');
   const homeSubs=(m.subs||[]).filter(s=>cardSide(s.team,m)==='home');
   const awaySubs=(m.subs||[]).filter(s=>cardSide(s.team,m)==='away');
+  // Tick players in the official XI that were in the user's tipped XI (their side).
+  const pred=ltMyPrediction(m.id);
+  const tippedHome = pred&&pred.side==='home' ? new Set((pred.xi||[]).map(x=>String(x.id))) : null;
+  const tippedAway = pred&&pred.side==='away' ? new Set((pred.xi||[]).map(x=>String(x.id))) : null;
   return `<div class="md-section-title">Lineups</div>
     <div class="lu-slim" id="lu-${m.id}">
       ${lu?`
@@ -1663,12 +1679,15 @@ function renderLineups(m){
           <span>${flagOf(m.away)} ${shortName(m.away)}</span>
         </div>
         <div class="lu-slim-grid">
-          ${renderLineupList(home,'home',homeSubs)}
-          ${renderLineupList(away,'away',awaySubs)}
+          ${renderLineupList(home,'home',homeSubs,tippedHome)}
+          ${renderLineupList(away,'away',awaySubs,tippedAway)}
         </div>
       `:`<div class="lu-empty">No confirmed lineups yet</div>`}
-    </div>
-    ${(shortName(m.home)!=='TBD'&&shortName(m.away)!=='TBD'&&m.kickoff)?`<div class="lt-block" id="lt-block-${m.id}">${ltCardBlockInner(m)}</div>`:''}`;
+    </div>`;
+}
+function ltRefreshLineup(matchId){
+  const el=document.getElementById('lu-sec-'+matchId); if(!el) return;
+  const m=getAllMatches().find(x=>x.id===matchId); if(m) el.innerHTML=ltLineupInner(m);
 }
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
@@ -6120,39 +6139,6 @@ function ltMyPrediction(matchId){
 // ── Match-card tip block + shared modal host ──────────────────────────────────
 function ltModalHost(){ let h=document.getElementById('lt-modal-host'); if(!h){ h=document.createElement('div'); h.id='lt-modal-host'; document.body.appendChild(h); } return h; }
 function ltHasAnyPrediction(matchId){ return Object.values(LT_PREDICTIONS||{}).some(u=>u&&u[matchId]); }
-// Inner HTML for a match card's lineup-tip block: identity prompt → pick button →
-// once the official XI is out, "your XI vs official" with correct picks ticked.
-function ltCardBlockInner(m){
-  const st=ltStatus(m);
-  const head=`<div class="lt-block-head"><span class="lt-block-title">🎽 Lineup tip</span><button class="lt-standings-link" onclick="ltShowLeaderboard()">Standings</button></div>`;
-  const me=ltMe();
-  if(!me){
-    const players=mgPlayerNames();
-    return head+`<div class="lt-block-sub">Pick your name to tip this XI:</div>
-      <select class="lt-id-select" onchange="ltSetMe(this.value)"><option value="">— choose your name —</option>${players.map(n=>`<option value="${mgEsc(n)}">${mgEsc(n)}</option>`).join('')}</select>`;
-  }
-  const pred=ltMyPrediction(m.id);
-  if(pred){
-    const xi=LT_XI_CACHE[m.id];
-    const ready = xi && xi!=='loading' && !xi.failed && xi[pred.side] && xi[pred.side].ids.length;
-    if(!ready && st!=='open') ltEnsureActualXI(m);   // fetch official XI once locked/done
-    if(ready){
-      const off=new Set(xi[pred.side].ids.map(String));
-      const chips=(pred.xi||[]).map(p=>{const ok=off.has(String(p.id));return `<span class="lt-cmp ${ok?'hit':'miss'}">${ok?'✓':'✗'} ${mgEsc(ltSurname(p.name))}</span>`;}).join('');
-      const sc=ltScorePrediction(m.id,pred);
-      const score=sc?`<div class="lt-block-score">${sc.correct}/11 in the XI${sc.formationHit?' · +2 formation':''} → <b>${sc.points} pts</b></div>`:'';
-      return head+`<div class="lt-block-sub">Your ${mgEsc(pred.team)} XI (${mgEsc(pred.formation)}) vs the official lineup:</div><div class="lt-cmp-list">${chips}</div>${score}`;
-    }
-    const btn = st==='open'?`<button class="btn lt-pick-btn" onclick="ltOpenPicker(${m.id})">Edit XI</button>`:`<button class="btn-outline lt-pick-btn" onclick="ltOpenPicker(${m.id})">View XI</button>`;
-    return head+`<div class="lt-block-sub">Your pick: ${mgEsc(pred.team)} · ${mgEsc(pred.formation)}${st!=='open'?' · waiting for official XI…':''}</div>${btn}`;
-  }
-  if(st==='open') return head+`<button class="btn lt-pick-btn" onclick="ltOpenPicker(${m.id})">Predict the starting XI</button>`;
-  return head+`<div class="lt-block-sub">No lineup tipped for this match.</div>`;
-}
-function ltRenderCardBlock(matchId){
-  const el=document.getElementById('lt-block-'+matchId); if(!el) return;
-  const m=getAllMatches().find(x=>x.id===matchId); if(m) el.innerHTML=ltCardBlockInner(m);
-}
 
 // ── Picker modal ──────────────────────────────────────────────────────────────
 const LT_POS_BUCKETS=[['GK',['G','GK']],['DEF',['D','DEF','CB','LB','RB','WB']],['MID',['M','MID','CM','DM','AM','LM','RM']],['FWD',['F','FWD','ST','CF','LW','RW','W']]];
@@ -6288,7 +6274,7 @@ function ltSubmit(matchId){
     try{ db.ref(LT_PATH+'/'+sanitizeName(me)+'/'+matchId).set(rec); }catch(_){}
   }
   const k=sanitizeName(me); LT_PREDICTIONS[k]=LT_PREDICTIONS[k]||{}; LT_PREDICTIONS[k][matchId]=rec;
-  ltHideModal(); ltRenderCardBlock(matchId);
+  ltHideModal(); ltRefreshLineup(matchId);
 }
 
 // ── Separate scoreboard ───────────────────────────────────────────────────────
@@ -6321,11 +6307,11 @@ function ltRefresh(){
   const host=document.getElementById('lt-modal-host');
   if(host && host.querySelector('.lt-lb')){ ltShowLeaderboard(); }
   else if(host && LT_UI){ const m=ltMatches().find(x=>x.id===LT_UI.matchId); if(m) ltRenderPicker(m,false); }
-  // Update any match-card tip blocks currently rendered in the DOM.
-  document.querySelectorAll('[id^="lt-block-"]').forEach(el=>{
-    const id=parseInt(el.id.replace('lt-block-',''),10);
+  // Update any match-card lineup sections currently rendered in the DOM.
+  document.querySelectorAll('[id^="lu-sec-"]').forEach(el=>{
+    const id=parseInt(el.id.replace('lu-sec-',''),10);
     const m=getAllMatches().find(x=>x.id===id);
-    if(m) el.innerHTML=ltCardBlockInner(m);
+    if(m) el.innerHTML=ltLineupInner(m);
   });
 }
 
