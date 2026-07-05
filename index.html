@@ -6231,7 +6231,7 @@ function ltRenderPicker(m, loading){
       const y = nLines>1 ? (89 - s.line*(78/(nLines-1))) : 50;
       const x = (s.idxInLine+1)/(s.lineCount+1)*100;
       const active=LT_UI.activeSlot===i;
-      const label = s.id ? ltSurname(ltPlayerName(s.id)) : s.bucket;
+      const label = s.id ? ltSurname(ltPlayerName(s.id)) : '+';
       const clearBtn = (s.id && !readOnly) ? `<span class="lt-slot-x" onclick="ltClearSlot(${i},event)">×</span>` : '';
       return `<button class="lt-slot ${s.id?'filled':'empty'}${active?' active':''}" style="left:${x}%;top:${y}%" ${readOnly?'disabled':''} onclick="ltTapSlot(${i})"><span class="lt-slot-label">${mgEsc(label)}</span>${clearBtn}</button>`;
     }).join('');
