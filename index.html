@@ -1667,9 +1667,10 @@ function ltLineupInner(m){
   const homeSubs=(m.subs||[]).filter(s=>cardSide(s.team,m)==='home');
   const awaySubs=(m.subs||[]).filter(s=>cardSide(s.team,m)==='away');
   // Tick players in the official XI that were in the user's tipped XI (their side).
-  const pred=ltMyPrediction(m.id);
-  const tippedHome = pred&&pred.side==='home' ? new Set((pred.xi||[]).map(x=>String(x.id))) : null;
-  const tippedAway = pred&&pred.side==='away' ? new Set((pred.xi||[]).map(x=>String(x.id))) : null;
+  const tippedHomePred=ltSidePrediction(m.id,'home');
+  const tippedAwayPred=ltSidePrediction(m.id,'away');
+  const tippedHome = tippedHomePred ? new Set((tippedHomePred.xi||[]).map(x=>String(x.id))) : null;
+  const tippedAway = tippedAwayPred ? new Set((tippedAwayPred.xi||[]).map(x=>String(x.id))) : null;
   return `<div class="md-section-title">Lineups</div>
     <div class="lu-slim" id="lu-${m.id}">
       ${lu?`
@@ -6060,7 +6061,7 @@ const ESPN_TEAMS_BASE='https://site.api.espn.com/apis/site/v2/sports/soccer/fifa
 const LT_FORMATIONS=['4-4-2','4-3-3','4-2-3-1','3-5-2','3-4-3','5-3-2','5-4-1','4-5-1'];
 const LT_LOCK_MS=2*60*60*1000;                       // predictions lock 2h before kickoff
 const LT_PATH='wc2026/picks/__lineup_predictions__'; // only anonymously-writable path
-let LT_PREDICTIONS={};        // {userKey:{matchId:{user,side,team,teamId,formation,xi:[{id,name}],at}}}
+let LT_PREDICTIONS={};        // {userKey:{matchId:{user,sides:{home:{formation,xi},away:{formation,xi}},at}}}
 let LT_TEAM_IDS=null;         // {ourTeamName: espnTeamId}  (built from LT_TEAM_ID_RAW)
 const LT_ROSTER_CACHE={};     // {espnTeamId:[{id,name,pos}]}
 // ESPN team ids (the /teams list endpoint is CORS-blocked in the browser, so this
@@ -6135,6 +6136,26 @@ function ltMyPrediction(matchId){
   const me=ltMe(); if(!me) return null;
   return (LT_PREDICTIONS[sanitizeName(me)]||{})[matchId]||null;
 }
+function ltPredictionSides(pred){
+  if(!pred) return {};
+  if(pred.sides) return pred.sides;
+  // Backwards compatibility: old records stored exactly one side at match level.
+  if(pred.side) return {[pred.side]:pred};
+  return {};
+}
+function ltSidePrediction(matchId,side){
+  return ltPredictionSides(ltMyPrediction(matchId))[side]||null;
+}
+function ltDraftFromPred(pred){
+  const formation=pred?.formation||'4-3-3';
+  const built=ltBuildSlots(formation,null);
+  return {formation,lines:built.lines,slots:built.slots,prefill:(pred?.xi||[]).map(p=>String(p.id))};
+}
+function ltPersistCurrentDraft(){
+  if(!LT_UI) return;
+  LT_UI.drafts=LT_UI.drafts||{};
+  LT_UI.drafts[LT_UI.side]={formation:LT_UI.formation,lines:LT_UI.lines,slots:LT_UI.slots.map(s=>({...s})),roster:[...(LT_UI.roster||[])],team:LT_UI.team,teamId:LT_UI.teamId||null,prefill:null};
+}
 
 // ── Match-card tip block + shared modal host ──────────────────────────────────
 function ltModalHost(){ let h=document.getElementById('lt-modal-host'); if(!h){ h=document.createElement('div'); h.id='lt-modal-host'; document.body.appendChild(h); } return h; }
@@ -6170,13 +6191,15 @@ function ltAssignPrefill(ids){
 async function ltOpenPicker(matchId){
   const m=ltMatches().find(x=>x.id===matchId); if(!m) return;
   const me=ltMe(); if(!me){ alert('Choose your name first (top of the page).'); return; }
-  const existing=ltMyPrediction(matchId);
-  const formation=existing?existing.formation:'4-3-3';
-  const built=ltBuildSlots(formation,null);
-  LT_UI={ matchId, side:existing?existing.side:'home', formation, lines:built.lines, slots:built.slots, roster:[], team:null, teamId:null, activeSlot:null, prefill:(existing?existing.xi:[]).map(p=>String(p.id)) };
+  const sides=ltPredictionSides(ltMyPrediction(matchId));
+  const initialSide=sides.home?'home':(sides.away?'away':'home');
+  const draft=ltDraftFromPred(sides[initialSide]);
+  LT_UI={ matchId, side:initialSide, formation:draft.formation, lines:draft.lines, slots:draft.slots, drafts:{}, roster:[], team:null, teamId:null, activeSlot:null, prefill:draft.prefill };
+  ['home','away'].forEach(side=>{ if(sides[side]) LT_UI.drafts[side]=ltDraftFromPred(sides[side]); });
   ltRenderPicker(m,true);
   await ltLoadPickerRoster(m);
   ltAssignPrefill(LT_UI.prefill); LT_UI.prefill=null;
+  ltPersistCurrentDraft();
   ltRenderPicker(m,false);
 }
 async function ltLoadPickerRoster(m){
@@ -6188,15 +6211,20 @@ async function ltLoadPickerRoster(m){
 }
 async function ltSwitchSide(mid,side){
   const m=ltMatches().find(x=>x.id===mid); if(!m||LT_UI.side===side) return;
+  ltPersistCurrentDraft();
   LT_UI.side=side; LT_UI.activeSlot=null;
-  const built=ltBuildSlots(LT_UI.formation,null); LT_UI.lines=built.lines; LT_UI.slots=built.slots;
-  const existing=ltMyPrediction(mid);
-  const prefill=(existing&&existing.side===side)?(existing.xi||[]).map(p=>String(p.id)):[];
-  ltRenderPicker(m,true); await ltLoadPickerRoster(m); ltAssignPrefill(prefill); ltRenderPicker(m,false);
+  const draft=LT_UI.drafts?.[side]||ltDraftFromPred(ltSidePrediction(mid,side));
+  LT_UI.formation=draft.formation; LT_UI.lines=draft.lines; LT_UI.slots=draft.slots.map(s=>({...s})); LT_UI.prefill=draft.prefill||null;
+  ltRenderPicker(m,true);
+  await ltLoadPickerRoster(m);
+  if(LT_UI.prefill){ ltAssignPrefill(LT_UI.prefill); LT_UI.prefill=null; }
+  ltPersistCurrentDraft();
+  ltRenderPicker(m,false);
 }
 function ltSetFormation(f){
   const built=ltBuildSlots(f,LT_UI.slots);
   LT_UI.formation=f; LT_UI.lines=built.lines; LT_UI.slots=built.slots; LT_UI.activeSlot=null;
+  ltPersistCurrentDraft();
   ltRenderPicker(ltCurMatch(),false);
 }
 function ltTapSlot(i){
@@ -6204,11 +6232,12 @@ function ltTapSlot(i){
   LT_UI.activeSlot=(LT_UI.activeSlot===i)?null:i;
   ltRenderPicker(m,false);
 }
-function ltClearSlot(i,ev){ if(ev)ev.stopPropagation(); LT_UI.slots[i].id=null; if(LT_UI.activeSlot===i)LT_UI.activeSlot=null; ltRenderPicker(ltCurMatch(),false); }
+function ltClearSlot(i,ev){ if(ev)ev.stopPropagation(); LT_UI.slots[i].id=null; if(LT_UI.activeSlot===i)LT_UI.activeSlot=null; ltPersistCurrentDraft(); ltRenderPicker(ltCurMatch(),false); }
 function ltAssignPlayer(id){
   if(LT_UI.activeSlot==null) return; id=String(id);
   LT_UI.slots.forEach(s=>{ if(s.id===id) s.id=null; });
   LT_UI.slots[LT_UI.activeSlot].id=id; LT_UI.activeSlot=null;
+  ltPersistCurrentDraft();
   ltRenderPicker(ltCurMatch(),false);
 }
 function ltRenderPicker(m, loading){
@@ -6268,8 +6297,23 @@ function ltSubmit(matchId){
   const filled=LT_UI.slots.filter(s=>s.id); if(filled.length!==11) return;
   const me=ltMe(); if(!me) return;
   const m=ltMatches().find(x=>x.id===matchId); if(!m||ltStatus(m)!=='open') return;
+  ltPersistCurrentDraft();
   const xi=filled.map(s=>({id:String(s.id),name:ltPlayerName(s.id)}));
-  const rec={ user:me, side:LT_UI.side, team:LT_UI.team, teamId:LT_UI.teamId||null, formation:LT_UI.formation, xi, at:Date.now() };
+  const sideRec={ user:me, side:LT_UI.side, team:LT_UI.team, teamId:LT_UI.teamId||null, formation:LT_UI.formation, xi, at:Date.now() };
+  const prev=ltMyPrediction(matchId);
+  const sides={...ltPredictionSides(prev),[LT_UI.side]:sideRec};
+  // If the other side was filled in this modal but not saved yet, keep it too.
+  ['home','away'].forEach(side=>{
+    if(side===LT_UI.side||sides[side]) return;
+    const d=LT_UI.drafts?.[side];
+    if(!d||d.slots.filter(s=>s.id).length!==11) return;
+    const sideTeam=side==='home'?shortName(m.home):shortName(m.away);
+    const sideTeamId=d.teamId||(LT_TEAM_IDS||{})[sideTeam]||null;
+    const roster=d.roster||[];
+    const nameFor=id=>(roster.find(p=>String(p.id)===String(id))||{}).name||'';
+    sides[side]={ user:me, side, team:d.team||sideTeam, teamId:sideTeamId, formation:d.formation, xi:d.slots.filter(s=>s.id).map(s=>({id:String(s.id),name:nameFor(s.id)})), at:Date.now() };
+  });
+  const rec={ user:me, sides, at:Date.now() };
   if(typeof db!=='undefined' && db && !isPreviewMode()){
     try{ db.ref(LT_PATH+'/'+sanitizeName(me)+'/'+matchId).set(rec); }catch(_){}
   }
@@ -6285,10 +6329,12 @@ function ltShowLeaderboard(){
   const totals={}; // userName -> {pts, correct, matches}
   Object.entries(LT_PREDICTIONS||{}).forEach(([uk,byMatch])=>{
     Object.entries(byMatch||{}).forEach(([mid,pred])=>{
-      const sc=ltScorePrediction(mid,pred); if(!sc) return;
-      const name=pred.user||uk;
-      const t=totals[name]||(totals[name]={pts:0,correct:0,matches:0});
-      t.pts+=sc.points; t.correct+=sc.correct; t.matches++;
+      Object.values(ltPredictionSides(pred)).forEach(sidePred=>{
+        const sc=ltScorePrediction(mid,sidePred); if(!sc) return;
+        const name=sidePred.user||pred.user||uk;
+        const t=totals[name]||(totals[name]={pts:0,correct:0,matches:0});
+        t.pts+=sc.points; t.correct+=sc.correct; t.matches++;
+      });
     });
   });
   const rows=Object.entries(totals).map(([name,t])=>({name,...t})).sort((a,b)=>b.pts-a.pts||b.correct-a.correct||a.name.localeCompare(b.name));
