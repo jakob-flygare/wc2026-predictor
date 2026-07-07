@@ -2051,6 +2051,19 @@ function maxFutureBracketPts(player){
   return max;
 }
 
+// Everything a player can STILL earn: remaining bracket (excludes eliminated teams)
+// + undecided special bets + unplayed group games. Drives "▲ possible" & elimination.
+function maxPossibleRemaining(player){
+  let r = STATE.matches.filter(m=>!m.result).length;   // unplayed group games: +1 each
+  r += maxFutureBracketPts(player);                     // bracket still attainable
+  const sp = STATE.special||{};
+  [['boot','Golden Boot'],['bestPlayer','Golden Ball'],['bestGoalkeeper','Golden Glove'],
+   ['topScoringTeam','Top Scoring Team'],['mostCards','Most Cards Team'],['firstScorer','First Scorer']]
+    .forEach(([k,sk])=>{ if(!sp[sk] && player.special?.[k]) r += SPECIAL_PTS[k]; });
+  if(!sp['Total Goals']) r += SPECIAL_PTS.totalGoals;   // still up for grabs
+  return r;
+}
+
 // ── PROJECTED POINTS ──────────────────────────────────────────────────────────
 // Expected final score = current points + Σ(remaining points × likelihood). The
 // likelihood of a bracket pick paying off is the team's chance of reaching that
@@ -2867,7 +2880,7 @@ function renderLeaderboard(){
     projElim=new Set(); buildKnockoutMatches().forEach(m=>{const l=koLoser(m);if(l)projElim.add(l.toLowerCase().trim());});
   }
   const scored=STATE.players.map(p=>{
-    const s={...p,...calcScoreByMode(p,goalsWinners),maxFuturePts:maxFutureBracketPts(p)};
+    const s={...p,...calcScoreByMode(p,goalsWinners),maxFuturePts:maxPossibleRemaining(p)};
     if(projCtx) s.projPts=Math.round(s.pts+expectedRemainingBracketPts(p,projCtx,projKo,projElim)+expectedRemainingGroupPts(p));
     return s;
   }).sort((a,b)=>b.pts-a.pts);
@@ -2875,10 +2888,17 @@ function renderLeaderboard(){
   const leaderPts=scored.length?scored[0].pts:0;
   const picksKey=p=>JSON.stringify(p.picks||{})+'|'+JSON.stringify(p.bracket||{})+'|'+JSON.stringify(p.special||{});
   scored.forEach(p=>{
-    if(LB_SCORING_MODE!=='official'){p.eliminated=false;return;}
-    const cantReachTop=(leaderPts-p.pts)>maxRemainingPoints(p);
-    const dominated=scored.some(o=>o!==p&&o.pts>p.pts&&picksKey(o)===picksKey(p));
-    p.eliminated=cantReachTop||dominated;
+    if(LB_SCORING_MODE!=='official'){p.eliminated=false;p.elimReason='';return;}
+    const maxRem=p.maxFuturePts;
+    const cantReachTop=(leaderPts-p.pts)>maxRem;
+    const dom=scored.find(o=>o!==p&&o.pts>p.pts&&picksKey(o)===picksKey(p));
+    p.eliminated=cantReachTop||!!dom;
+    if(p.eliminated){
+      const rs=[];
+      if(cantReachTop) rs.push(`Out of the race: even winning all ${maxRem} remaining point${maxRem!==1?'s':''} (on ${p.pts} now) can't reach the leader's ${leaderPts}.`);
+      if(dom) rs.push(`Identical picks to ${dom.name}, who's already ahead — you can never overtake them, since every remaining result scores the same for both.`);
+      p.elimReason=rs.join(' ');
+    } else p.elimReason='';
   });
   const gamesPlayed=STATE.matches.filter(m=>m.result).length,totalGames=STATE.matches.length;
   // Points settled so far out of the theoretical maximum (163 pts total)
@@ -2952,6 +2972,7 @@ function renderLeaderboard(){
             </div>
             <div><div class="lb-points">${p.pts}</div><div class="lb-pts-label">pts</div>${p.maxFuturePts>0?`<div class="lb-pts-future">▲${p.maxFuturePts} possible</div>`:''}${p.projPts!=null&&p.projPts>p.pts?`<div class="lb-pts-proj" title="Projected final total: current points plus points still up for grabs, weighted by each pick's chance of landing (bracket advancement odds + unplayed group games). Special bets not included.">◈ ${p.projPts} projected</div>`:''}</div>
           </div>
+          ${p.eliminated?`<div class="lb-elim"><button class="lb-elim-badge" onclick="event.stopPropagation();this.parentElement.classList.toggle('open')" aria-label="Why eliminated">Out of the race ⓘ</button><div class="lb-elim-reason">${mgEsc(p.elimReason||'')}</div></div>`:''}
           <div class="lb-breakdown" id="${id}">${renderPlayerBreakdown(p,goalsWinners,bdg)}</div>
         </div>`;
       }).join('')
