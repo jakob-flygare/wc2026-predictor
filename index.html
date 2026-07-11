@@ -1976,11 +1976,45 @@ function calcBracketPoints(player){
 
 // Returns the Set of player names who guessed closest to the actual total goals.
 // Only awards points after the tournament ends (winner declared) — during the tournament
-// total_goals is a running count, not the final figure.
+function computeGoldenBootWinner(){
+  const goals={};
+  getAllMatches().forEach(m=>{
+    (m.scorers||[]).forEach(s=>{
+      if(!s.player||s.ownGoal) return;
+      goals[s.player]=(goals[s.player]||0)+1;
+    });
+  });
+  return Object.entries(goals).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+}
+function computeTopScoringTeam(){
+  const tally={};
+  getAllMatches().forEach(m=>{
+    if(!m.scores) return;
+    if(m.home){const h=shortName(m.home)||m.home; tally[h]=(tally[h]||0)+(m.scores.home||0);}
+    if(m.away){const a=shortName(m.away)||m.away; tally[a]=(tally[a]||0)+(m.scores.away||0);}
+  });
+  return Object.entries(tally).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+}
+function computeMostCardsTeam(){
+  const tally={};
+  getAllMatches().forEach(m=>{
+    (m.cards||[]).forEach(c=>{
+      if(!c.team) return;
+      tally[c.team]=(tally[c.team]||0)+1;
+    });
+  });
+  return Object.entries(tally).sort((a,b)=>b[1]-a[1])[0]?.[0]||null;
+}
+function computeTotalGoals(){
+  return getAllMatches().reduce((sum,m)=>sum+(m.scores?.home||0)+(m.scores?.away||0),0);
+}
+
+function isTournamentOver(){ return !!(STATE.knockout?.winner || STATE.special?.['Tournament Winner']); }
+
 function calcGoalsWinners(){
-  if(!STATE.special?.['Tournament Winner']) return new Set();
-  const actual=parseInt(STATE.special?.['Total Goals']);
-  if(isNaN(actual)) return new Set();
+  if(!isTournamentOver()) return new Set();
+  const actual=computeTotalGoals();
+  if(!actual) return new Set();
   let min=Infinity;
   STATE.players.forEach(p=>{const g=parseInt(p.special?.totalGoals);if(!isNaN(g))min=Math.min(min,Math.abs(g-actual));});
   if(min===Infinity) return new Set();
@@ -1991,14 +2025,15 @@ function calcGoalsWinners(){
 
 function calcSpecialPoints(player, goalsWinners=new Set()){
   const sp=STATE.special||{},picks=player.special||{};
+  const over=isTournamentOver();
   let total=0;
-  const check=(key,stateKey)=>{const a=sp[stateKey],p=picks[key];if(a&&p&&a.toLowerCase().trim()===p.toLowerCase().trim())total+=SPECIAL_PTS[key];};
-  check('boot','Golden Boot');
-  check('bestPlayer','Golden Ball');
-  check('bestGoalkeeper','Golden Glove');
-  check('topScoringTeam','Top Scoring Team');
-  check('mostCards','Most Cards Team');
-  check('firstScorer','First Scorer');
+  const check=(key,actual)=>{const p=picks[key];if(actual&&p&&actual.toLowerCase().trim()===p.toLowerCase().trim())total+=SPECIAL_PTS[key];};
+  if(over) check('boot',           computeGoldenBootWinner());
+  check('bestPlayer',     sp['Golden Ball']);
+  check('bestGoalkeeper', sp['Golden Glove']);
+  if(over) check('topScoringTeam', computeTopScoringTeam());
+  if(over) check('mostCards',      computeMostCardsTeam());
+  check('firstScorer',    sp['First Scorer']);
   if(goalsWinners.has(player.name)) total+=SPECIAL_PTS.totalGoals;
   return total;
 }
@@ -2006,10 +2041,15 @@ function calcSpecialPoints(player, goalsWinners=new Set()){
 // Count of special bets a player has got right (for the leaderboard line).
 function calcSpecialsWon(player, goalsWinners=new Set()){
   const sp=STATE.special||{},picks=player.special||{};
+  const over=isTournamentOver();
   let won=0;
-  const ok=(key,stateKey)=>{const a=sp[stateKey],p=picks[key];if(a&&p&&a.toLowerCase().trim()===p.toLowerCase().trim())won++;};
-  ok('boot','Golden Boot');ok('bestPlayer','Golden Ball');ok('bestGoalkeeper','Golden Glove');
-  ok('topScoringTeam','Top Scoring Team');ok('mostCards','Most Cards Team');ok('firstScorer','First Scorer');
+  const ok=(key,actual)=>{const p=picks[key];if(actual&&p&&actual.toLowerCase().trim()===p.toLowerCase().trim())won++;};
+  if(over) ok('boot',           computeGoldenBootWinner());
+  ok('bestPlayer',     sp['Golden Ball']);
+  ok('bestGoalkeeper', sp['Golden Glove']);
+  if(over) ok('topScoringTeam', computeTopScoringTeam());
+  if(over) ok('mostCards',      computeMostCardsTeam());
+  ok('firstScorer',    sp['First Scorer']);
   if(goalsWinners.has(player.name)) won++;
   return won;
 }
@@ -2024,10 +2064,16 @@ function maxRemainingPoints(player){
   if(br.bronze) maxBracket += BRACKET_PTS.bronze;
   r += Math.max(0, maxBracket - earned);
   const sp = STATE.special||{};
-  [['boot','Golden Boot'],['bestPlayer','Golden Ball'],['bestGoalkeeper','Golden Glove'],
-   ['topScoringTeam','Top Scoring Team'],['mostCards','Most Cards Team'],['firstScorer','First Scorer']]
-    .forEach(([k,sk])=>{ if(!sp[sk] && player.special?.[k]) r += SPECIAL_PTS[k]; });
-  if(!sp['Total Goals']) r += SPECIAL_PTS.totalGoals;
+  const anyUnplayed2 = getAllMatches().some(m=>!m.result);
+  if(anyUnplayed2){
+    if(player.special?.boot)           r += SPECIAL_PTS.boot;
+    if(player.special?.topScoringTeam) r += SPECIAL_PTS.topScoringTeam;
+    if(player.special?.mostCards)      r += SPECIAL_PTS.mostCards;
+    if(player.special?.totalGoals)     r += SPECIAL_PTS.totalGoals;
+  }
+  if(!sp['Golden Ball']    && player.special?.bestPlayer)     r += SPECIAL_PTS.bestPlayer;
+  if(!sp['Golden Glove']   && player.special?.bestGoalkeeper) r += SPECIAL_PTS.bestGoalkeeper;
+  if(!sp['First Scorer']   && player.special?.firstScorer)    r += SPECIAL_PTS.firstScorer;
   return r;
 }
 
@@ -2057,10 +2103,18 @@ function maxPossibleRemaining(player){
   let r = STATE.matches.filter(m=>!m.result).length;   // unplayed group games: +1 each
   r += maxFutureBracketPts(player);                     // bracket still attainable
   const sp = STATE.special||{};
-  [['boot','Golden Boot'],['bestPlayer','Golden Ball'],['bestGoalkeeper','Golden Glove'],
-   ['topScoringTeam','Top Scoring Team'],['mostCards','Most Cards Team'],['firstScorer','First Scorer']]
-    .forEach(([k,sk])=>{ if(!sp[sk] && player.special?.[k]) r += SPECIAL_PTS[k]; });
-  if(!sp['Total Goals']) r += SPECIAL_PTS.totalGoals;   // still up for grabs
+  const anyUnplayed = getAllMatches().some(m=>!m.result);
+  // auto-computed categories are always in flux while matches remain
+  if(anyUnplayed){
+    if(player.special?.boot)           r += SPECIAL_PTS.boot;
+    if(player.special?.topScoringTeam) r += SPECIAL_PTS.topScoringTeam;
+    if(player.special?.mostCards)      r += SPECIAL_PTS.mostCards;
+    if(player.special?.totalGoals)     r += SPECIAL_PTS.totalGoals;
+  }
+  // manual-only categories: possible until admin sets them
+  if(!sp['Golden Ball']    && player.special?.bestPlayer)     r += SPECIAL_PTS.bestPlayer;
+  if(!sp['Golden Glove']   && player.special?.bestGoalkeeper) r += SPECIAL_PTS.bestGoalkeeper;
+  if(!sp['First Scorer']   && player.special?.firstScorer)    r += SPECIAL_PTS.firstScorer;
   return r;
 }
 
@@ -2595,7 +2649,12 @@ function renderPlayerBreakdown(player, goalsWinners, badge){
   let sbHtml='';
   SBETS.forEach(({key,label,stateKey,pts,closest})=>{
     const pick=picks[key];if(!pick)return;
-    const answer=sp[stateKey];
+    const over=isTournamentOver();
+    const answer=key==='boot'?(over?computeGoldenBootWinner():null):
+                 key==='topScoringTeam'?(over?computeTopScoringTeam():null):
+                 key==='mostCards'?(over?computeMostCardsTeam():null):
+                 key==='totalGoals'?(over?computeTotalGoals()||null:null):
+                 sp[stateKey];
     let right='';
     if(!answer){
       right=`<span style="color:var(--muted)">awaiting</span>`;
@@ -2910,13 +2969,14 @@ function renderLeaderboard(){
   if(ko.final?.length) decidedPts+=2*BRACKET_PTS.final;
   if(ko.winner)        decidedPts+=BRACKET_PTS.winner;
   if(ko.bronze)        decidedPts+=BRACKET_PTS.bronze;
-  if(sp2['Golden Boot'])       decidedPts+=SPECIAL_PTS.boot;
-  if(sp2['Golden Ball'])       decidedPts+=SPECIAL_PTS.bestPlayer;
-  if(sp2['Golden Glove'])      decidedPts+=SPECIAL_PTS.bestGoalkeeper;
-  if(sp2['Top Scoring Team'])  decidedPts+=SPECIAL_PTS.topScoringTeam;
-  if(sp2['Most Cards Team'])   decidedPts+=SPECIAL_PTS.mostCards;
-  if(sp2['Total Goals'])       decidedPts+=SPECIAL_PTS.totalGoals;
-  if(sp2['First Scorer'])      decidedPts+=SPECIAL_PTS.firstScorer;
+  const over2=isTournamentOver();
+  if(over2&&computeGoldenBootWinner())  decidedPts+=SPECIAL_PTS.boot;
+  if(sp2['Golden Ball'])                decidedPts+=SPECIAL_PTS.bestPlayer;
+  if(sp2['Golden Glove'])               decidedPts+=SPECIAL_PTS.bestGoalkeeper;
+  if(over2&&computeTopScoringTeam())    decidedPts+=SPECIAL_PTS.topScoringTeam;
+  if(over2&&computeMostCardsTeam())     decidedPts+=SPECIAL_PTS.mostCards;
+  if(over2&&computeTotalGoals())        decidedPts+=SPECIAL_PTS.totalGoals;
+  if(sp2['First Scorer'])               decidedPts+=SPECIAL_PTS.firstScorer;
   const totalPts=72+65+26; // 163
   document.getElementById('games-played-sub').innerHTML=`
     <div class="gp-label">${Math.round(decidedPts/totalPts*100)}% of competition pts decided</div>
@@ -3706,7 +3766,12 @@ function renderSpecial(){
   const goalStats = computeTotalGoalsStats();
 
   document.getElementById('special-grid').innerHTML=CATS.map(({key,label,stateKey,pts,closest,wide,teamPick})=>{
-    const answer=STATE.special[stateKey];
+    const over=isTournamentOver();
+    const answer=key==='boot'?(over?computeGoldenBootWinner():null):
+                 key==='topScoringTeam'?(over?computeTopScoringTeam():null):
+                 key==='mostCards'?(over?computeMostCardsTeam():null):
+                 key==='totalGoals'?(over?computeTotalGoals()||null:null):
+                 STATE.special[stateKey];
     const actual=closest?parseInt(answer):null;
 
     // Picks rows
@@ -5088,10 +5153,8 @@ function renderAdminContent(cont){
 
     <div class="admin-section">
       <div class="admin-section-title">Award Results</div>
-      <div class="ko-row"><div class="ko-label">Golden Boot — confirm at end of tournament</div><input class="ko-input" id="ar-gb" value="${sp['Golden Boot']||''}" list="players-dl-admin" placeholder="Live leader auto-shows in Special Bets tab"></div>
       <div class="ko-row"><div class="ko-label">Golden Ball — Best Player</div><input class="ko-input" id="ar-gball" value="${sp['Golden Ball']||''}" list="players-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">Golden Glove — Best Goalkeeper</div><input class="ko-input" id="ar-gglove" value="${sp['Golden Glove']||''}" list="players-dl-admin"></div>
-      <div class="ko-row"><div class="ko-label">Most Cards Team</div><input class="ko-input" id="ar-cards" value="${sp['Most Cards Team']||''}" list="teams-dl-admin"></div>
       <div class="ko-row"><div class="ko-label">First Team to Score</div><input class="ko-input" id="ar-first" value="${sp['First Scorer']||''}" list="teams-dl-admin"></div>
     </div>
     <button class="btn" onclick="saveAdminData()" style="min-width:160px;margin-top:0">Save All Results</button>
@@ -5139,11 +5202,9 @@ function saveAdminData(){
   if(!db){document.getElementById('admin-save-status').textContent='✗ Not connected.';return;}
   // Only save the awards that can't be auto-imported
   const updates={
-    'results/golden_boot':      document.getElementById('ar-gb')?.value.trim()||null,
-    'results/golden_ball':      document.getElementById('ar-gball')?.value.trim()||null,
-    'results/golden_glove':     document.getElementById('ar-gglove')?.value.trim()||null,
-    'results/most_cards_team':  document.getElementById('ar-cards')?.value.trim()||null,
-    'results/first_scorer':     document.getElementById('ar-first')?.value.trim()||null,
+    'results/golden_ball':  document.getElementById('ar-gball')?.value.trim()||null,
+    'results/golden_glove': document.getElementById('ar-gglove')?.value.trim()||null,
+    'results/first_scorer': document.getElementById('ar-first')?.value.trim()||null,
   };
   const st=document.getElementById('admin-save-status');st.textContent='Saving…';
   db.ref('wc2026').update(updates)
