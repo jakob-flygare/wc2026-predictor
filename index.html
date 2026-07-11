@@ -3959,15 +3959,16 @@ let bracketShowPicks=false;
 function setBracketView(v){ bracketView=v; renderBracketTab(); }
 function toggleBracketPicks(){ bracketShowPicks=!bracketShowPicks; renderBracketTab(); }
 
-function countPicksForTeam(teamName){
+function countPicksForTeam(teamName,stage){
   const norm=t=>(t||'').toLowerCase().trim(),nt=norm(teamName);
   let n=0;
   STATE.players.forEach(p=>{
     const br=p.bracket||{};
-    const all=[...(br.r16||[]),...(br.qf||[]),...(br.sf||[]),...(br.final||[])];
-    if(br.winner)all.push(br.winner);
-    if(br.bronze)all.push(br.bronze);
-    if(all.some(t=>norm(t)===nt))n++;
+    let match=false;
+    if(stage==='winner') match=norm(br.winner||'')===nt;
+    else if(stage==='bronze') match=norm(br.bronze||'')===nt;
+    else if(Array.isArray(br[stage])) match=br[stage].some(t=>norm(t)===nt);
+    if(match)n++;
   });
   return n;
 }
@@ -4112,10 +4113,10 @@ function renderKnockoutBracket(){
   const koById=Object.fromEntries(buildKnockoutMatches().map(m=>[m.id,m]));
   const descFor=s=> s.type==='w'?('1'+s.group): s.type==='ru'?('2'+s.group): ('3·'+s.groups.join(''));
   const isEliminated=(m,side)=>m?.result&&m.result!=='draw'&&m.result!==side;
-  const slotCell=(res,desc,m,side)=>{
+  const slotCell=(res,desc,m,side,stage)=>{
     const eliminated=isEliminated(m,side)?' kb-eliminated':'';
     if(res.team){
-      const badge=bracketShowPicks?(()=>{const n=countPicksForTeam(res.team);return n?`<span class="kb-picks-badge">${n}</span>`:''})():'';
+      const badge=bracketShowPicks?(()=>{const n=countPicksForTeam(res.team,stage);return n?`<span class="kb-picks-badge">${n}</span>`:''})():'';
       const pickClick=bracketShowPicks?` onclick="event.stopPropagation();showTeamPicksPanel(this.dataset.name)"`:'' ;
       return `<div class="kb-team kb-resolved${eliminated}${bracketShowPicks?' kb-picks-mode':''}" data-name="${res.team.replace(/"/g,'&quot;')}"${pickClick}>${TEAM_EMOJI[res.team]||''} <span class="kb-tn">${res.team}</span>${badge}</div>`;
     }
@@ -4125,21 +4126,22 @@ function renderKnockoutBracket(){
   };
   const r32Cell=idx=>{
     const slot=R32_BRACKET[idx], m=koById[73+idx];
-    return `<div class="kb-match kb-r32" onclick="goToMatch(${73+idx})">${slotCell(resolveBracketSlot(slot.home,standings,best3rd,allComplete,b3map),descFor(slot.home),m,'home')}${slotCell(resolveBracketSlot(slot.away,standings,best3rd,allComplete,b3map),descFor(slot.away),m,'away')}</div>`;
+    return `<div class="kb-match kb-r32" onclick="goToMatch(${73+idx})">${slotCell(resolveBracketSlot(slot.home,standings,best3rd,allComplete,b3map),descFor(slot.home),m,'home','r16')}${slotCell(resolveBracketSlot(slot.away,standings,best3rd,allComplete,b3map),descFor(slot.away),m,'away','r16')}</div>`;
   };
-  const teamCell=(team,m,side)=>{
+  const teamCell=(team,m,side,stage)=>{
     const name=shortName(team);
     const eliminated=isEliminated(m,side)?' kb-eliminated':'';
     if(name&&name!=='TBD'){
-      const badge=bracketShowPicks?(()=>{const n=countPicksForTeam(name);return n?`<span class="kb-picks-badge">${n}</span>`:''})():'';
+      const badge=bracketShowPicks?(()=>{const n=countPicksForTeam(name,stage);return n?`<span class="kb-picks-badge">${n}</span>`:''})():'';
       const pickClick=bracketShowPicks?` onclick="event.stopPropagation();showTeamPicksPanel(this.dataset.name)"`:'' ;
       return `<div class="kb-team kb-resolved${eliminated}${bracketShowPicks?' kb-picks-mode':''}" data-name="${name.replace(/"/g,'&quot;')}"${pickClick}>${TEAM_EMOJI[name]||''} <span class="kb-tn">${name}</span>${badge}</div>`;
     }
     return `<div class="kb-team kb-tbd"><span class="kb-tbd-txt">TBD</span></div>`;
   };
+  const CLS_STAGE={'kb-r16':'r16','kb-qf':'qf','kb-sf':'sf','kb-final':'winner','kb-third':'bronze'};
   const matchCell=(cls,num)=>{
-    const m=koById[num]||{};
-    return `<div class="kb-match ${cls}" onclick="goToMatch(${num})">${teamCell(m.home,m,'home')}${teamCell(m.away,m,'away')}</div>`;
+    const m=koById[num]||{}, stage=CLS_STAGE[cls]||'r16';
+    return `<div class="kb-match ${cls}" onclick="goToMatch(${num})">${teamCell(m.home,m,'home',stage)}${teamCell(m.away,m,'away',stage)}</div>`;
   };
   const col=(cls,inner)=>`<div class="kb-col ${cls}">${inner}</div>`;
   const matches=(nums,cls)=>nums.map(n=>matchCell(cls,n)).join('');
